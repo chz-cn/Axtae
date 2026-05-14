@@ -1,0 +1,45 @@
+[gd_scene format=3 uid="uid://c4vbw4resou33"]
+
+[ext_resource type="Texture2D" uid="uid://ckrj0kqv6k2t6" path="res://assets/texture/源石虫.png" id="1_omqfq"]
+
+[sub_resource type="CircleShape2D" id="CircleShape2D_0gdbu"]
+radius = 8.0
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_6wl1h"]
+atlas = ExtResource("1_omqfq")
+region = Rect2(0, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_j084e"]
+atlas = ExtResource("1_omqfq")
+region = Rect2(32, 0, 32, 32)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_heqv2"]
+atlas = ExtResource("1_omqfq")
+region = Rect2(64, 0, 32, 32)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_pp0dk"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_6wl1h")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_j084e")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_heqv2")
+}],
+"loop": true,
+"name": &"default",
+"speed": 5.0
+}]
+
+[node name="Main" type="CharacterBody2D" unique_id=2057771995]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=912512765]
+shape = SubResource("CircleShape2D_0gdbu")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=89413947]
+sprite_frames = SubResource("SpriteFrames_pp0dk")
+frame = 2
+frame_progress = 0.722322
