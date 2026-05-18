@@ -1,29 +1,80 @@
-/**
- * characters/player/Player.cs
- * edit 2026.05.13
- */
 
 using Godot;
 
 public partial class Player : CharacterBody2D {
-  public const float Speed = 30.0f;
+  public const float Speed = 30f;
+  public const float Offset = 10f;
   public const float ShootDelay = .4f;
-  public const float offset = 16.0f;
+  public const float SpiralShootDelay = .1f;
 
-  private AnimatedSprite2D? _sprite;
-  private StringName _facing_suffix = "right";
-  private PackedScene? _bulletScene;
-  private float _shootCooldown = 0.0f;
+  public const ushort SpiralBullets = 64;
+  public const byte SpiralBulletsPerCircle = 16;
+
+  public const float RapidFireRateMultplier = 1f;
+  public const float ArmedFireRateMultplier = 2f;
+
+  private float _shoot_timer = 0f;
+  private float _spiral_shoot_timer = 0f;
+  private float _spiral_accumulator = 0f;
+
+  private int _health = 300;
+
+  public enum CharacterForm : byte { Normal, Armed }
+  public enum FacingDirection : byte { Right, Left, Up, Down }
+
+  private AnimatedSprite2D? _body_sprite;
+  private AnimatedSprite2D? _armed_effect_sprite;
+  private PackedScene? _bullet_scene;
+
+  private FacingDirection _facing = FacingDirection.Right;
+  private CharacterForm _form = CharacterForm.Normal;
+
+  private System.Collections.IEnumerator? _spiral_shoot = null;
+
+  public static StringName GetFormPrefix(CharacterForm form)
+    => form switch {
+      CharacterForm.Normal => "n_",
+      CharacterForm.Armed => "armed_",
+      _ => "n_"
+    };
+
+  public static StringName GetFacingSuffix(FacingDirection facing)
+    => facing switch {
+      FacingDirection.Right => "right",
+      FacingDirection.Left => "left",
+      FacingDirection.Up => "up",
+      FacingDirection.Down => "down",
+      _ => "right"
+    };
+
+  private static FacingDirection Vector2FacingSuffix(Vector2 input)
+    => (Mathf.Abs(input.X) >= Mathf.Abs(input.Y))
+      ? (input.X > 0f ? FacingDirection.Right : FacingDirection.Left)
+      : (input.Y > 0f ? FacingDirection.Down : FacingDirection.Up);
 
   public override void _Ready() {
-    this._sprite = this.GetNode<AnimatedSprite2D>("Body");
-    if (this._sprite == null) {
+    this._body_sprite = this.GetNode<AnimatedSprite2D>("Body");
+    if (this._body_sprite == null) {
       GD.PrintErr("Player sprite not found");
     }
+    else {
+      this._body_sprite.AnimationFinished += () => {
+        if (this._body_sprite != null) {
+          this.QueueFree();
+        }
+      };
+    }
 
-    this._bulletScene
+    this._armed_effect_sprite = this.GetNode<AnimatedSprite2D>("ArmedEffect");
+    if (this._armed_effect_sprite == null) {
+      GD.PrintErr("Player armed effect sprite not found");
+    }
+
+    this._bullet_scene
       = ResourceLoader.Load<PackedScene>("res://anim/Bullet.tscn");
-    if (this._bulletScene == null) GD.PrintErr("Failed to load bullet scene");
+    if (this._bullet_scene == null) {
+      GD.PrintErr("Failed to load bullet scene");
+    }
   }
 
   public override void _PhysicsProcess(double delta) {
@@ -33,61 +84,171 @@ public partial class Player : CharacterBody2D {
       "move_up",
       "move_down");
 
-    if (this._sprite == null) { return; }
+    if (this._body_sprite == null) { return; }
 
     this.Velocity = input.Normalized() * Speed;
     this.MoveAndSlide();
 
-    if (input != Vector2.Zero) {
-      this._facing_suffix = Vector2FacingSuffix(input);
-    }
+    this.UpdateAnimDirection();
     this.UpdateAnimation();
 
-    if (this._shootCooldown > 0) this._shootCooldown -= (float)delta;
+    if (this._shoot_timer > 0) { this._shoot_timer -= (float)delta; }
 
-    if (Input.IsActionPressed("shoot") && this._shootCooldown <= 0) {
+    if (Input.IsActionPressed("shoot") && this._shoot_timer <= 0) {
       this.Shoot();
-      this._shootCooldown = ShootDelay;
+      float rate = (this._form == CharacterForm.Armed)
+        ? ArmedFireRateMultplier
+        : RapidFireRateMultplier;
+      this._shoot_timer = ShootDelay / rate;
+    }
+
+    if (this._spiral_shoot != null) {
+      this._spiral_accumulator += (float)delta;
+      ushort steps = (ushort)(this._spiral_accumulator / SpiralShootDelay);
+      if (steps > 0) {
+        for (ushort i = 0; i < steps; i++) {
+          if (!this._spiral_shoot.MoveNext()) {
+            this._spiral_shoot = null;
+            this._form = CharacterForm.Normal;
+            this.UpdateArmedEffect();
+            break;
+          }
+        }
+        this._spiral_accumulator -= steps * SpiralShootDelay;
+      }
     }
   }
 
-  private void UpdateAnimation() {
-    StringName name = this._facing_suffix;
+  public override void _Input(InputEvent @event) {
+    if (@event.IsActionPressed("spiral_shoot")) {
+      this._spiral_shoot = this.SpiralShoot(
+        SpiralBullets,
+        SpiralBulletsPerCircle);
+      this._form = CharacterForm.Armed;
+      this.UpdateArmedEffect();
+    }
+  }
 
-    if (this._sprite == null) { return; }
-    if (!this._sprite.SpriteFrames.HasAnimation(name)) {
-      GD.PushWarning(name + " not find");
+  public void TakeDamage(int x) {
+    if (System.Threading.Interlocked.Add(ref this._health, -x) <= 0) {
+      this.SetPhysicsProcess(false);
+      if (this._body_sprite == null) {
+        this.QueueFree();
+        return;
+      }
+
+      StringName name = "die";
+      if (!this._body_sprite.SpriteFrames.HasAnimation(name)) {
+        GD.PushWarning("die animation not found");
+        return;
+      }
+
+      if (this._body_sprite.Animation != name) {
+        this._body_sprite.Play(name);
+      }
+    }
+  }
+
+  private void UpdateAnimDirection() {
+    Vector2 mousePos = this.GetGlobalMousePosition();
+    Vector2 direction = mousePos - this.GlobalPosition;
+
+    if (direction.LengthSquared() <= 0.01f) {
       return;
     }
 
-    if (this._sprite.Animation != name) { this._sprite.Play(name); }
+    this._facing = Vector2FacingSuffix(direction);
   }
 
-  private static StringName Vector2FacingSuffix(Vector2 input) {
-    return (Mathf.Abs(input.X) >= Mathf.Abs(input.Y))
-      ? (input.X > .0 ? "right" : "left")
-      : (input.Y > .0 ? "down" : "up");
+  private void UpdateAnimation() {
+    if (this._body_sprite == null) { return; }
+
+    StringName name = GetFormPrefix(this._form)
+      + GetFacingSuffix(this._facing);
+    if (!this._body_sprite.SpriteFrames.HasAnimation(name)) {
+      GD.PushWarning(name + " not found");
+      return;
+    }
+
+    if (this._body_sprite.Animation != name) { this._body_sprite.Play(name); }
   }
 
-  private Vector2 GetShootDirection() {
-    return this._facing_suffix.ToString() switch {
-      "right" => Vector2.Right,
-      "left" => Vector2.Left,
-      "up" => Vector2.Up,
-      "down" => Vector2.Down,
+  private void UpdateArmedEffect() {
+    if (this._armed_effect_sprite == null) { return; }
+
+    if (this._form != CharacterForm.Armed) {
+      this._armed_effect_sprite.Visible = false;
+      if (this._armed_effect_sprite.IsPlaying()) {
+        this._armed_effect_sprite.Stop();
+      }
+      return;
+    }
+
+    this._armed_effect_sprite.Visible = true;
+    if (this._armed_effect_sprite.IsPlaying()) { return; }
+
+    StringName effect = "default";
+    if (this._armed_effect_sprite.SpriteFrames.HasAnimation(effect)) {
+      this._armed_effect_sprite.Play(effect);
+    }
+  }
+
+  private Vector2 GetShootDirection()
+    => this._facing switch {
+      FacingDirection.Right => Vector2.Right,
+      FacingDirection.Left => Vector2.Left,
+      FacingDirection.Up => Vector2.Up,
+      FacingDirection.Down => Vector2.Down,
       _ => Vector2.Right
     };
-  }
 
   private void Shoot() {
-    if (this._bulletScene == null) return;
+    if (this._bullet_scene == null) { return; }
 
-    Bullet bullet = this._bulletScene.Instantiate<Bullet>();
+    Bullet bullet = this._bullet_scene.Instantiate<Bullet>();
 
     bullet.GlobalPosition = this.GlobalPosition
-      + this.GetShootDirection() * offset;
+      + this.GetShootDirection() * Offset;
     bullet.Setup(this.GetShootDirection());
 
     this.GetTree().Root.AddChild(bullet);
+    bullet.PlayAudio();
+  }
+
+  private System.Collections.IEnumerator SpiralShoot(
+    ushort total = 64,
+    byte shots_per_circle = 16) {
+    if (this._bullet_scene == null || shots_per_circle < 1 || total < 2) {
+      yield break;
+    }
+
+    float angle_step = 360f / shots_per_circle;
+    total /= 2;
+
+    while (total > 0) {
+      ushort bullets_this_circle = System.Math.Min(shots_per_circle, total);
+
+      for (uint i = 0; i < bullets_this_circle; i++) {
+        float deg = i * angle_step;
+        Vector2 direction_f = Vector2.FromAngle(Mathf.DegToRad(deg));
+        Vector2 direction_b = -direction_f;
+
+        Bullet forward = this._bullet_scene.Instantiate<Bullet>();
+        Bullet backward = this._bullet_scene.Instantiate<Bullet>();
+
+        forward.GlobalPosition = this.GlobalPosition + direction_f * Offset;
+        backward.GlobalPosition = this.GlobalPosition + direction_b * Offset;
+
+        forward.Setup(direction_f);
+        backward.Setup(direction_b);
+
+        this.GetTree().Root.AddChild(forward);
+        this.GetTree().Root.AddChild(backward);
+        forward.PlayAudio();
+        yield return null;
+      }
+
+      total -= bullets_this_circle;
+    }
   }
 }

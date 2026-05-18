@@ -172,7 +172,7 @@ animations = [{
 }],
 "loop": true,
 "name": &"armed_down",
-"speed": 8.0
+"speed": 6.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -189,7 +189,7 @@ animations = [{
 }],
 "loop": true,
 "name": &"armed_left",
-"speed": 8.0
+"speed": 6.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -206,7 +206,7 @@ animations = [{
 }],
 "loop": true,
 "name": &"armed_right",
-"speed": 8.0
+"speed": 6.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -223,7 +223,7 @@ animations = [{
 }],
 "loop": true,
 "name": &"armed_up",
-"speed": 8.0
+"speed": 6.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -241,9 +241,9 @@ animations = [{
 "duration": 1.0,
 "texture": SubResource("AtlasTexture_dl0rd")
 }],
-"loop": true,
+"loop": false,
 "name": &"die",
-"speed": 5.0
+"speed": 4.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -259,8 +259,8 @@ animations = [{
 "texture": SubResource("AtlasTexture_2yyfh")
 }],
 "loop": true,
-"name": &"down",
-"speed": 8.0
+"name": &"n_down",
+"speed": 6.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -276,8 +276,8 @@ animations = [{
 "texture": SubResource("AtlasTexture_ghdoy")
 }],
 "loop": true,
-"name": &"left",
-"speed": 8.0
+"name": &"n_left",
+"speed": 6.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -293,8 +293,8 @@ animations = [{
 "texture": SubResource("AtlasTexture_csen3")
 }],
 "loop": true,
-"name": &"right",
-"speed": 8.0
+"name": &"n_right",
+"speed": 6.0
 }, {
 "frames": [{
 "duration": 1.0,
@@ -310,8 +310,8 @@ animations = [{
 "texture": SubResource("AtlasTexture_3bt8q")
 }],
 "loop": true,
-"name": &"up",
-"speed": 8.0
+"name": &"n_up",
+"speed": 6.0
 }]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_bordu"]
@@ -386,9 +386,9 @@ shape = SubResource("CircleShape2D_0o0ga")
 
 [node name="Body" type="AnimatedSprite2D" parent="." unique_id=1746737367]
 sprite_frames = SubResource("SpriteFrames_ceksh")
-animation = &"armed_down"
-autoplay = "right"
+animation = &"n_right"
+autoplay = "n_right"
 
-[node name="Buff" type="AnimatedSprite2D" parent="." unique_id=1543008858]
+[node name="ArmedEffect" type="AnimatedSprite2D" parent="." unique_id=1543008858]
 visible = false
 sprite_frames = SubResource("SpriteFrames_krdqs")

@@ -31,15 +31,14 @@ animations = [{
 }],
 "loop": true,
 "name": &"default",
-"speed": 5.0
+"speed": 4.0
 }]
 
 [node name="Main" type="CharacterBody2D" unique_id=2057771995]
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=912512765]
+[node name="Shape" type="CollisionShape2D" parent="." unique_id=912512765]
 shape = SubResource("CircleShape2D_0gdbu")
 
-[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="." unique_id=89413947]
+[node name="Body" type="AnimatedSprite2D" parent="." unique_id=89413947]
 sprite_frames = SubResource("SpriteFrames_pp0dk")
-frame = 2
-frame_progress = 0.722322
+frame_progress = 0.16259556
