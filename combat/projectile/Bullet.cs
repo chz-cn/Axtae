@@ -12,7 +12,7 @@ public partial class Bullet : Area2D {
 
   private const byte MaxAudio = 4;
   private static AudioStream _bullet_audio = ResourceLoader
-    .Load<AudioStream>("res://assets/audio/Cowboy_gunshot.wav");
+    .Load<AudioStream>("res://asset/audio/Cowboy_gunshot.wav");
   private static uint _playing = 0;
 
   public override void _Ready() {
@@ -21,7 +21,7 @@ public partial class Bullet : Area2D {
       this.QueueFree();
     };
     this.BodyEntered += (body) => {
-      if (body is Player player) {
+      if (body is Character.Player.Player player) {
         player.TakeDamage(damage);
         this.QueueFree();
         return;

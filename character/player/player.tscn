@@ -1,8 +1,8 @@
 [gd_scene format=3 uid="uid://kem6itni020p"]
 
-[ext_resource type="Script" uid="uid://cai4lfpd3785t" path="res://characters/player/Player.cs" id="1_e77ww"]
-[ext_resource type="Texture2D" uid="uid://jfao8ktpggec" path="res://assets/texture/W.png" id="1_n6fq0"]
-[ext_resource type="Texture2D" uid="uid://c8cfojy0hd86a" path="res://assets/texture/浮游炮.png" id="2_e77ww"]
+[ext_resource type="Script" uid="uid://cai4lfpd3785t" path="res://character/player/Player.cs" id="1_e77ww"]
+[ext_resource type="Texture2D" uid="uid://jfao8ktpggec" path="res://asset/texture/W.png" id="1_n6fq0"]
+[ext_resource type="Texture2D" uid="uid://c8cfojy0hd86a" path="res://asset/texture/浮游炮.png" id="2_e77ww"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_0o0ga"]
 radius = 7.0
@@ -379,6 +379,7 @@ animations = [{
 }]
 
 [node name="Main" type="CharacterBody2D" unique_id=1402078227]
+collision_layer = 2
 script = ExtResource("1_e77ww")
 
 [node name="Shape" type="CollisionShape2D" parent="." unique_id=1959581357]

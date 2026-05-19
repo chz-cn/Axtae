@@ -1,6 +1,6 @@
 [gd_scene format=3 uid="uid://c4vbw4resou33"]
 
-[ext_resource type="Texture2D" uid="uid://ckrj0kqv6k2t6" path="res://assets/texture/源石虫.png" id="1_omqfq"]
+[ext_resource type="Texture2D" uid="uid://ckrj0kqv6k2t6" path="res://asset/texture/源石虫.png" id="1_omqfq"]
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_0gdbu"]
 radius = 8.0

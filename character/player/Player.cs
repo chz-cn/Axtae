@@ -1,5 +1,8 @@
 
 using Godot;
+using Cfg = Config.Character;
+
+namespace Character.Player;
 
 public partial class Player : CharacterBody2D {
   public const float Speed = 30f;
@@ -19,38 +22,19 @@ public partial class Player : CharacterBody2D {
 
   private int _health = 300;
 
-  public enum CharacterForm : byte { Normal, Armed }
-  public enum FacingDirection : byte { Right, Left, Up, Down }
-
   private AnimatedSprite2D? _body_sprite;
   private AnimatedSprite2D? _armed_effect_sprite;
   private PackedScene? _bullet_scene;
 
-  private FacingDirection _facing = FacingDirection.Right;
-  private CharacterForm _form = CharacterForm.Normal;
+  private Cfg.FacingDirection _facing = Cfg.FacingDirection.Right;
+  private Cfg.Form _form = Cfg.Form.Normal;
 
   private System.Collections.IEnumerator? _spiral_shoot = null;
 
-  public static StringName GetFormPrefix(CharacterForm form)
-    => form switch {
-      CharacterForm.Normal => "n_",
-      CharacterForm.Armed => "armed_",
-      _ => "n_"
-    };
-
-  public static StringName GetFacingSuffix(FacingDirection facing)
-    => facing switch {
-      FacingDirection.Right => "right",
-      FacingDirection.Left => "left",
-      FacingDirection.Up => "up",
-      FacingDirection.Down => "down",
-      _ => "right"
-    };
-
-  private static FacingDirection Vector2FacingSuffix(Vector2 input)
+  private static Cfg.FacingDirection Vector2FacingSuffix(Vector2 input)
     => (Mathf.Abs(input.X) >= Mathf.Abs(input.Y))
-      ? (input.X > 0f ? FacingDirection.Right : FacingDirection.Left)
-      : (input.Y > 0f ? FacingDirection.Down : FacingDirection.Up);
+      ? (input.X > 0f ? Cfg.FacingDirection.Right : Cfg.FacingDirection.Left)
+      : (input.Y > 0f ? Cfg.FacingDirection.Down : Cfg.FacingDirection.Up);
 
   public override void _Ready() {
     this._body_sprite = this.GetNode<AnimatedSprite2D>("Body");
@@ -71,7 +55,7 @@ public partial class Player : CharacterBody2D {
     }
 
     this._bullet_scene
-      = ResourceLoader.Load<PackedScene>("res://anim/Bullet.tscn");
+      = ResourceLoader.Load<PackedScene>("res://combat/projectile/Bullet.tscn");
     if (this._bullet_scene == null) {
       GD.PrintErr("Failed to load bullet scene");
     }
@@ -96,7 +80,7 @@ public partial class Player : CharacterBody2D {
 
     if (Input.IsActionPressed("shoot") && this._shoot_timer <= 0) {
       this.Shoot();
-      float rate = (this._form == CharacterForm.Armed)
+      float rate = (this._form == Cfg.Form.Armed)
         ? ArmedFireRateMultplier
         : RapidFireRateMultplier;
       this._shoot_timer = ShootDelay / rate;
@@ -109,7 +93,7 @@ public partial class Player : CharacterBody2D {
         for (ushort i = 0; i < steps; i++) {
           if (!this._spiral_shoot.MoveNext()) {
             this._spiral_shoot = null;
-            this._form = CharacterForm.Normal;
+            this._form = Cfg.Form.Normal;
             this.UpdateArmedEffect();
             break;
           }
@@ -124,7 +108,7 @@ public partial class Player : CharacterBody2D {
       this._spiral_shoot = this.SpiralShoot(
         SpiralBullets,
         SpiralBulletsPerCircle);
-      this._form = CharacterForm.Armed;
+      this._form = Cfg.Form.Armed;
       this.UpdateArmedEffect();
     }
   }
@@ -163,8 +147,8 @@ public partial class Player : CharacterBody2D {
   private void UpdateAnimation() {
     if (this._body_sprite == null) { return; }
 
-    StringName name = GetFormPrefix(this._form)
-      + GetFacingSuffix(this._facing);
+    StringName name = Cfg.Form2Prefix(this._form)
+      + Cfg.Facing2Suffix(this._facing);
     if (!this._body_sprite.SpriteFrames.HasAnimation(name)) {
       GD.PushWarning(name + " not found");
       return;
@@ -176,7 +160,7 @@ public partial class Player : CharacterBody2D {
   private void UpdateArmedEffect() {
     if (this._armed_effect_sprite == null) { return; }
 
-    if (this._form != CharacterForm.Armed) {
+    if (this._form != Cfg.Form.Armed) {
       this._armed_effect_sprite.Visible = false;
       if (this._armed_effect_sprite.IsPlaying()) {
         this._armed_effect_sprite.Stop();
@@ -195,10 +179,10 @@ public partial class Player : CharacterBody2D {
 
   private Vector2 GetShootDirection()
     => this._facing switch {
-      FacingDirection.Right => Vector2.Right,
-      FacingDirection.Left => Vector2.Left,
-      FacingDirection.Up => Vector2.Up,
-      FacingDirection.Down => Vector2.Down,
+      Cfg.FacingDirection.Right => Vector2.Right,
+      Cfg.FacingDirection.Left => Vector2.Left,
+      Cfg.FacingDirection.Up => Vector2.Up,
+      Cfg.FacingDirection.Down => Vector2.Down,
       _ => Vector2.Right
     };
 

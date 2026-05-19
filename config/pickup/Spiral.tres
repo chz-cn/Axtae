@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="Pickup" format=3 uid="uid://bm44qho5331dt"]
+
+[ext_resource type="Script" uid="uid://c1dn02ne15jl7" path="res://config/Pickup.cs" id="1_gltu7"]
+
+[resource]
+script = ExtResource("1_gltu7")
+metadata/_custom_type_script = "uid://c1dn02ne15jl7"

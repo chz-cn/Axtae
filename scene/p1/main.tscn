@@ -1,8 +1,8 @@
 [gd_scene format=4 uid="uid://2j0dwncbmo40"]
 
-[ext_resource type="Texture2D" uid="uid://7sastv7tp1m7" path="res://assets/texture/瓦片.png" id="1_geipw"]
-[ext_resource type="Texture2D" uid="uid://dyl4ovkvr538n" path="res://assets/texture/动态瓦片.png" id="2_qwa44"]
-[ext_resource type="PackedScene" uid="uid://kem6itni020p" path="res://characters/player/player.tscn" id="3_23rdh"]
+[ext_resource type="Texture2D" uid="uid://7sastv7tp1m7" path="res://asset/texture/瓦片.png" id="1_geipw"]
+[ext_resource type="Texture2D" uid="uid://dyl4ovkvr538n" path="res://asset/texture/动态瓦片.png" id="2_qwa44"]
+[ext_resource type="PackedScene" uid="uid://kem6itni020p" path="res://character/player/player.tscn" id="3_23rdh"]
 
 [sub_resource type="TileSetAtlasSource" id="TileSetAtlasSource_qwa44"]
 texture = ExtResource("1_geipw")

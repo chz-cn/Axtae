@@ -83,6 +83,18 @@ spiral_shoot={
 ]
 }
 
+[layer_names]
+
+2d_physics/layer_1="World"
+2d_physics/layer_2="Player"
+2d_physics/layer_3="EnemyBody"
+2d_physics/layer_4="EnemySensor"
+2d_physics/layer_5="Pickup"
+2d_physics/layer_6="Projectile"
+2d_physics/layer_7="AreaEffect"
+2d_physics/layer_8="Melee"
+2d_physics/layer_9="Hazard"
+
 [physics]
 
 3d/physics_engine="Jolt Physics"

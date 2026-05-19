@@ -1,17 +1,18 @@
 [gd_scene format=3 uid="uid://crorxpu7s8eau"]
 
-[ext_resource type="Script" uid="uid://ock48roadt2r" path="res://anim/Bullet.cs" id="1_ao1y3"]
-[ext_resource type="Texture2D" uid="uid://b2p3vmyj2n64" path="res://assets/texture/道具ui.png" id="1_uqpgl"]
+[ext_resource type="Script" uid="uid://ock48roadt2r" path="res://combat/projectile/Bullet.cs" id="1_6lgmh"]
+[ext_resource type="Texture2D" uid="uid://b2p3vmyj2n64" path="res://asset/texture/道具ui.png" id="2_mnggk"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_ao1y3"]
-atlas = ExtResource("1_uqpgl")
+atlas = ExtResource("2_mnggk")
 region = Rect2(22, 23, 4, 4)
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_6msjv"]
 radius = 2.0
 
 [node name="Bullet" type="Area2D" unique_id=1850752617]
-script = ExtResource("1_ao1y3")
+collision_layer = 32
+script = ExtResource("1_6lgmh")
 
 [node name="Sprite2D" type="Sprite2D" parent="." unique_id=709404136]
 texture = SubResource("AtlasTexture_ao1y3")
