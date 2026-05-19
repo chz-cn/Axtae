@@ -17,7 +17,7 @@ public partial class Pickup : Resource {
   [Export] public Type CurrentType = Type.Speed;
 
   /// <summary>道具名称</summary>
-  [Export] public StringName DisplayName = "Speed Pickup";
+  [Export] public StringName DisplayName = "default";
 
   /// <summary>掉落权重，0 为不参与掉落</summary>
   [Export(PropertyHint.Range, "0.0, 1000.0, 0.1")]

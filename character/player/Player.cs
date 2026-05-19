@@ -13,23 +13,35 @@ public partial class Player : CharacterBody2D {
   public const ushort SpiralBullets = 64;
   public const byte SpiralBulletsPerCircle = 16;
 
-  public const float RapidFireRateMultplier = 1f;
-  public const float ArmedFireRateMultplier = 2f;
+  public const float DefaultFireRateMultplier = 1f;
+  public const float DefaultSpeedMultplier = 1f;
 
-  private float _shoot_timer = 0f;
-  private float _spiral_shoot_timer = 0f;
-  private float _spiral_accumulator = 0f;
-
-  private int _health = 300;
-
+  // nodes
   private AnimatedSprite2D? _body_sprite;
   private AnimatedSprite2D? _armed_effect_sprite;
   private PackedScene? _bullet_scene;
 
-  private Cfg.FacingDirection _facing = Cfg.FacingDirection.Right;
-  private Cfg.Form _form = Cfg.Form.Normal;
-
   private System.Collections.IEnumerator? _spiral_shoot = null;
+
+  private Cfg.FacingDirection _facing = Cfg.FacingDirection.Right;
+
+  // config
+  private int _health = 300;
+
+  private float _speed_multplier = 1f;
+  private float _fire_rate_multplier = 1f;
+
+  private Cfg.Form _form = Cfg.Form.Normal;
+  private Cfg.ShotPattern _shot_pattern = Cfg.ShotPattern.Normal;
+
+  // timers
+  private float _shoot_timer = 0f;
+  private float _spiral_shoot_timer = 0f;
+  private float _spiral_accumulator = 0f;
+
+  private float _speed_time_left = 0f;
+  private float _rapid_fire_time_left = 0f;
+  private float _form_time_left = 0f;
 
   private static Cfg.FacingDirection Vector2FacingSuffix(Vector2 input)
     => (Mathf.Abs(input.X) >= Mathf.Abs(input.Y))
@@ -38,8 +50,12 @@ public partial class Player : CharacterBody2D {
 
   public override void _Ready() {
     this._body_sprite = this.GetNode<AnimatedSprite2D>("Body");
+    this._armed_effect_sprite = this.GetNode<AnimatedSprite2D>("ArmedEffect");
+    this._bullet_scene = ResourceLoader
+      .Load<PackedScene>("res://combat/projectile/Bullet.tscn");
+
     if (this._body_sprite == null) {
-      GD.PrintErr("Player sprite not found");
+      GD.PrintErr("Missing Player sprite");
     }
     else {
       this._body_sprite.AnimationFinished += () => {
@@ -48,14 +64,9 @@ public partial class Player : CharacterBody2D {
         }
       };
     }
-
-    this._armed_effect_sprite = this.GetNode<AnimatedSprite2D>("ArmedEffect");
     if (this._armed_effect_sprite == null) {
-      GD.PrintErr("Player armed effect sprite not found");
+      GD.PrintErr("Missing Player armed effect sprite");
     }
-
-    this._bullet_scene
-      = ResourceLoader.Load<PackedScene>("res://combat/projectile/Bullet.tscn");
     if (this._bullet_scene == null) {
       GD.PrintErr("Failed to load bullet scene");
     }
@@ -76,14 +87,13 @@ public partial class Player : CharacterBody2D {
     this.UpdateAnimDirection();
     this.UpdateAnimation();
 
+    this.UpdatePickupEffect((float)delta);
+
     if (this._shoot_timer > 0) { this._shoot_timer -= (float)delta; }
 
     if (Input.IsActionPressed("shoot") && this._shoot_timer <= 0) {
       this.Shoot();
-      float rate = (this._form == Cfg.Form.Armed)
-        ? ArmedFireRateMultplier
-        : RapidFireRateMultplier;
-      this._shoot_timer = ShootDelay / rate;
+      this._shoot_timer = ShootDelay / this._fire_rate_multplier;
     }
 
     if (this._spiral_shoot != null) {
@@ -104,7 +114,7 @@ public partial class Player : CharacterBody2D {
   }
 
   public override void _Input(InputEvent @event) {
-    if (@event.IsActionPressed("spiral_shoot")) {
+    if (@event.IsActionPressed("shoot")) {
       this._spiral_shoot = this.SpiralShoot(
         SpiralBullets,
         SpiralBulletsPerCircle);
@@ -131,6 +141,44 @@ public partial class Player : CharacterBody2D {
         this._body_sprite.Play(name);
       }
     }
+  }
+
+  public bool ApplyPickup(Config.Pickup config) {
+    if (config == null) return false;
+
+    System.Func<float, float, bool> approx_equal = (x, y)
+      => System.Math.Abs(x - y) < 0.01f;
+
+    bool applied = false;
+    float duration = System.Math.Max(config.Duration, 0f);
+    bool has_form_override = config.FormMode != Cfg.Form.Normal
+      || config.ShotPattern != Cfg.ShotPattern.Normal;
+    bool has_fire_rate_override
+      = !approx_equal(config.FireRateMultplier, DefaultFireRateMultplier);
+
+    if (!approx_equal(config.MoveSpeedMultplier, DefaultSpeedMultplier)) {
+      this._speed_multplier = config.MoveSpeedMultplier;
+      this._speed_time_left = duration;
+      applied = true;
+    }
+
+    if (has_fire_rate_override && !has_form_override) {
+      this._fire_rate_multplier = config.FireRateMultplier;
+      this._rapid_fire_time_left = duration;
+      applied = true;
+    }
+
+    if (has_form_override) {
+      this._form = config.FormMode;
+      this.UpdateArmedEffect();
+      this._shot_pattern = config.ShotPattern;
+      this._fire_rate_multplier = has_fire_rate_override
+        ? config.FireRateMultplier : 1f;
+      this._form_time_left = duration;
+      applied = true;
+    }
+
+    return applied;
   }
 
   private void UpdateAnimDirection() {
@@ -174,6 +222,29 @@ public partial class Player : CharacterBody2D {
     StringName effect = "default";
     if (this._armed_effect_sprite.SpriteFrames.HasAnimation(effect)) {
       this._armed_effect_sprite.Play(effect);
+    }
+  }
+
+  private void UpdatePickupEffect(float delta) {
+    if (this._speed_time_left > 0f) {
+      this._speed_time_left -= delta;
+      if (this._speed_time_left <= 0f)
+        this._speed_multplier = DefaultSpeedMultplier;
+    }
+
+    if (this._rapid_fire_time_left > 0f) {
+      this._rapid_fire_time_left -= delta;
+      if (this._rapid_fire_time_left <= 0)
+        this._fire_rate_multplier = DefaultSpeedMultplier;
+    }
+
+    if (this._form_time_left > 0f) {
+      this._form_time_left -= delta;
+      if (this._form_time_left <= 0) {
+        this._form = Cfg.Form.Normal;
+        this._shot_pattern = Cfg.ShotPattern.Normal;
+        this._fire_rate_multplier = DefaultFireRateMultplier;
+      }
     }
   }
 

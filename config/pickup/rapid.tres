@@ -5,6 +5,8 @@
 
 [resource]
 script = ExtResource("1_o0vku")
+CurrentType = 1
+DisplayName = &"射速道具"
 Icon = ExtResource("1_38jqx")
 FireRateMultplier = 2.0
 metadata/_custom_type_script = "uid://c1dn02ne15jl7"
