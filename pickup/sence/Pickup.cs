@@ -4,7 +4,7 @@ using Godot;
 namespace Pickup.Scene;
 
 public partial class Pickup : Area2D {
-  [Export(PropertyHint.Range, "0.0, 10.0, 1.0")]
+  [Export(PropertyHint.Range, "0.0, 10.0, 0.1")]
   private float BlinkBeforeExpire = 1.5f;
 
   [Export] private Config.Pickup? _config;
@@ -13,10 +13,15 @@ public partial class Pickup : Area2D {
   private bool _is_expiring = false;
 
   public override void _Ready() {
+    if (this._config == null) {
+      GD.PrintErr("Minssing Pickup Config");
+      this.QueueFree();
+      return;
+    }
     this._body_sprite = this.GetNode<Sprite2D>("Body");
 
     this._timer = new() {
-      WaitTime = this._config?.Duration ?? 5f,
+      WaitTime = System.Math.Max(0.1f, this._config.Duration),
       OneShot = true
     };
     this._timer.Timeout += this.QueueFree;
@@ -24,16 +29,14 @@ public partial class Pickup : Area2D {
     this._timer.Start();
 
     this.BodyEntered += (area) => {
-      if (this._config == null) return;
-      if (area is Character.Player.Player player) {
+      if (area is Character.Player.Player player)
         if (player.ApplyPickup(this._config)) this.QueueFree();
-      }
     };
 
     this.ApplyConfig();
 
-    if (this._config == null) GD.PrintErr("Minssing Pickup Config");
-    if (this._body_sprite == null) GD.PrintErr("Missing pickup sprite");
+    if (this._body_sprite == null)
+      GD.PrintErr("Missing pickup sprite");
     else if (this._body_sprite.Material == null)
       GD.PrintErr("Missing gdsharder");
     else if (this._body_sprite.Material is ShaderMaterial shm)

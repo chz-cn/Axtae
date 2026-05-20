@@ -32,7 +32,6 @@ public partial class Player : CharacterBody2D {
   private float _fire_rate_multplier = 1f;
 
   private Cfg.Form _form = Cfg.Form.Normal;
-  private Cfg.ShotPattern _shot_pattern = Cfg.ShotPattern.Normal;
 
   // timers
   private float _shoot_timer = 0f;
@@ -40,7 +39,7 @@ public partial class Player : CharacterBody2D {
   private float _spiral_accumulator = 0f;
 
   private float _speed_time_left = 0f;
-  private float _rapid_fire_time_left = 0f;
+  private float _fire_rate_time_left = 0f;
   private float _form_time_left = 0f;
 
   private static Cfg.FacingDirection Vector2FacingSuffix(Vector2 input)
@@ -54,22 +53,17 @@ public partial class Player : CharacterBody2D {
     this._bullet_scene = ResourceLoader
       .Load<PackedScene>("res://combat/projectile/Bullet.tscn");
 
-    if (this._body_sprite == null) {
-      GD.PrintErr("Missing Player sprite");
-    }
+    if (this._body_sprite == null) GD.PrintErr("Missing Player sprite");
     else {
       this._body_sprite.AnimationFinished += () => {
-        if (this._body_sprite != null) {
-          this.QueueFree();
-        }
+        if (this._body_sprite != null) this.QueueFree();
       };
     }
-    if (this._armed_effect_sprite == null) {
+
+    if (this._armed_effect_sprite == null)
       GD.PrintErr("Missing Player armed effect sprite");
-    }
-    if (this._bullet_scene == null) {
+    if (this._bullet_scene == null)
       GD.PrintErr("Failed to load bullet scene");
-    }
   }
 
   public override void _PhysicsProcess(double delta) {
@@ -79,48 +73,20 @@ public partial class Player : CharacterBody2D {
       "move_up",
       "move_down");
 
-    if (this._body_sprite == null) { return; }
+    if (this._body_sprite == null) return;
 
-    this.Velocity = input.Normalized() * Speed;
+    this.Velocity = input.Normalized() * Speed * this._speed_multplier;
     this.MoveAndSlide();
 
     this.UpdateAnimDirection();
     this.UpdateAnimation();
 
-    this.UpdatePickupEffect((float)delta);
+    float dt = (float)delta;
 
-    if (this._shoot_timer > 0) { this._shoot_timer -= (float)delta; }
+    this.UpdatePickupEffect(dt);
 
-    if (Input.IsActionPressed("shoot") && this._shoot_timer <= 0) {
-      this.Shoot();
-      this._shoot_timer = ShootDelay / this._fire_rate_multplier;
-    }
-
-    if (this._spiral_shoot != null) {
-      this._spiral_accumulator += (float)delta;
-      ushort steps = (ushort)(this._spiral_accumulator / SpiralShootDelay);
-      if (steps > 0) {
-        for (ushort i = 0; i < steps; i++) {
-          if (!this._spiral_shoot.MoveNext()) {
-            this._spiral_shoot = null;
-            this._form = Cfg.Form.Normal;
-            this.UpdateArmedEffect();
-            break;
-          }
-        }
-        this._spiral_accumulator -= steps * SpiralShootDelay;
-      }
-    }
-  }
-
-  public override void _Input(InputEvent @event) {
-    if (@event.IsActionPressed("shoot")) {
-      this._spiral_shoot = this.SpiralShoot(
-        SpiralBullets,
-        SpiralBulletsPerCircle);
-      this._form = Cfg.Form.Armed;
-      this.UpdateArmedEffect();
-    }
+    this.UpdateShoot(dt);
+    this.UpdateSpiralShoot(dt);
   }
 
   public void TakeDamage(int x) {
@@ -137,44 +103,45 @@ public partial class Player : CharacterBody2D {
         return;
       }
 
-      if (this._body_sprite.Animation != name) {
-        this._body_sprite.Play(name);
-      }
+      if (this._body_sprite.Animation != name) this._body_sprite.Play(name);
+
     }
   }
 
   public bool ApplyPickup(Config.Pickup config) {
-    if (config == null) return false;
-
-    System.Func<float, float, bool> approx_equal = (x, y)
-      => System.Math.Abs(x - y) < 0.01f;
+    if (config == null || config.Duration <= 0f) return false;
 
     bool applied = false;
-    float duration = System.Math.Max(config.Duration, 0f);
-    bool has_form_override = config.FormMode != Cfg.Form.Normal
-      || config.ShotPattern != Cfg.ShotPattern.Normal;
-    bool has_fire_rate_override
-      = !approx_equal(config.FireRateMultplier, DefaultFireRateMultplier);
 
-    if (!approx_equal(config.MoveSpeedMultplier, DefaultSpeedMultplier)) {
+    // 1. 速度加成
+    if (!Mathf.IsZeroApprox(config.MoveSpeedMultplier - DefaultSpeedMultplier)) {
       this._speed_multplier = config.MoveSpeedMultplier;
-      this._speed_time_left = duration;
+      this._speed_time_left = config.Duration;
       applied = true;
     }
 
-    if (has_fire_rate_override && !has_form_override) {
+    // 2. 射速加成
+    if (!Mathf.IsZeroApprox(config.FireRateMultplier - DefaultFireRateMultplier)) {
       this._fire_rate_multplier = config.FireRateMultplier;
-      this._rapid_fire_time_left = duration;
+      this._fire_rate_time_left = config.Duration;
       applied = true;
     }
 
-    if (has_form_override) {
+    // 3. 形态切换
+    if (config.FormMode != Cfg.Form.Normal
+      || config.ShotPattern != Cfg.ShotPattern.Normal) {
       this._form = config.FormMode;
+      this._form_time_left = config.Duration;
+
+      // 如果新形态是 Armed 且需要螺旋弹幕，启动协程
+      if (config.ShotPattern == Cfg.ShotPattern.Spiral)
+        this._spiral_shoot = this.SpiralShoot(
+          SpiralBullets,
+          SpiralBulletsPerCircle);
+
+
       this.UpdateArmedEffect();
-      this._shot_pattern = config.ShotPattern;
-      this._fire_rate_multplier = has_fire_rate_override
-        ? config.FireRateMultplier : 1f;
-      this._form_time_left = duration;
+
       applied = true;
     }
 
@@ -185,15 +152,13 @@ public partial class Player : CharacterBody2D {
     Vector2 mousePos = this.GetGlobalMousePosition();
     Vector2 direction = mousePos - this.GlobalPosition;
 
-    if (direction.LengthSquared() <= 0.01f) {
-      return;
-    }
+    if (direction.LengthSquared() <= 0.01f) return;
 
     this._facing = Vector2FacingSuffix(direction);
   }
 
   private void UpdateAnimation() {
-    if (this._body_sprite == null) { return; }
+    if (this._body_sprite == null) return;
 
     StringName name = Cfg.Form2Prefix(this._form)
       + Cfg.Facing2Suffix(this._facing);
@@ -202,27 +167,26 @@ public partial class Player : CharacterBody2D {
       return;
     }
 
-    if (this._body_sprite.Animation != name) { this._body_sprite.Play(name); }
+    if (this._body_sprite.Animation != name) this._body_sprite.Play(name);
   }
 
   private void UpdateArmedEffect() {
-    if (this._armed_effect_sprite == null) { return; }
+    if (this._armed_effect_sprite == null) return;
 
     if (this._form != Cfg.Form.Armed) {
       this._armed_effect_sprite.Visible = false;
-      if (this._armed_effect_sprite.IsPlaying()) {
+      if (this._armed_effect_sprite.IsPlaying())
         this._armed_effect_sprite.Stop();
-      }
+
       return;
     }
 
     this._armed_effect_sprite.Visible = true;
-    if (this._armed_effect_sprite.IsPlaying()) { return; }
+    if (this._armed_effect_sprite.IsPlaying()) return;
 
     StringName effect = "default";
-    if (this._armed_effect_sprite.SpriteFrames.HasAnimation(effect)) {
+    if (this._armed_effect_sprite.SpriteFrames.HasAnimation(effect))
       this._armed_effect_sprite.Play(effect);
-    }
   }
 
   private void UpdatePickupEffect(float delta) {
@@ -232,21 +196,45 @@ public partial class Player : CharacterBody2D {
         this._speed_multplier = DefaultSpeedMultplier;
     }
 
-    if (this._rapid_fire_time_left > 0f) {
-      this._rapid_fire_time_left -= delta;
-      if (this._rapid_fire_time_left <= 0)
-        this._fire_rate_multplier = DefaultSpeedMultplier;
+    if (this._fire_rate_time_left > 0f) {
+      this._fire_rate_time_left -= delta;
+      if (this._fire_rate_time_left <= 0)
+        this._fire_rate_multplier = DefaultFireRateMultplier;
     }
 
     if (this._form_time_left > 0f) {
       this._form_time_left -= delta;
-      if (this._form_time_left <= 0) {
-        this._form = Cfg.Form.Normal;
-        this._shot_pattern = Cfg.ShotPattern.Normal;
-        this._fire_rate_multplier = DefaultFireRateMultplier;
+      if (this._form_time_left <= 0) this._form = Cfg.Form.Normal;
+    }
+  }
+
+  private void UpdateShoot(float delta) {
+    if (this._shoot_timer > 0) this._shoot_timer -= delta;
+
+    if (Input.IsActionPressed("shoot") && this._shoot_timer <= 0) {
+      this.Shoot();
+      this._shoot_timer = ShootDelay / this._fire_rate_multplier;
+    }
+  }
+
+  private void UpdateSpiralShoot(float delta) {
+    if (this._spiral_shoot != null) {
+      this._spiral_accumulator += delta;
+      ushort steps = (ushort)(this._spiral_accumulator / SpiralShootDelay);
+      if (steps > 0) {
+        for (ushort i = 0; i < steps; i++) {
+          if (!this._spiral_shoot.MoveNext()) {
+            this._spiral_shoot = null;
+            this._form = Cfg.Form.Normal;
+            this.UpdateArmedEffect();
+            break;
+          }
+        }
+        this._spiral_accumulator -= steps * SpiralShootDelay;
       }
     }
   }
+
 
   private Vector2 GetShootDirection()
     => this._facing switch {
@@ -258,7 +246,7 @@ public partial class Player : CharacterBody2D {
     };
 
   private void Shoot() {
-    if (this._bullet_scene == null) { return; }
+    if (this._bullet_scene == null) return;
 
     Bullet bullet = this._bullet_scene.Instantiate<Bullet>();
 
@@ -273,9 +261,8 @@ public partial class Player : CharacterBody2D {
   private System.Collections.IEnumerator SpiralShoot(
     ushort total = 64,
     byte shots_per_circle = 16) {
-    if (this._bullet_scene == null || shots_per_circle < 1 || total < 2) {
+    if (this._bullet_scene == null || shots_per_circle < 1 || total < 2)
       yield break;
-    }
 
     float angle_step = 360f / shots_per_circle;
     total /= 2;

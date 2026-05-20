@@ -9,7 +9,7 @@ public partial class Character : Resource {
 
   public enum FacingDirection : byte { Right, Left, Up, Down }
 
-  public enum ShotPattern : byte { Normal, Special }
+  public enum ShotPattern : byte { Normal, Spiral }
 
   public static StringName Form2Prefix(Form form)
     => form switch {

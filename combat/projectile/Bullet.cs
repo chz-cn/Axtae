@@ -17,7 +17,7 @@ public partial class Bullet : Area2D {
 
   public override void _Ready() {
     this.AreaEntered += void (area) => {
-      if (area is Bullet) { return; }
+      if (area is Bullet) return;
       this.QueueFree();
     };
     this.BodyEntered += (body) => {
@@ -40,13 +40,11 @@ public partial class Bullet : Area2D {
 
     this.GlobalPosition = next;
     this._life_time += (float)delta;
-    if (this._life_time > MaxLifeTime) { this.QueueFree(); }
+    if (this._life_time > MaxLifeTime) this.QueueFree();
   }
 
   public void Setup(Vector2 direction) {
-    if (direction != Vector2.Zero) {
-      this._direction = direction.Normalized();
-    }
+    if (direction != Vector2.Zero) this._direction = direction.Normalized();
     this.Rotation = this._direction.Angle();
   }
 
@@ -71,7 +69,7 @@ public partial class Bullet : Area2D {
 
   private bool WillHit(Vector2 from, Vector2 to) {
     var state = this.GetWorld2D().DirectSpaceState;
-    if (state == null) { return false; }
+    if (state == null) return false;
 
     var query = PhysicsRayQueryParameters2D.Create(from, to, WorldMask);
     query.CollideWithAreas = false;

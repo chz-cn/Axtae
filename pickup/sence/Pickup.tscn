@@ -26,7 +26,7 @@ collision_mask = 2
 script = ExtResource("1_i0855")
 _config = SubResource("Resource_22thg")
 
-[node name="body" type="Sprite2D" parent="." unique_id=1184788443]
+[node name="Body" type="Sprite2D" parent="." unique_id=1184788443]
 material = SubResource("ShaderMaterial_i0855")
 
 [node name="Shape" type="CollisionShape2D" parent="." unique_id=1660636969]
