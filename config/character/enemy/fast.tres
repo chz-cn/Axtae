@@ -1,0 +1,18 @@
+[gd_resource type="Resource" script_class="Enemy" format=3 uid="uid://ddp83pv56r53p"]
+
+[ext_resource type="Script" uid="uid://liiei3v4dlfq" path="res://config/Enemy.cs" id="1_7638d"]
+[ext_resource type="Resource" uid="uid://csbfyb3pdkq56" path="res://config/pickup/speed.tres" id="1_qywpw"]
+[ext_resource type="SpriteFrames" uid="uid://ybqp7eb75u8l" path="res://character/enemy/tic/fast.tres" id="2_3l84m"]
+
+[resource]
+script = ExtResource("1_7638d")
+CurrentType = 2
+DisplayName = &"fast"
+Frame = ExtResource("2_3l84m")
+MaxHealth = 40
+Speed = 40.0
+CollisionRadius = 6.0
+DropRate = 20.0
+Drop = [ExtResource("1_qywpw")]
+DropWeights = PackedInt32Array(100)
+metadata/_custom_type_script = "uid://liiei3v4dlfq"

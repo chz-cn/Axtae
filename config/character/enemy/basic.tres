@@ -1,0 +1,16 @@
+[gd_resource type="Resource" script_class="Enemy" format=3 uid="uid://c2q2cftnr2v6v"]
+
+[ext_resource type="Resource" uid="uid://csbfyb3pdkq56" path="res://config/pickup/speed.tres" id="1_38vst"]
+[ext_resource type="Script" uid="uid://liiei3v4dlfq" path="res://config/Enemy.cs" id="1_xi1dr"]
+[ext_resource type="SpriteFrames" uid="uid://de46jifvdf5vi" path="res://character/enemy/tic/basic.tres" id="2_numpa"]
+
+[resource]
+script = ExtResource("1_xi1dr")
+DisplayName = &"basic"
+Frame = ExtResource("2_numpa")
+MaxHealth = 60
+CollisionRadius = 6.0
+DropRate = 20.0
+Drop = [ExtResource("1_38vst")]
+DropWeights = PackedInt32Array(100)
+metadata/_custom_type_script = "uid://liiei3v4dlfq"

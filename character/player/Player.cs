@@ -48,8 +48,8 @@ public partial class Player : CharacterBody2D {
       : (input.Y > 0f ? Cfg.FacingDirection.Down : Cfg.FacingDirection.Up);
 
   public override void _Ready() {
-    this._body_sprite = this.GetNode<AnimatedSprite2D>("Body");
-    this._armed_effect_sprite = this.GetNode<AnimatedSprite2D>("ArmedEffect");
+    this._body_sprite = this.GetNodeOrNull<AnimatedSprite2D>("Body");
+    this._armed_effect_sprite = this.GetNodeOrNull<AnimatedSprite2D>("ArmedEffect");
     this._bullet_scene = ResourceLoader
       .Load<PackedScene>("res://combat/projectile/Bullet.tscn");
 
@@ -79,7 +79,7 @@ public partial class Player : CharacterBody2D {
     this.MoveAndSlide();
 
     this.UpdateAnimDirection();
-    this.UpdateAnimation();
+    this.UpdateAnim();
 
     float dt = (float)delta;
 
@@ -104,7 +104,6 @@ public partial class Player : CharacterBody2D {
       }
 
       if (this._body_sprite.Animation != name) this._body_sprite.Play(name);
-
     }
   }
 
@@ -114,14 +113,16 @@ public partial class Player : CharacterBody2D {
     bool applied = false;
 
     // 1. 速度加成
-    if (!Mathf.IsZeroApprox(config.MoveSpeedMultplier - DefaultSpeedMultplier)) {
+    if (!Mathf.IsZeroApprox(
+      config.MoveSpeedMultplier - DefaultSpeedMultplier)) {
       this._speed_multplier = config.MoveSpeedMultplier;
       this._speed_time_left = config.Duration;
       applied = true;
     }
 
     // 2. 射速加成
-    if (!Mathf.IsZeroApprox(config.FireRateMultplier - DefaultFireRateMultplier)) {
+    if (!Mathf.IsZeroApprox(
+      config.FireRateMultplier - DefaultFireRateMultplier)) {
       this._fire_rate_multplier = config.FireRateMultplier;
       this._fire_rate_time_left = config.Duration;
       applied = true;
@@ -138,7 +139,6 @@ public partial class Player : CharacterBody2D {
         this._spiral_shoot = this.SpiralShoot(
           SpiralBullets,
           SpiralBulletsPerCircle);
-
 
       this.UpdateArmedEffect();
 
@@ -157,13 +157,13 @@ public partial class Player : CharacterBody2D {
     this._facing = Vector2FacingSuffix(direction);
   }
 
-  private void UpdateAnimation() {
+  private void UpdateAnim() {
     if (this._body_sprite == null) return;
 
     StringName name = Cfg.Form2Prefix(this._form)
       + Cfg.Facing2Suffix(this._facing);
     if (!this._body_sprite.SpriteFrames.HasAnimation(name)) {
-      GD.PushWarning(name + " not found");
+      GD.PushWarning(name, " not found");
       return;
     }
 
@@ -234,7 +234,6 @@ public partial class Player : CharacterBody2D {
       }
     }
   }
-
 
   private Vector2 GetShootDirection()
     => this._facing switch {

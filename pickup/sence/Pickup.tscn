@@ -14,7 +14,7 @@ metadata/_custom_type_script = "uid://c1dn02ne15jl7"
 resource_local_to_scene = true
 shader = ExtResource("1_1inbv")
 shader_parameter/blink = false
-shader_parameter/blink_speed = 12.0
+shader_parameter/blink_speed = 6.0
 shader_parameter/hidden_ratio = 0.5
 
 [sub_resource type="CircleShape2D" id="CircleShape2D_yycfq"]

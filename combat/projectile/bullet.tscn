@@ -12,10 +12,11 @@ radius = 2.0
 
 [node name="Bullet" type="Area2D" unique_id=1850752617]
 collision_layer = 32
+collision_mask = 3
 script = ExtResource("1_6lgmh")
 
-[node name="Sprite2D" type="Sprite2D" parent="." unique_id=709404136]
+[node name="Body" type="Sprite2D" parent="." unique_id=709404136]
 texture = SubResource("AtlasTexture_ao1y3")
 
-[node name="CollisionShape2D" type="CollisionShape2D" parent="." unique_id=1339346956]
+[node name="Shape" type="CollisionShape2D" parent="." unique_id=1339346956]
 shape = SubResource("CircleShape2D_6msjv")

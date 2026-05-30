@@ -15,11 +15,7 @@ public partial class Bullet : Area2D {
     .Load<AudioStream>("res://asset/audio/Cowboy_gunshot.wav");
   private static uint _playing = 0;
 
-  public override void _Ready() {
-    this.AreaEntered += void (area) => {
-      if (area is Bullet) return;
-      this.QueueFree();
-    };
+  public override void _Ready() =>
     this.BodyEntered += (body) => {
       if (body is Character.Player.Player player) {
         player.TakeDamage(damage);
@@ -27,7 +23,6 @@ public partial class Bullet : Area2D {
         return;
       }
     };
-  }
 
   public override void _PhysicsProcess(double delta) {
     Vector2 position = this.GlobalPosition;

@@ -19,10 +19,6 @@ public partial class Pickup : Resource {
   /// <summary>道具名称</summary>
   [Export] public StringName DisplayName = "default";
 
-  /// <summary>掉落权重，0 为不参与掉落</summary>
-  [Export(PropertyHint.Range, "0.0, 1000.0, 0.1")]
-  public float DropWeidth = 1.0f;
-
   [ExportGroup("显示资源")]
 
   /// <summary>静态图标资源</summary>
