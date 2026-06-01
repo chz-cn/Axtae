@@ -1,20 +1,16 @@
 
 using Godot;
-using Cfg = Config.Character;
+using Cfg = Config.Character.Player.Player;
 
 namespace Character.Player;
 
 public partial class Player : CharacterBody2D {
-  public const float Speed = 30f;
-  public const float Offset = 10f;
-  public const float ShootDelay = .4f;
-  public const float SpiralShootDelay = .1f;
+  public const float ShotOffset = 10f;
 
-  public const ushort SpiralBullets = 64;
-  public const byte SpiralBulletsPerCircle = 16;
+  public const float DefaultFireRateMultiplier = 1f;
+  public const float DefaultSpeedMultiplier = 1f;
 
-  public const float DefaultFireRateMultplier = 1f;
-  public const float DefaultSpeedMultplier = 1f;
+  private Cfg _config = new();
 
   // nodes
   private AnimatedSprite2D? _body_sprite;
@@ -23,15 +19,11 @@ public partial class Player : CharacterBody2D {
 
   private System.Collections.IEnumerator? _spiral_shoot = null;
 
-  private Cfg.FacingDirection _facing = Cfg.FacingDirection.Right;
+  public enum FacingDirection : byte { Right, Left, Up, Down }
+  private FacingDirection _facing = FacingDirection.Right;
 
-  // config
-  private int _health = 300;
-
-  private float _speed_multplier = 1f;
-  private float _fire_rate_multplier = 1f;
-
-  private Cfg.Form _form = Cfg.Form.Normal;
+  // data
+  private int _health;
 
   // timers
   private float _shoot_timer = 0f;
@@ -42,10 +34,26 @@ public partial class Player : CharacterBody2D {
   private float _fire_rate_time_left = 0f;
   private float _form_time_left = 0f;
 
-  private static Cfg.FacingDirection Vector2FacingSuffix(Vector2 input)
+  private static StringName Form2Prefix(Cfg.Form form)
+    => form switch {
+      Cfg.Form.Normal => "n_",
+      Cfg.Form.Armed => "armed_",
+      _ => "n_"
+    };
+
+  private static StringName Facing2Suffix(FacingDirection facing)
+    => facing switch {
+      FacingDirection.Right => "right",
+      FacingDirection.Left => "left",
+      FacingDirection.Up => "up",
+      FacingDirection.Down => "down",
+      _ => "right"
+    };
+
+  private static FacingDirection Vector2FacingSuffix(Vector2 input)
     => (Mathf.Abs(input.X) >= Mathf.Abs(input.Y))
-      ? (input.X > 0f ? Cfg.FacingDirection.Right : Cfg.FacingDirection.Left)
-      : (input.Y > 0f ? Cfg.FacingDirection.Down : Cfg.FacingDirection.Up);
+      ? (input.X > 0f ? FacingDirection.Right : FacingDirection.Left)
+      : (input.Y > 0f ? FacingDirection.Down : FacingDirection.Up);
 
   public override void _Ready() {
     this._body_sprite = this.GetNodeOrNull<AnimatedSprite2D>("Body");
@@ -75,7 +83,8 @@ public partial class Player : CharacterBody2D {
 
     if (this._body_sprite == null) return;
 
-    this.Velocity = input.Normalized() * Speed * this._speed_multplier;
+    this.Velocity = input.Normalized()
+      * this._config.Speed * this._config.SpeedMultiplier;
     this.MoveAndSlide();
 
     this.UpdateAnimDirection();
@@ -107,38 +116,43 @@ public partial class Player : CharacterBody2D {
     }
   }
 
-  public bool ApplyPickup(Config.Pickup config) {
-    if (config == null || config.Duration <= 0f) return false;
+  public bool ApplyPickup(Config.Character.Player.Player config, float duration = 5f) {
+    if (config == null || duration <= 0f) return false;
 
     bool applied = false;
 
     // 1. 速度加成
     if (!Mathf.IsZeroApprox(
-      config.MoveSpeedMultplier - DefaultSpeedMultplier)) {
-      this._speed_multplier = config.MoveSpeedMultplier;
-      this._speed_time_left = config.Duration;
+      config.SpeedMultiplier - DefaultSpeedMultiplier)) {
+      this._config = this._config with {
+        SpeedMultiplier = config.SpeedMultiplier
+      };
+
+      this._speed_time_left = duration;
       applied = true;
     }
 
     // 2. 射速加成
     if (!Mathf.IsZeroApprox(
-      config.FireRateMultplier - DefaultFireRateMultplier)) {
-      this._fire_rate_multplier = config.FireRateMultplier;
-      this._fire_rate_time_left = config.Duration;
+      config.FireRateMultiplier - DefaultFireRateMultiplier)) {
+      this._config = this._config with {
+        FireRateMultiplier = config.FireRateMultiplier
+      };
+      this._fire_rate_time_left = duration;
       applied = true;
     }
 
     // 3. 形态切换
     if (config.FormMode != Cfg.Form.Normal
-      || config.ShotPattern != Cfg.ShotPattern.Normal) {
-      this._form = config.FormMode;
-      this._form_time_left = config.Duration;
+      || config.ShotPatternMode != Cfg.ShotPattern.Normal) {
+      this._config = this._config with { FormMode = config.FormMode };
+      this._form_time_left = duration;
 
       // 如果新形态是 Armed 且需要螺旋弹幕，启动协程
-      if (config.ShotPattern == Cfg.ShotPattern.Spiral)
+      if (config.ShotPatternMode == Cfg.ShotPattern.Spiral)
         this._spiral_shoot = this.SpiralShoot(
-          SpiralBullets,
-          SpiralBulletsPerCircle);
+          this._config.SpiralBullets,
+          this._config.SpiralBulletsPerCircle);
 
       this.UpdateArmedEffect();
 
@@ -160,8 +174,8 @@ public partial class Player : CharacterBody2D {
   private void UpdateAnim() {
     if (this._body_sprite == null) return;
 
-    StringName name = Cfg.Form2Prefix(this._form)
-      + Cfg.Facing2Suffix(this._facing);
+    StringName name = Form2Prefix(this._config.FormMode)
+      + Facing2Suffix(this._facing);
     if (!this._body_sprite.SpriteFrames.HasAnimation(name)) {
       GD.PushWarning(name, " not found");
       return;
@@ -173,7 +187,7 @@ public partial class Player : CharacterBody2D {
   private void UpdateArmedEffect() {
     if (this._armed_effect_sprite == null) return;
 
-    if (this._form != Cfg.Form.Armed) {
+    if (this._config.FormMode != Cfg.Form.Armed) {
       this._armed_effect_sprite.Visible = false;
       if (this._armed_effect_sprite.IsPlaying())
         this._armed_effect_sprite.Stop();
@@ -193,18 +207,23 @@ public partial class Player : CharacterBody2D {
     if (this._speed_time_left > 0f) {
       this._speed_time_left -= delta;
       if (this._speed_time_left <= 0f)
-        this._speed_multplier = DefaultSpeedMultplier;
+        this._config = this._config with {
+          SpeedMultiplier = DefaultSpeedMultiplier
+        };
     }
 
     if (this._fire_rate_time_left > 0f) {
       this._fire_rate_time_left -= delta;
       if (this._fire_rate_time_left <= 0)
-        this._fire_rate_multplier = DefaultFireRateMultplier;
+        this._config = this._config with {
+          FireRateMultiplier = DefaultFireRateMultiplier
+        };
     }
 
     if (this._form_time_left > 0f) {
       this._form_time_left -= delta;
-      if (this._form_time_left <= 0) this._form = Cfg.Form.Normal;
+      if (this._form_time_left <= 0)
+        this._config = this._config with { FormMode = Cfg.Form.Normal };
     }
   }
 
@@ -213,34 +232,36 @@ public partial class Player : CharacterBody2D {
 
     if (Input.IsActionPressed("shoot") && this._shoot_timer <= 0) {
       this.Shoot();
-      this._shoot_timer = ShootDelay / this._fire_rate_multplier;
+      this._shoot_timer = this._config.ShootDelay / this._config.FireRateMultiplier;
     }
   }
 
   private void UpdateSpiralShoot(float delta) {
     if (this._spiral_shoot != null) {
       this._spiral_accumulator += delta;
-      ushort steps = (ushort)(this._spiral_accumulator / SpiralShootDelay);
+      ushort steps =
+        (ushort)(this._spiral_accumulator / this._config.SpiralShootDelay);
+
       if (steps > 0) {
         for (ushort i = 0; i < steps; i++) {
           if (!this._spiral_shoot.MoveNext()) {
             this._spiral_shoot = null;
-            this._form = Cfg.Form.Normal;
+            this._config = this._config with { FormMode = Cfg.Form.Normal };
             this.UpdateArmedEffect();
             break;
           }
         }
-        this._spiral_accumulator -= steps * SpiralShootDelay;
+        this._spiral_accumulator -= steps * this._config.SpiralShootDelay;
       }
     }
   }
 
   private Vector2 GetShootDirection()
     => this._facing switch {
-      Cfg.FacingDirection.Right => Vector2.Right,
-      Cfg.FacingDirection.Left => Vector2.Left,
-      Cfg.FacingDirection.Up => Vector2.Up,
-      Cfg.FacingDirection.Down => Vector2.Down,
+      FacingDirection.Right => Vector2.Right,
+      FacingDirection.Left => Vector2.Left,
+      FacingDirection.Up => Vector2.Up,
+      FacingDirection.Down => Vector2.Down,
       _ => Vector2.Right
     };
 
@@ -250,7 +271,7 @@ public partial class Player : CharacterBody2D {
     Bullet bullet = this._bullet_scene.Instantiate<Bullet>();
 
     bullet.GlobalPosition = this.GlobalPosition
-      + this.GetShootDirection() * Offset;
+      + this.GetShootDirection() * ShotOffset;
     bullet.Setup(this.GetShootDirection());
 
     this.GetTree().Root.AddChild(bullet);
@@ -277,8 +298,8 @@ public partial class Player : CharacterBody2D {
         Bullet forward = this._bullet_scene.Instantiate<Bullet>();
         Bullet backward = this._bullet_scene.Instantiate<Bullet>();
 
-        forward.GlobalPosition = this.GlobalPosition + direction_f * Offset;
-        backward.GlobalPosition = this.GlobalPosition + direction_b * Offset;
+        forward.GlobalPosition = this.GlobalPosition + direction_f * ShotOffset;
+        backward.GlobalPosition = this.GlobalPosition + direction_b * ShotOffset;
 
         forward.Setup(direction_f);
         backward.Setup(direction_b);
