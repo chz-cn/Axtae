@@ -1,6 +1,8 @@
 
 using Godot;
 
+namespace Combat.Projectile;
+
 public partial class Bullet : Area2D {
   public const float Speed = 80f; // px/s
   public const float MaxLifeTime = 5f;

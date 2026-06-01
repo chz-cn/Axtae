@@ -1,5 +1,6 @@
 
 using Godot;
+using Bullet = Combat.Projectile.Bullet;
 using Cfg = Config.Character.Player.Player;
 
 namespace Character.Player;
@@ -34,14 +35,14 @@ public partial class Player : CharacterBody2D {
   private float _fire_rate_time_left = 0f;
   private float _form_time_left = 0f;
 
-  private static StringName Form2Prefix(Cfg.Form form)
+  public static StringName Form2Prefix(Cfg.Form form)
     => form switch {
       Cfg.Form.Normal => "n_",
       Cfg.Form.Armed => "armed_",
       _ => "n_"
     };
 
-  private static StringName Facing2Suffix(FacingDirection facing)
+  public static StringName Facing2Suffix(FacingDirection facing)
     => facing switch {
       FacingDirection.Right => "right",
       FacingDirection.Left => "left",
@@ -50,7 +51,7 @@ public partial class Player : CharacterBody2D {
       _ => "right"
     };
 
-  private static FacingDirection Vector2FacingSuffix(Vector2 input)
+  public static FacingDirection Vector2FacingSuffix(Vector2 input)
     => (Mathf.Abs(input.X) >= Mathf.Abs(input.Y))
       ? (input.X > 0f ? FacingDirection.Right : FacingDirection.Left)
       : (input.Y > 0f ? FacingDirection.Down : FacingDirection.Up);
@@ -116,50 +117,55 @@ public partial class Player : CharacterBody2D {
     }
   }
 
-  public bool ApplyPickup(Config.Character.Player.Player config, float duration = 5f) {
+  public bool ApplyConfig(Cfg? config, float duration = 5f) {
     if (config == null || duration <= 0f) return false;
 
-    bool applied = false;
+    bool change_speed_multiplier = false;
+    bool change_fire_rate_multiplier = false;
+    bool change_form = false;
+    bool change_shotpattern = false;
 
-    // 1. 速度加成
     if (!Mathf.IsZeroApprox(
       config.SpeedMultiplier - DefaultSpeedMultiplier)) {
-      this._config = this._config with {
-        SpeedMultiplier = config.SpeedMultiplier
-      };
-
       this._speed_time_left = duration;
-      applied = true;
+      change_speed_multiplier = true;
     }
 
-    // 2. 射速加成
     if (!Mathf.IsZeroApprox(
       config.FireRateMultiplier - DefaultFireRateMultiplier)) {
-      this._config = this._config with {
-        FireRateMultiplier = config.FireRateMultiplier
-      };
       this._fire_rate_time_left = duration;
-      applied = true;
+      change_fire_rate_multiplier = true;
     }
 
-    // 3. 形态切换
-    if (config.FormMode != Cfg.Form.Normal
-      || config.ShotPatternMode != Cfg.ShotPattern.Normal) {
-      this._config = this._config with { FormMode = config.FormMode };
+    if (config.FormMode != Cfg.Form.Normal) {
       this._form_time_left = duration;
 
-      // 如果新形态是 Armed 且需要螺旋弹幕，启动协程
-      if (config.ShotPatternMode == Cfg.ShotPattern.Spiral)
-        this._spiral_shoot = this.SpiralShoot(
-          this._config.SpiralBullets,
-          this._config.SpiralBulletsPerCircle);
-
       this.UpdateArmedEffect();
-
-      applied = true;
+      change_form = true;
     }
 
-    return applied;
+    if (config.ShotPatternMode == Cfg.ShotPattern.Spiral) {
+      this._spiral_shoot = this.SpiralShoot(
+        this._config.SpiralBullets,
+        this._config.SpiralBulletsPerCircle);
+      change_shotpattern = true;
+    }
+
+    bool changed = change_form || change_speed_multiplier
+      || change_fire_rate_multiplier || change_shotpattern;
+
+    if (changed)
+      this._config = this._config with {
+        SpeedMultiplier = change_speed_multiplier
+          ? config.SpeedMultiplier : this._config.SpeedMultiplier,
+        FireRateMultiplier = change_fire_rate_multiplier
+          ? config.FireRateMultiplier : this._config.FireRateMultiplier,
+        FormMode = change_form ? config.FormMode : this._config.FormMode,
+        ShotPatternMode = change_shotpattern
+          ? config.ShotPatternMode : this._config.ShotPatternMode
+      };
+
+    return changed;
   }
 
   private void UpdateAnimDirection() {
@@ -204,27 +210,42 @@ public partial class Player : CharacterBody2D {
   }
 
   private void UpdatePickupEffect(float delta) {
+    bool change_speed_multiplier = false;
+    bool change_fire_rate_multiplier = false;
+    bool change_form = false;
+
     if (this._speed_time_left > 0f) {
       this._speed_time_left -= delta;
       if (this._speed_time_left <= 0f)
-        this._config = this._config with {
-          SpeedMultiplier = DefaultSpeedMultiplier
-        };
+        change_speed_multiplier = true;
     }
 
     if (this._fire_rate_time_left > 0f) {
       this._fire_rate_time_left -= delta;
       if (this._fire_rate_time_left <= 0)
-        this._config = this._config with {
-          FireRateMultiplier = DefaultFireRateMultiplier
-        };
+        change_fire_rate_multiplier = true;
     }
 
     if (this._form_time_left > 0f) {
       this._form_time_left -= delta;
       if (this._form_time_left <= 0)
-        this._config = this._config with { FormMode = Cfg.Form.Normal };
+        change_form = true;
     }
+
+    if (change_speed_multiplier
+      || change_fire_rate_multiplier
+      || change_form) {
+      Cfg normol = new();
+      this._config = this._config with {
+        SpeedMultiplier = change_speed_multiplier
+          ? normol.SpeedMultiplier : this._config.SpeedMultiplier,
+        FireRateMultiplier = change_fire_rate_multiplier
+          ? normol.FireRateMultiplier : this._config.FireRateMultiplier,
+        FormMode = change_form ? normol.FormMode : this._config.FormMode,
+      };
+    }
+
+    if (change_form) this.UpdateArmedEffect();
   }
 
   private void UpdateShoot(float delta) {
@@ -237,23 +258,24 @@ public partial class Player : CharacterBody2D {
   }
 
   private void UpdateSpiralShoot(float delta) {
-    if (this._spiral_shoot != null) {
-      this._spiral_accumulator += delta;
-      ushort steps =
-        (ushort)(this._spiral_accumulator / this._config.SpiralShootDelay);
+    if (this._spiral_shoot == null) return;
 
-      if (steps > 0) {
-        for (ushort i = 0; i < steps; i++) {
-          if (!this._spiral_shoot.MoveNext()) {
-            this._spiral_shoot = null;
-            this._config = this._config with { FormMode = Cfg.Form.Normal };
-            this.UpdateArmedEffect();
-            break;
-          }
-        }
-        this._spiral_accumulator -= steps * this._config.SpiralShootDelay;
-      }
+    this._spiral_accumulator += delta;
+    ushort steps =
+      (ushort)(this._spiral_accumulator / this._config.SpiralShootDelay);
+
+    if (steps == 0) return;
+
+    for (ushort i = 0; i < steps; i++) {
+      if (this._spiral_shoot.MoveNext()) continue;
+
+      this._spiral_shoot = null;
+      this._config = this._config with {
+        ShotPatternMode = Cfg.ShotPattern.Normal
+      };
+      break;
     }
+    this._spiral_accumulator -= steps * this._config.SpiralShootDelay;
   }
 
   private Vector2 GetShootDirection()

@@ -1,7 +1,7 @@
 
 namespace Config.Character.Player;
 
-public record class Player() {
+public record class Player {
   public float Speed { get; init; } = 30f;
   public float ShootDelay { get; init; } = .4f;
   public float SpiralShootDelay { get; init; } = .1f;
