@@ -19,6 +19,7 @@ public partial class Player : CharacterBody2D {
   private PackedScene? _bullet_scene;
 
   private PhysicsDirectSpaceState2D? _state;
+  private PhysicsRayQueryParameters2D? _ray_query;
 
   private System.Collections.IEnumerator? _spiral_shoot = null;
 
@@ -62,7 +63,14 @@ public partial class Player : CharacterBody2D {
     this._armed_effect_sprite = this.GetNodeOrNull<AnimatedSprite2D>("ArmedEffect");
     this._bullet_scene = ResourceLoader
       .Load<PackedScene>("res://combat/projectile/Bullet.tscn");
+
     this._state = this.GetWorld2D().DirectSpaceState;
+    this._ray_query = new() {
+      CollisionMask = Bullet.Mask,
+      CollideWithAreas = false,
+      CollideWithBodies = true,
+      Exclude = [this.GetRid()]
+    };
 
     if (this._body_sprite == null) GD.PrintErr("Missing Player sprite");
     else {
@@ -290,17 +298,31 @@ public partial class Player : CharacterBody2D {
       _ => Vector2.Right
     };
 
+  private bool? WillHit(Vector2 direction, Vector2 from, float offset) {
+    if (this._ray_query == null
+      || this._state == null
+      || direction == Vector2.Zero
+      || offset <= 0f) return null;
+
+    Vector2 to = from + direction.Normalized() * offset;
+    this._ray_query.From = from;
+    this._ray_query.To = to;
+
+    return this._state.IntersectRay(this._ray_query).Count > 0;
+  }
+
   private void Shoot() {
     if (this._bullet_scene == null) return;
+    bool? hit = this.WillHit(this.GetShootDirection(),
+      this.GlobalPosition,
+      ShotOffset);
+    if (hit == null || hit == true) return;
 
     Bullet bullet = this._bullet_scene.Instantiate<Bullet>();
+    bullet.GlobalPosition
+      = this.GlobalPosition + this.GetShootDirection() * ShotOffset;
 
-    bullet.Setup(
-      this.GetShootDirection(),
-      this.GlobalPosition,
-      ShotOffset,
-      this._state);
-    if (bullet.IsQueuedForDeletion()) return;
+    bullet.Setup(this.GetShootDirection());
     this.GetTree().Root.AddChild(bullet);
     bullet.PlayAudio();
   }
@@ -322,29 +344,29 @@ public partial class Player : CharacterBody2D {
         Vector2 direction_f = Vector2.FromAngle(Mathf.DegToRad(deg));
         Vector2 direction_b = -direction_f;
 
-        Bullet forward = this._bullet_scene.Instantiate<Bullet>();
-        Bullet backward = this._bullet_scene.Instantiate<Bullet>();
-
-        forward.GlobalPosition = this.GlobalPosition + direction_f * ShotOffset;
-        backward.GlobalPosition = this.GlobalPosition + direction_b * ShotOffset;
-
-        forward.Setup(
-          direction_f,
+        if (this.WillHit(direction_f,
           this.GlobalPosition,
-          ShotOffset,
-          this._state);
-        backward.Setup(
-          direction_b,
-          this.GlobalPosition,
-          ShotOffset,
-          this._state);
+          ShotOffset) == false) {
+          Bullet forward = this._bullet_scene.Instantiate<Bullet>();
+          forward.GlobalPosition
+            = this.GlobalPosition + direction_f * ShotOffset;
 
-        if (!forward.IsQueuedForDeletion()) {
+          forward.Setup(direction_f);
           this.GetTree().Root.AddChild(forward);
           forward.PlayAudio();
         }
-        if (!backward.IsQueuedForDeletion())
+
+        if (this.WillHit(direction_b,
+          this.GlobalPosition,
+          ShotOffset) == false) {
+          Bullet backward = this._bullet_scene.Instantiate<Bullet>();
+
+          backward.GlobalPosition
+            = this.GlobalPosition + direction_b * ShotOffset;
+
+          backward.Setup(direction_b);
           this.GetTree().Root.AddChild(backward);
+        }
         yield return null;
       }
 
