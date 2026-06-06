@@ -7,7 +7,7 @@ namespace Combat.Projectile;
 public partial class Bullet : Area2D {
   public const float Speed = 80f; // px/s
   public const float MaxLifeTime = 5f;
-  public const uint Mask = L.EnemyBody | L.World | L.Player;
+  public const uint Mask = L.CharacterBody | L.World;
   public const byte MaxAudio = 4;
   public const int damage = 20;
 

@@ -86,13 +86,13 @@ public partial class Player : CharacterBody2D {
   }
 
   public override void _PhysicsProcess(double delta) {
-    Vector2 input = Input.GetVector(
-      "move_left",
-      "move_right",
-      "move_up",
-      "move_down");
-
     if (this._body_sprite == null) return;
+
+    Vector2 input = Input.GetVector(
+      Config.InputMap.MoveLeft,
+      Config.InputMap.MoveRight,
+      Config.InputMap.MoveUp,
+      Config.InputMap.MoveDown);
 
     this.Velocity = input.Normalized()
       * this._config.Speed * this._config.SpeedMultiplier;
@@ -261,7 +261,8 @@ public partial class Player : CharacterBody2D {
   private void UpdateShoot(float delta) {
     if (this._shoot_timer > 0) this._shoot_timer -= delta;
 
-    if (Input.IsActionPressed("shoot") && this._shoot_timer <= 0) {
+    if (Input.IsActionPressed(Config.InputMap.Shoot)
+      && this._shoot_timer <= 0) {
       this.Shoot();
       this._shoot_timer = this._config.ShootDelay / this._config.FireRateMultiplier;
     }

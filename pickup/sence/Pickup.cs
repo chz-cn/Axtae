@@ -7,9 +7,31 @@ namespace Pickup.Scene;
 
 public partial class Pickup : Area2D {
   public const uint Layer = L.Pickup;
-  public const uint Mask = L.Player;
+  public const uint Mask = L.CharacterBody;
 
   public float BlinkBeforeExpire { get; init; } = 1.5f;
+
+  public float BlinkSpeed {
+    get; init {
+      field = value;
+      // 6f is default blink speed
+      if (value != 6f && value > .1f)
+        (this._body_sprite.Material as ShaderMaterial)?
+          .SetShaderParameter("blink_speed", value);
+    }
+  }
+
+  public float HiddenRatio {
+    get; init {
+      field = value;
+      // .5f is default blink speed
+      if (value != .5f && value > 0f && value < 1f)
+        (this._body_sprite.Material as ShaderMaterial)?
+          .SetShaderParameter("blink_speed", value);
+    }
+  }
+
+  public float Radius { get; init; } = 6f;
 
   public required Config.IPickup Config { get; init; }
 
@@ -17,6 +39,7 @@ public partial class Pickup : Area2D {
 
   public Pickup(string texture_path) {
     this.CollisionLayer = Layer;
+    this.CollisionMask = Mask;
 
     this._body_sprite = new() {
       Texture = ResourceLoader.Load<Texture2D>(texture_path),
@@ -28,13 +51,16 @@ public partial class Pickup : Area2D {
   }
 
   public override void _EnterTree() {
-    this.SetBlinkEnable(false);
     this.AddChild(this._body_sprite);
+
+    this.AddChild(new CollisionShape2D() {
+      Shape = new CircleShape2D() {
+        Radius = this.Radius,
+      }
+    });
   }
 
   public override void _Ready() {
-    this.InitTimer();
-
     this.BodyEntered += (area) => {
       if (area is Character.Player.Player player) {
         var cfg = (this.Config as Config.IPickup<Cfg>)?.GetPickup();
@@ -46,6 +72,8 @@ public partial class Pickup : Area2D {
           GD.PrintErr("Missing pickup config for player");
       }
     };
+
+    this.InitTimer();
 
     if (this._body_sprite == null) GD.PrintErr("Missing pickup sprite");
     else {
@@ -81,7 +109,6 @@ public partial class Pickup : Area2D {
   }
 
   private void SetBlinkEnable(bool enable)
-    => (this._body_sprite?.Material as ShaderMaterial)?
+    => (this._body_sprite.Material as ShaderMaterial)?
       .SetShaderParameter("blink", enable);
-
 }
