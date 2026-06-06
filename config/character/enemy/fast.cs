@@ -8,7 +8,7 @@ public class Fast : IPickup<Player.Player> {
 
   public Player.Player GetPickup() {
     return new() {
-
+      FireRateMultiplier = 2f,
     };
   }
 

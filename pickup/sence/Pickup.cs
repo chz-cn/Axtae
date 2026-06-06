@@ -1,69 +1,87 @@
 
 using Godot;
 using Cfg = Config.Character.Player.Player;
+using L = Config.Layer;
 
 namespace Pickup.Scene;
 
 public partial class Pickup : Area2D {
-  [Export(PropertyHint.Range, "0.0, 10.0, 0.1")]
-  protected float BlinkBeforeExpire = 1.5f;
+  public const uint Layer = L.Pickup;
+  public const uint Mask = L.Player;
 
-  private readonly Config.IPickup? _config;
-  private Sprite2D? _body_sprite;
-  private Timer? _timer;
-  private bool _is_expiring = false;
+  public float BlinkBeforeExpire { get; init; } = 1.5f;
+
+  public required Config.IPickup Config { get; init; }
+
+  private readonly Sprite2D _body_sprite;
+
+  public Pickup(string texture_path) {
+    this.CollisionLayer = Layer;
+
+    this._body_sprite = new() {
+      Texture = ResourceLoader.Load<Texture2D>(texture_path),
+      Material = new ShaderMaterial() {
+        Shader = ResourceLoader
+          .Load<Shader>("res://pickup/sence/blink.gdshader")
+      }
+    };
+  }
+
+  public override void _EnterTree() {
+    this.SetBlinkEnable(false);
+    this.AddChild(this._body_sprite);
+  }
 
   public override void _Ready() {
-    if (this._config == null) {
-      GD.PrintErr("Minssing Pickup Config");
-      this.QueueFree();
-      return;
-    }
-    this._body_sprite = this.GetNode<Sprite2D>("Body");
-
     this.InitTimer();
 
-    if (this._body_sprite == null)
-      GD.PrintErr("Missing pickup sprite");
-    else if (this._body_sprite.Material is not ShaderMaterial)
-      GD.PrintErr("Missing shader material");
-    else if (this._body_sprite.Material is ShaderMaterial shm
-      && shm.Shader == null)
-      GD.PrintErr("Missing shader program");
-  }
-
-  protected void InitTimer() {
-    if (this._config == null) return;
-
-    this._timer = new() {
-      WaitTime = System.Math.Max(0.1f, this._config.Duration),
-      OneShot = true
-    };
-    this._timer.Timeout += this.QueueFree;
-    this.AddChild(this._timer);
-    this._timer.Start();
-
     this.BodyEntered += (area) => {
-      if (area is Character.Player.Player player
-        && player.ApplyConfig(
-          (this._config as Config.IPickup<Cfg>)?.GetPickup(),
-          this._config.Duration))
-        this.QueueFree();
+      if (area is Character.Player.Player player) {
+        var cfg = (this.Config as Config.IPickup<Cfg>)?.GetPickup();
+        if (cfg != null) {
+          if (player.ApplyConfig(cfg, this.Config.Duration))
+            this.QueueFree();
+        }
+        else
+          GD.PrintErr("Missing pickup config for player");
+      }
     };
+
+    if (this._body_sprite == null) GD.PrintErr("Missing pickup sprite");
+    else {
+      if (this._body_sprite.Texture == null)
+        GD.PrintErr("Missing pickup texture");
+
+      if (this._body_sprite.Material is not ShaderMaterial)
+        GD.PrintErr("Missing shader material");
+      else if (this._body_sprite.Material is ShaderMaterial shm
+        && shm.Shader == null)
+        GD.PrintErr("Missing shader program");
+    }
   }
 
-  public override void _Process(double delta) {
-    if (this._is_expiring
-      || this._timer == null
-      || this._timer.IsStopped()
-      || this._timer.TimeLeft > this.BlinkBeforeExpire) return;
+  private async void InitTimer() {
+    float total = System.MathF.Max(.1f, this.Config.Duration);
+    float blink = System.Math.Clamp(this.BlinkBeforeExpire, 0, total);
+    float before_blink = total - blink;
 
-    this._is_expiring = true;
-    this.SetBlinkEnable(true);
+    if (before_blink > 0.1f)
+      await this.ToSignal(
+        this.GetTree().CreateTimer(before_blink),
+        Timer.SignalName.Timeout);
+
+    if (blink > 0.1f) {
+      this.SetBlinkEnable(true);
+      await this.ToSignal(
+        this.GetTree().CreateTimer(blink),
+        Timer.SignalName.Timeout);
+    }
+
+    this.QueueFree();
   }
 
-  protected void SetBlinkEnable(bool enable) {
-    var sm = this._body_sprite?.Material as ShaderMaterial;
-    sm?.SetShaderParameter("blink", enable);
-  }
+  private void SetBlinkEnable(bool enable)
+    => (this._body_sprite?.Material as ShaderMaterial)?
+      .SetShaderParameter("blink", enable);
+
 }

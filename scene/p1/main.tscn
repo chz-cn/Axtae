@@ -63,6 +63,7 @@ texture = ExtResource("2_qwa44")
 
 [sub_resource type="TileSet" id="TileSet_23rdh"]
 physics_layer_0/collision_layer = 1
+physics_layer_0/collision_mask = 54
 sources/0 = SubResource("TileSetAtlasSource_qwa44")
 sources/1 = SubResource("TileSetAtlasSource_23rdh")
 
@@ -113,21 +114,25 @@ position = Vector2(127, 80)
 [node name="Side" type="Node2D" parent="." unique_id=1891253999]
 
 [node name="Top" type="StaticBody2D" parent="Side" unique_id=159695703]
+collision_mask = 54
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Side/Top" unique_id=230756757]
 shape = SubResource("SegmentShape2D_23rdh")
 
 [node name="Down" type="StaticBody2D" parent="Side" unique_id=504695493]
+collision_mask = 54
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Side/Down" unique_id=470433398]
 shape = SubResource("SegmentShape2D_16m6u")
 
 [node name="Left" type="StaticBody2D" parent="Side" unique_id=1035485687]
+collision_mask = 54
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Side/Left" unique_id=55574453]
 shape = SubResource("SegmentShape2D_dxy2w")
 
 [node name="Right" type="StaticBody2D" parent="Side" unique_id=1646124413]
+collision_mask = 54
 
 [node name="CollisionShape2D" type="CollisionShape2D" parent="Side/Right" unique_id=588670203]
 shape = SubResource("SegmentShape2D_t1hrx")

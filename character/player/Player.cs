@@ -18,6 +18,8 @@ public partial class Player : CharacterBody2D {
   private AnimatedSprite2D? _armed_effect_sprite;
   private PackedScene? _bullet_scene;
 
+  private PhysicsDirectSpaceState2D? _state;
+
   private System.Collections.IEnumerator? _spiral_shoot = null;
 
   public enum FacingDirection : byte { Right, Left, Up, Down }
@@ -28,7 +30,6 @@ public partial class Player : CharacterBody2D {
 
   // timers
   private float _shoot_timer = 0f;
-  private float _spiral_shoot_timer = 0f;
   private float _spiral_accumulator = 0f;
 
   private float _speed_time_left = 0f;
@@ -61,6 +62,7 @@ public partial class Player : CharacterBody2D {
     this._armed_effect_sprite = this.GetNodeOrNull<AnimatedSprite2D>("ArmedEffect");
     this._bullet_scene = ResourceLoader
       .Load<PackedScene>("res://combat/projectile/Bullet.tscn");
+    this._state = this.GetWorld2D().DirectSpaceState;
 
     if (this._body_sprite == null) GD.PrintErr("Missing Player sprite");
     else {
@@ -117,7 +119,7 @@ public partial class Player : CharacterBody2D {
     }
   }
 
-  public bool ApplyConfig(Cfg? config, float duration = 5f) {
+  public bool ApplyConfig(in Cfg config, float duration = 5f) {
     if (config == null || duration <= 0f) return false;
 
     bool change_speed_multiplier = false;
@@ -273,7 +275,8 @@ public partial class Player : CharacterBody2D {
       this._config = this._config with {
         ShotPatternMode = Cfg.ShotPattern.Normal
       };
-      break;
+      this._spiral_accumulator = 0f;
+      return;
     }
     this._spiral_accumulator -= steps * this._config.SpiralShootDelay;
   }
@@ -292,10 +295,12 @@ public partial class Player : CharacterBody2D {
 
     Bullet bullet = this._bullet_scene.Instantiate<Bullet>();
 
-    bullet.GlobalPosition = this.GlobalPosition
-      + this.GetShootDirection() * ShotOffset;
-    bullet.Setup(this.GetShootDirection());
-
+    bullet.Setup(
+      this.GetShootDirection(),
+      this.GlobalPosition,
+      ShotOffset,
+      this._state);
+    if (bullet.IsQueuedForDeletion()) return;
     this.GetTree().Root.AddChild(bullet);
     bullet.PlayAudio();
   }
@@ -323,12 +328,23 @@ public partial class Player : CharacterBody2D {
         forward.GlobalPosition = this.GlobalPosition + direction_f * ShotOffset;
         backward.GlobalPosition = this.GlobalPosition + direction_b * ShotOffset;
 
-        forward.Setup(direction_f);
-        backward.Setup(direction_b);
+        forward.Setup(
+          direction_f,
+          this.GlobalPosition,
+          ShotOffset,
+          this._state);
+        backward.Setup(
+          direction_b,
+          this.GlobalPosition,
+          ShotOffset,
+          this._state);
 
-        this.GetTree().Root.AddChild(forward);
-        this.GetTree().Root.AddChild(backward);
-        forward.PlayAudio();
+        if (!forward.IsQueuedForDeletion()) {
+          this.GetTree().Root.AddChild(forward);
+          forward.PlayAudio();
+        }
+        if (!backward.IsQueuedForDeletion())
+          this.GetTree().Root.AddChild(backward);
         yield return null;
       }
 

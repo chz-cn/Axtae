@@ -2,13 +2,6 @@
 
 [ext_resource type="Shader" uid="uid://cnl2e6wxpca4h" path="res://pickup/sence/blink.gdshader" id="1_1inbv"]
 [ext_resource type="Script" uid="uid://dyjfqar80a5dx" path="res://pickup/sence/Pickup.cs" id="1_i0855"]
-[ext_resource type="Script" uid="uid://c1dn02ne15jl7" path="res://config/Pickup.cs" id="2_hdxlj"]
-
-[sub_resource type="Resource" id="Resource_22thg"]
-script = ExtResource("2_hdxlj")
-DisplayName = &"移速道具"
-MoveSpeedMultplier = 1.5
-metadata/_custom_type_script = "uid://c1dn02ne15jl7"
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_i0855"]
 resource_local_to_scene = true
@@ -24,7 +17,6 @@ radius = 6.0
 collision_layer = 16
 collision_mask = 2
 script = ExtResource("1_i0855")
-_config = SubResource("Resource_22thg")
 
 [node name="Body" type="Sprite2D" parent="." unique_id=1184788443]
 material = SubResource("ShaderMaterial_i0855")
