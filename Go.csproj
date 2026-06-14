@@ -6,6 +6,10 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
-    <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
+    <!--AllowUnsafeBlocks>true</AllowUnsafeBlocks -->
   </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="x/*" />
+  </ItemGroup>
 </Project>

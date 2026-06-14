@@ -1,11 +1,12 @@
 
 using Godot;
+using GodotPlugins.Game;
 using Bullet = Combat.Projectile.Bullet;
 using Cfg = Config.Character.Player.Player;
 
 namespace Character.Player;
 
-public partial class Player : CharacterBody2D {
+public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
   public const float ShotOffset = 10f;
 
   public const float DefaultFireRateMultiplier = 1f;
@@ -26,8 +27,8 @@ public partial class Player : CharacterBody2D {
   public enum FacingDirection : byte { Right, Left, Up, Down }
   private FacingDirection _facing = FacingDirection.Right;
 
-  // data
-  private int _health;
+  public uint MaxHealth { get; init; } = 300;
+  public uint Health { get; private set; }
 
   // timers
   private float _shoot_timer = 0f;
@@ -37,14 +38,14 @@ public partial class Player : CharacterBody2D {
   private float _fire_rate_time_left = 0f;
   private float _form_time_left = 0f;
 
-  public static StringName Form2Prefix(Cfg.Form form)
+  public static string Form2Prefix(Cfg.Form form)
     => form switch {
       Cfg.Form.Normal => "n_",
       Cfg.Form.Armed => "armed_",
       _ => "n_"
     };
 
-  public static StringName Facing2Suffix(FacingDirection facing)
+  public static string Facing2Suffix(FacingDirection facing)
     => facing switch {
       FacingDirection.Right => "right",
       FacingDirection.Left => "left",
@@ -58,11 +59,20 @@ public partial class Player : CharacterBody2D {
       ? (input.X > 0f ? FacingDirection.Right : FacingDirection.Left)
       : (input.Y > 0f ? FacingDirection.Down : FacingDirection.Up);
 
+  public override void _EnterTree() {
+    if (this.MaxHealth == 0) {
+      this.QueueFree();
+      return;
+    }
+    this.Health = this.MaxHealth;
+
+    this._bullet_scene = ResourceLoader
+      .Load<PackedScene>("res://combat/projectile/Bullet.tscn");
+  }
+
   public override void _Ready() {
     this._body_sprite = this.GetNodeOrNull<AnimatedSprite2D>("Body");
     this._armed_effect_sprite = this.GetNodeOrNull<AnimatedSprite2D>("ArmedEffect");
-    this._bullet_scene = ResourceLoader
-      .Load<PackedScene>("res://combat/projectile/Bullet.tscn");
 
     this._state = this.GetWorld2D().DirectSpaceState;
     this._ray_query = new() {
@@ -72,12 +82,11 @@ public partial class Player : CharacterBody2D {
       Exclude = [this.GetRid()]
     };
 
-    if (this._body_sprite == null) GD.PrintErr("Missing Player sprite");
-    else {
-      this._body_sprite.AnimationFinished += () => {
-        if (this._body_sprite != null) this.QueueFree();
-      };
+    if (this._body_sprite == null) {
+      GD.PrintErr("Missing Player sprite");
+      this.QueueFree();
     }
+    else this._body_sprite.AnimationFinished += this.QueueFree;
 
     if (this._armed_effect_sprite == null)
       GD.PrintErr("Missing Player armed effect sprite");
@@ -86,7 +95,18 @@ public partial class Player : CharacterBody2D {
   }
 
   public override void _PhysicsProcess(double delta) {
-    if (this._body_sprite == null) return;
+    if (this.Health == 0) {
+      this.SetPhysicsProcess(false);
+
+      StringName name = "die";
+      if (this._body_sprite == null) return;
+      if (!this._body_sprite.SpriteFrames.HasAnimation(name)) {
+        GD.PushWarning("die animation not found");
+        return;
+      }
+
+      if (this._body_sprite.Animation != name) this._body_sprite.Play(name);
+    }
 
     Vector2 input = Input.GetVector(
       Config.InputMap.MoveLeft,
@@ -109,22 +129,10 @@ public partial class Player : CharacterBody2D {
     this.UpdateSpiralShoot(dt);
   }
 
-  public void TakeDamage(int x) {
-    if (System.Threading.Interlocked.Add(ref this._health, -x) <= 0) {
-      this.SetPhysicsProcess(false);
-      if (this._body_sprite == null) {
-        this.QueueFree();
-        return;
-      }
-
-      StringName name = "die";
-      if (!this._body_sprite.SpriteFrames.HasAnimation(name)) {
-        GD.PushWarning("die animation not found");
-        return;
-      }
-
-      if (this._body_sprite.Animation != name) this._body_sprite.Play(name);
-    }
+  public void TakeDamage(uint damage) {
+    uint val = this.Health;
+    uint x = val - damage;
+    this.Health = val > damage ? x : 0;
   }
 
   public bool ApplyConfig(in Cfg config, float duration = 5f) {

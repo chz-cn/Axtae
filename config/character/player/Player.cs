@@ -12,8 +12,6 @@ public record class Player {
   public float SpeedMultiplier { get; init; } = 1;
   public float FireRateMultiplier { get; init; } = 1;
 
-  public int MaxHealth { get; init; } = 300;
-
   public enum Form : byte { Normal, Armed }
   public Form FormMode = Form.Normal;
 

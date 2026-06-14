@@ -22,7 +22,7 @@ public partial class Bullet : Area2D {
     if (this._direction == Vector2.Zero) this.QueueFree();
 
     this.BodyEntered += (body) => {
-      if (body is Character.Player.Player player)
+      if (body is ITakeDamage player)
         player.TakeDamage(damage);
 
       this.QueueFree();
