@@ -136,54 +136,8 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
   }
 
   public bool ApplyConfig(in Cfg config, float duration = 5f) {
-    if (config == null || duration <= 0f) return false;
-
-    bool change_speed_multiplier = false;
-    bool change_fire_rate_multiplier = false;
-    bool change_form = false;
-    bool change_shotpattern = false;
-
-    if (!Mathf.IsZeroApprox(
-      config.SpeedMultiplier - DefaultSpeedMultiplier)) {
-      this._speed_time_left = duration;
-      change_speed_multiplier = true;
-    }
-
-    if (!Mathf.IsZeroApprox(
-      config.FireRateMultiplier - DefaultFireRateMultiplier)) {
-      this._fire_rate_time_left = duration;
-      change_fire_rate_multiplier = true;
-    }
-
-    if (config.FormMode != Cfg.Form.Normal) {
-      this._form_time_left = duration;
-
-      this.UpdateArmedEffect();
-      change_form = true;
-    }
-
-    if (config.ShotPatternMode == Cfg.ShotPattern.Spiral) {
-      this._spiral_shoot = this.SpiralShoot(
-        this._config.SpiralBullets,
-        this._config.SpiralBulletsPerCircle);
-      change_shotpattern = true;
-    }
-
-    bool changed = change_form || change_speed_multiplier
-      || change_fire_rate_multiplier || change_shotpattern;
-
-    if (changed)
-      this._config = this._config with {
-        SpeedMultiplier = change_speed_multiplier
-          ? config.SpeedMultiplier : this._config.SpeedMultiplier,
-        FireRateMultiplier = change_fire_rate_multiplier
-          ? config.FireRateMultiplier : this._config.FireRateMultiplier,
-        FormMode = change_form ? config.FormMode : this._config.FormMode,
-        ShotPatternMode = change_shotpattern
-          ? config.ShotPatternMode : this._config.ShotPatternMode
-      };
-
-    return changed;
+    if (duration <= 0f) return false;
+    return false;
   }
 
   private void UpdateAnimDirection() {
@@ -228,42 +182,7 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
   }
 
   private void UpdatePickupEffect(float delta) {
-    bool change_speed_multiplier = false;
-    bool change_fire_rate_multiplier = false;
-    bool change_form = false;
 
-    if (this._speed_time_left > 0f) {
-      this._speed_time_left -= delta;
-      if (this._speed_time_left <= 0f)
-        change_speed_multiplier = true;
-    }
-
-    if (this._fire_rate_time_left > 0f) {
-      this._fire_rate_time_left -= delta;
-      if (this._fire_rate_time_left <= 0)
-        change_fire_rate_multiplier = true;
-    }
-
-    if (this._form_time_left > 0f) {
-      this._form_time_left -= delta;
-      if (this._form_time_left <= 0)
-        change_form = true;
-    }
-
-    if (change_speed_multiplier
-      || change_fire_rate_multiplier
-      || change_form) {
-      Cfg normol = new();
-      this._config = this._config with {
-        SpeedMultiplier = change_speed_multiplier
-          ? normol.SpeedMultiplier : this._config.SpeedMultiplier,
-        FireRateMultiplier = change_fire_rate_multiplier
-          ? normol.FireRateMultiplier : this._config.FireRateMultiplier,
-        FormMode = change_form ? normol.FormMode : this._config.FormMode,
-      };
-    }
-
-    if (change_form) this.UpdateArmedEffect();
   }
 
   private void UpdateShoot(float delta) {
@@ -271,6 +190,7 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
 
     if (Input.IsActionPressed(Config.InputMap.Shoot)
       && this._shoot_timer <= 0) {
+      this._spiral_shoot = this.SpiralShoot(65535, 128);
       this.Shoot();
       this._shoot_timer = this._config.ShootDelay / this._config.FireRateMultiplier;
     }
@@ -280,8 +200,8 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
     if (this._spiral_shoot == null) return;
 
     this._spiral_accumulator += delta;
-    ushort steps =
-      (ushort)(this._spiral_accumulator / this._config.SpiralShootDelay);
+    float delay = this._config.SpiralShootDelay;
+    ushort steps = (ushort)(this._spiral_accumulator / delay);
 
     if (steps == 0) return;
 
@@ -289,13 +209,11 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
       if (this._spiral_shoot.MoveNext()) continue;
 
       this._spiral_shoot = null;
-      this._config = this._config with {
-        ShotPatternMode = Cfg.ShotPattern.Normal
-      };
+      this._config.ShotPatternMode = Cfg.ShotPattern.Normal;
       this._spiral_accumulator = 0f;
       return;
     }
-    this._spiral_accumulator -= steps * this._config.SpiralShootDelay;
+    this._spiral_accumulator -= steps * delay;
   }
 
   private Vector2 GetShootDirection()
@@ -337,8 +255,8 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
   }
 
   private System.Collections.IEnumerator SpiralShoot(
-    ushort total = 64,
-    byte shots_per_circle = 16) {
+    ushort total,
+    byte shots_per_circle) {
     if (this._bullet_scene == null || shots_per_circle < 1 || total < 2)
       yield break;
 

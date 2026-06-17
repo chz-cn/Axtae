@@ -6,7 +6,10 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
-    <!--AllowUnsafeBlocks>true</AllowUnsafeBlocks -->
+    <Configuration>Release</Configuration>
+
+    <DefineConstants>DebugLog</DefineConstants>
+    <!-- AllowUnsafeBlocks>true</AllowUnsafeBlocks -->
   </PropertyGroup>
 
   <ItemGroup>

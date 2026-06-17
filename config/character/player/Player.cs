@@ -1,20 +1,20 @@
 
 namespace Config.Character.Player;
 
-public record class Player {
-  public float Speed { get; init; } = 30f;
-  public float ShootDelay { get; init; } = .4f;
-  public float SpiralShootDelay { get; init; } = .1f;
-
-  public ushort SpiralBullets { get; init; } = 64;
-  public byte SpiralBulletsPerCircle { get; init; } = 16;
-
-  public float SpeedMultiplier { get; init; } = 1;
-  public float FireRateMultiplier { get; init; } = 1;
-
+public struct Player() {
   public enum Form : byte { Normal, Armed }
-  public Form FormMode = Form.Normal;
-
   public enum ShotPattern : byte { Normal, Spiral }
-  public ShotPattern ShotPatternMode = ShotPattern.Normal;
+
+  public float Speed { readonly get; set; } = 30f;
+  public float ShootDelay { readonly get; set; } = .4f;
+  public float SpiralShootDelay { readonly get; set; } = .01f;
+
+  public ushort SpiralBullets { readonly get; set; } = 64;
+  public byte SpiralBulletsPerCircle { readonly get; set; } = 16;
+
+  public float SpeedMultiplier { readonly get; set; } = 1;
+  public float FireRateMultiplier { readonly get; set; } = 1;
+
+  public Form FormMode { readonly get; set; } = Form.Normal;
+  public ShotPattern ShotPatternMode { readonly get; set; } = ShotPattern.Normal;
 }

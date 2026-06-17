@@ -1,10 +1,8 @@
 
-using Godot;
-
 namespace Config.Character.Enemy;
 
-public class Fast : IPickup<Player.Player> {
-  public float Duration { get; init; } = 5f;
+public readonly struct Fast() : IPickup<Player.Player> {
+  public float Duration { readonly get; init; } = 5f;
 
   public Player.Player GetPickup() {
     return new() {

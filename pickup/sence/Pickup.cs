@@ -31,6 +31,16 @@ public partial class Pickup : Area2D {
     }
   }
 
+  private bool _blink = false;
+  public bool Blink {
+    get => this.Blink;
+    private set {
+      if (this._blink != value)
+        (this._body_sprite.Material as ShaderMaterial)?
+          .SetShaderParameter("blink", value);
+    }
+  }
+
   public float Radius { get; init; } = 6f;
 
   public required Config.IPickup Config { get; init; }
@@ -55,7 +65,7 @@ public partial class Pickup : Area2D {
 
     this.AddChild(new CollisionShape2D() {
       Shape = new CircleShape2D() {
-        Radius = this.Radius,
+        Radius = this.Radius
       }
     });
   }
@@ -65,7 +75,7 @@ public partial class Pickup : Area2D {
       if (area is Character.Player.Player player) {
         var cfg = (this.Config as Config.IPickup<Cfg>)?.GetPickup();
         if (cfg != null) {
-          if (player.ApplyConfig(cfg, this.Config.Duration))
+          if (player.ApplyConfig(cfg.Value, this.Config.Duration))
             this.QueueFree();
         }
         else
@@ -99,7 +109,7 @@ public partial class Pickup : Area2D {
         Timer.SignalName.Timeout);
 
     if (blink > 0.1f) {
-      this.SetBlinkEnable(true);
+      this.Blink = true;
       await this.ToSignal(
         this.GetTree().CreateTimer(blink),
         Timer.SignalName.Timeout);
@@ -107,8 +117,4 @@ public partial class Pickup : Area2D {
 
     this.QueueFree();
   }
-
-  private void SetBlinkEnable(bool enable)
-    => (this._body_sprite.Material as ShaderMaterial)?
-      .SetShaderParameter("blink", enable);
 }
