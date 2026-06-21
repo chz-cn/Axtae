@@ -9,7 +9,7 @@
     <Configuration>Release</Configuration>
 
     <DefineConstants>DebugLog</DefineConstants>
-    <!-- AllowUnsafeBlocks>true</AllowUnsafeBlocks -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>

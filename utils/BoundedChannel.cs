@@ -97,7 +97,7 @@ public sealed class DrainBoundedChannel<T> : IBoundedChannel<T> {
       var p = this._parent;
       if (Volatile.Read(ref p._state) != Channel.Active) return;
 
-      await p._writer_slim.WaitAsync();
+      await p._writer_slim.WaitAsync().ConfigureAwait(false);
 
       p._queue.TryEnqueue(item);
       p._reader_slim.Release();
@@ -136,7 +136,8 @@ public sealed class DrainBoundedChannel<T> : IBoundedChannel<T> {
       var p = this._parent;
       if (Volatile.Read(ref p._state) == Channel.Completed) return item;
       try {
-        await p._reader_slim.WaitAsync(p._cts.Token);
+        await p._reader_slim.WaitAsync(p._cts.Token)
+          .ConfigureAwait(false);
       }
       catch (OperationCanceledException) { return item; }
 
@@ -209,7 +210,8 @@ public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
       if (Volatile.Read(ref p._state) != Channel.Active) return;
 
       try {
-        await p._writer_slim.WaitAsync(p._writer_cts.Token);
+        await p._writer_slim.WaitAsync(p._writer_cts.Token)
+          .ConfigureAwait(false);
       }
       catch (OperationCanceledException) { return; }
 
@@ -269,7 +271,8 @@ public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
       if (Volatile.Read(ref p._state) == Channel.Completed) return item;
 
       try {
-        await p._reader_slim.WaitAsync(p._reader_cts.Token);
+        await p._reader_slim.WaitAsync(p._reader_cts.Token)
+          .ConfigureAwait(false);
       }
       catch (OperationCanceledException) { return item; }
 

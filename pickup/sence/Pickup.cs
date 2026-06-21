@@ -74,7 +74,7 @@ public partial class Pickup : Area2D {
     this.BodyEntered += (area) => {
       if (area is Character.Player.Player player) {
         var cfg = (this.Config as Config.IPickup<Cfg>)?.GetPickup();
-        if (cfg != null) {
+        if (cfg is not null) {
           if (player.ApplyConfig(cfg.Value, this.Config.Duration))
             this.QueueFree();
         }
@@ -85,15 +85,15 @@ public partial class Pickup : Area2D {
 
     this.InitTimer();
 
-    if (this._body_sprite == null) GD.PrintErr("Missing pickup sprite");
+    if (this._body_sprite is null) GD.PrintErr("Missing pickup sprite");
     else {
-      if (this._body_sprite.Texture == null)
+      if (this._body_sprite.Texture is null)
         GD.PrintErr("Missing pickup texture");
 
       if (this._body_sprite.Material is not ShaderMaterial)
         GD.PrintErr("Missing shader material");
       else if (this._body_sprite.Material is ShaderMaterial shm
-        && shm.Shader == null)
+        && shm.Shader is null)
         GD.PrintErr("Missing shader program");
     }
   }

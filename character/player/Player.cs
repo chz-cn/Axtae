@@ -82,15 +82,15 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
       Exclude = [this.GetRid()]
     };
 
-    if (this._body_sprite == null) {
+    if (this._body_sprite is null) {
       GD.PrintErr("Missing Player sprite");
       this.QueueFree();
     }
     else this._body_sprite.AnimationFinished += this.QueueFree;
 
-    if (this._armed_effect_sprite == null)
+    if (this._armed_effect_sprite is null)
       GD.PrintErr("Missing Player armed effect sprite");
-    if (this._bullet_scene == null)
+    if (this._bullet_scene is null)
       GD.PrintErr("Failed to load bullet scene");
   }
 
@@ -99,7 +99,7 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
       this.SetPhysicsProcess(false);
 
       StringName name = "die";
-      if (this._body_sprite == null) return;
+      if (this._body_sprite is null) return;
       if (!this._body_sprite.SpriteFrames.HasAnimation(name)) {
         GD.PushWarning("die animation not found");
         return;
@@ -150,7 +150,7 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
   }
 
   private void UpdateAnim() {
-    if (this._body_sprite == null) return;
+    if (this._body_sprite is null) return;
 
     StringName name = Form2Prefix(this._config.FormMode)
       + Facing2Suffix(this._facing);
@@ -163,7 +163,7 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
   }
 
   private void UpdateArmedEffect() {
-    if (this._armed_effect_sprite == null) return;
+    if (this._armed_effect_sprite is null) return;
 
     if (this._config.FormMode != Cfg.Form.Armed) {
       this._armed_effect_sprite.Visible = false;
@@ -197,7 +197,7 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
   }
 
   private void UpdateSpiralShoot(float delta) {
-    if (this._spiral_shoot == null) return;
+    if (this._spiral_shoot is null) return;
 
     this._spiral_accumulator += delta;
     float delay = this._config.SpiralShootDelay;
@@ -226,8 +226,8 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
     };
 
   private bool? WillHit(Vector2 direction, Vector2 from, float offset) {
-    if (this._ray_query == null
-      || this._state == null
+    if (this._ray_query is null
+      || this._state is null
       || direction == Vector2.Zero
       || offset <= 0f) return null;
 
@@ -239,11 +239,11 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
   }
 
   private void Shoot() {
-    if (this._bullet_scene == null) return;
+    if (this._bullet_scene is null) return;
     bool? hit = this.WillHit(this.GetShootDirection(),
       this.GlobalPosition,
       ShotOffset);
-    if (hit == null || hit == true) return;
+    if (hit is null || hit == true) return;
 
     Bullet bullet = this._bullet_scene.Instantiate<Bullet>();
     bullet.GlobalPosition
@@ -257,7 +257,7 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
   private System.Collections.IEnumerator SpiralShoot(
     ushort total,
     byte shots_per_circle) {
-    if (this._bullet_scene == null || shots_per_circle < 1 || total < 2)
+    if (this._bullet_scene is null || shots_per_circle < 1 || total < 2)
       yield break;
 
     float angle_step = 360f / shots_per_circle;

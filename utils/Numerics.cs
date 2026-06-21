@@ -5,7 +5,11 @@ using System.Runtime.Intrinsics;
 
 namespace Utils;
 
-public static class Numerics {
+public static class Numeric {
+  public const uint KiB = 1024;
+  public const uint MiB = KiB * KiB;
+  public const uint GiB = MiB * KiB;
+
   public static void ZeroIfLessThan(Span<float> data, float threshold) {
     if (data.IsEmpty) return;
 
