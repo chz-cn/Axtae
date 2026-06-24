@@ -64,16 +64,16 @@ public sealed class Logger {
   }
 
   private static async void Write(uint how_many) {
-    Span<byte> buffer = stackalloc byte[MaxEntryLength];
+    Memory<byte> buffer = new byte[MaxEntryLength];
     while (how_many > 0) {
       try {
         var entry = await _reader.ReadAsync()
           .ConfigureAwait(false);
         if (entry.msg is null) return;
 
-        Prase(entry, buffer);
+        Prase(entry, buffer.Span);
 
-        FileWriter.Writer.Write(buffer);
+        FileWriter.Writer.Write(buffer.Span);
       }
       catch (Exception) { }
       how_many--;

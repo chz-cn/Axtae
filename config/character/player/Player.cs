@@ -5,7 +5,7 @@ public struct Player() {
   public enum Form : byte { Normal, Armed }
   public enum ShotPattern : byte { Normal, Spiral }
 
-  public float Speed { readonly get; set; } = 30f;
+  public float Speed { readonly get; set; } = 300f;
   public float ShootDelay { readonly get; set; } = .4f;
   public float SpiralShootDelay { readonly get; set; } = .01f;
 

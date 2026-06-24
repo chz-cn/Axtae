@@ -1,4 +1,6 @@
 
+using System;
+
 namespace Utils.Encode;
 
 public static class UTF16 {

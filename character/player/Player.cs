@@ -1,12 +1,15 @@
 
+using System.Threading.Tasks;
 using Godot;
-using GodotPlugins.Game;
+using Scene.P1;
 using Bullet = Combat.Projectile.Bullet;
 using Cfg = Config.Character.Player.Player;
 
 namespace Character.Player;
 
-public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
+public sealed partial class Player : CharacterBody2D,
+  Combat.IBasicTakeDamage,
+  ICameraFollowable {
   public const float ShotOffset = 10f;
 
   public const float DefaultFireRateMultiplier = 1f;
@@ -14,13 +17,17 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
 
   private Cfg _config = new();
 
-  // nodes
+  #region node
+
+  private readonly PackedScene _bullet_scene;
+
   private AnimatedSprite2D? _body_sprite;
   private AnimatedSprite2D? _armed_effect_sprite;
-  private PackedScene? _bullet_scene;
 
   private PhysicsDirectSpaceState2D? _state;
   private PhysicsRayQueryParameters2D? _ray_query;
+
+  #endregion
 
   private System.Collections.IEnumerator? _spiral_shoot = null;
 
@@ -34,9 +41,11 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
   private float _shoot_timer = 0f;
   private float _spiral_accumulator = 0f;
 
-  private float _speed_time_left = 0f;
-  private float _fire_rate_time_left = 0f;
-  private float _form_time_left = 0f;
+  // on exit tree
+  private readonly TaskCompletionSource _exit = new();
+  public Task OnExit => this._exit.Task;
+
+  #region static
 
   public static string Form2Prefix(Cfg.Form form)
     => form switch {
@@ -59,20 +68,23 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
       ? (input.X > 0f ? FacingDirection.Right : FacingDirection.Left)
       : (input.Y > 0f ? FacingDirection.Down : FacingDirection.Up);
 
+  #endregion
+
+  public Player() {
+    this.MotionMode = MotionModeEnum.Floating;
+
+    this._bullet_scene = ResourceLoader
+      .Load<PackedScene>("res://combat/projectile/bullet.tscn");
+  }
+
+  #region Godot Lifecycle Overrides
+
   public override void _EnterTree() {
     if (this.MaxHealth == 0) {
       this.QueueFree();
       return;
     }
     this.Health = this.MaxHealth;
-
-    this._bullet_scene = ResourceLoader
-      .Load<PackedScene>("res://combat/projectile/Bullet.tscn");
-  }
-
-  public override void _Ready() {
-    this._body_sprite = this.GetNodeOrNull<AnimatedSprite2D>("Body");
-    this._armed_effect_sprite = this.GetNodeOrNull<AnimatedSprite2D>("ArmedEffect");
 
     this._state = this.GetWorld2D().DirectSpaceState;
     this._ray_query = new() {
@@ -82,6 +94,18 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
       Exclude = [this.GetRid()]
     };
 
+    if (this._bullet_scene is null)
+      GD.PrintErr("Failed to load bullet scene");
+  }
+
+  public override void _ExitTree() {
+    this._exit.SetResult();
+  }
+
+  public override void _Ready() {
+    this._body_sprite = this.GetNodeOrNull<AnimatedSprite2D>("Body");
+    this._armed_effect_sprite = this.GetNodeOrNull<AnimatedSprite2D>("ArmedEffect");
+
     if (this._body_sprite is null) {
       GD.PrintErr("Missing Player sprite");
       this.QueueFree();
@@ -90,8 +114,6 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
 
     if (this._armed_effect_sprite is null)
       GD.PrintErr("Missing Player armed effect sprite");
-    if (this._bullet_scene is null)
-      GD.PrintErr("Failed to load bullet scene");
   }
 
   public override void _PhysicsProcess(double delta) {
@@ -100,12 +122,12 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
 
       StringName name = "die";
       if (this._body_sprite is null) return;
-      if (!this._body_sprite.SpriteFrames.HasAnimation(name)) {
-        GD.PushWarning("die animation not found");
-        return;
+      if (this._body_sprite.SpriteFrames.HasAnimation(name)) {
+        if (this._body_sprite.Animation != name) this._body_sprite.Play(name);
       }
+      else GD.PushWarning("die animation not found");
 
-      if (this._body_sprite.Animation != name) this._body_sprite.Play(name);
+      return;
     }
 
     Vector2 input = Input.GetVector(
@@ -118,16 +140,10 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
       * this._config.Speed * this._config.SpeedMultiplier;
     this.MoveAndSlide();
 
-    this.UpdateAnimDirection();
-    this.UpdateAnim();
-
-    float dt = (float)delta;
-
-    this.UpdatePickupEffect(dt);
-
-    this.UpdateShoot(dt);
-    this.UpdateSpiralShoot(dt);
+    this.Update((float)delta);
   }
+
+  #endregion
 
   public void TakeDamage(uint damage) {
     uint val = this.Health;
@@ -138,6 +154,20 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
   public bool ApplyConfig(in Cfg config, float duration = 5f) {
     if (duration <= 0f) return false;
     return false;
+  }
+
+  #region update
+
+  private void Update(float delta) {
+    this.UpdateAnimDirection();
+    this.UpdateAnim();
+
+    float dt = delta;
+
+    this.UpdatePickupEffect(dt);
+
+    this.UpdateShoot(dt);
+    this.UpdateSpiralShoot(dt);
   }
 
   private void UpdateAnimDirection() {
@@ -192,7 +222,8 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
       && this._shoot_timer <= 0) {
       this._spiral_shoot = this.SpiralShoot(65535, 128);
       this.Shoot();
-      this._shoot_timer = this._config.ShootDelay / this._config.FireRateMultiplier;
+      this._shoot_timer = this._config.ShootDelay
+        / this._config.FireRateMultiplier;
     }
   }
 
@@ -216,14 +247,7 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
     this._spiral_accumulator -= steps * delay;
   }
 
-  private Vector2 GetShootDirection()
-    => this._facing switch {
-      FacingDirection.Right => Vector2.Right,
-      FacingDirection.Left => Vector2.Left,
-      FacingDirection.Up => Vector2.Up,
-      FacingDirection.Down => Vector2.Down,
-      _ => Vector2.Right
-    };
+  #endregion
 
   private bool? WillHit(Vector2 direction, Vector2 from, float offset) {
     if (this._ray_query is null
@@ -239,17 +263,26 @@ public partial class Player : CharacterBody2D, Combat.IBasicTakeDamage {
   }
 
   private void Shoot() {
+    Vector2 GetShootDirection()
+      => this._facing switch {
+        FacingDirection.Right => Vector2.Right,
+        FacingDirection.Left => Vector2.Left,
+        FacingDirection.Up => Vector2.Up,
+        FacingDirection.Down => Vector2.Down,
+        _ => Vector2.Right
+      };
+
     if (this._bullet_scene is null) return;
-    bool? hit = this.WillHit(this.GetShootDirection(),
+    bool? hit = this.WillHit(GetShootDirection(),
       this.GlobalPosition,
       ShotOffset);
     if (hit is null || hit == true) return;
 
     Bullet bullet = this._bullet_scene.Instantiate<Bullet>();
     bullet.GlobalPosition
-      = this.GlobalPosition + this.GetShootDirection() * ShotOffset;
+      = this.GlobalPosition + GetShootDirection() * ShotOffset;
 
-    bullet.Setup(this.GetShootDirection());
+    bullet.Setup(GetShootDirection());
     this.GetTree().Root.AddChild(bullet);
     bullet.PlayAudio();
   }

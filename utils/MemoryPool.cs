@@ -54,7 +54,7 @@ public interface IPool {
 /// </remarks>
 public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size) {
   private readonly IPool _parent = parent;
-  private readonly byte* _ptr = ptr;
+  public readonly byte* Ptr = ptr;
   public readonly uint Size = size;
 
   /// <summary>
@@ -64,7 +64,7 @@ public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size) {
   /// <see langword="true"/> if the pointer is <see langword="null"/> or
   /// the size is zero otherwise, <see langword="false"/>.
   /// </value>
-  public bool IsEmpty => this._ptr is null || this.Size is 0;
+  public bool IsEmpty => this.Ptr is null || this.Size is 0;
 
   /// <summary>
   /// Gets a <see cref="Span{T}"/> over the rented memory block.
@@ -74,18 +74,18 @@ public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size) {
   /// This property provides bounds-checked access and is the recommended way
   /// to read or write the rented memory.
   /// </remarks>
-  public Span<byte> Span => new(this._ptr, (int)this.Size);
+  public Span<byte> Span => new(this.Ptr, (int)this.Size);
 
   /// <summary>
   /// <paramref name="index"/> access is unchecked — use <see cref="Span"/>
   /// for safety.
   /// </summary>
   public byte this[nuint index] {
-    get => this._ptr[index];
-    set => this._ptr[index] = value;
+    get => this.Ptr[index];
+    set => this.Ptr[index] = value;
   }
 
-  public void Dispose() => this._parent?.Free(this._ptr);
+  public void Dispose() => this._parent?.Free(this.Ptr);
 }
 
 public unsafe sealed class PagePool : IDisposable, IPool {

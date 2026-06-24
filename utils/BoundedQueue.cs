@@ -13,10 +13,12 @@ public interface IBoundedQueue<T> {
   bool TryDequeue(out T item);
 }
 
-[StructLayout(LayoutKind.Explicit, Size = 64)]
-public struct Paddedulong {
+[StructLayout(LayoutKind.Explicit, Size = 72)]
+public struct Padded {
   [FieldOffset(0)]
-  public ulong Value;
+  public ulong Head;
+  [FieldOffset(64)]
+  public ulong Tail;
 }
 
 public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
@@ -24,8 +26,7 @@ public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
   private readonly uint _mask;
   private readonly Slot[] _arr;
 
-  private Paddedulong _head = new();
-  private Paddedulong _tail = new();
+  private Padded _pos = new();
 
   private struct Slot {
     public ulong Stamp;
@@ -34,11 +35,11 @@ public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
 
   public uint Capacity => this._capacity;
 
-  public uint Count => (uint)(Volatile.Read(ref this._tail.Value)
-    - Volatile.Read(ref this._head.Value));
+  public uint Count => (uint)(Volatile.Read(ref this._pos.Tail)
+    - Volatile.Read(ref this._pos.Head));
 
-  public bool IsEmpty => (uint)(Volatile.Read(ref this._tail.Value)
-    - Volatile.Read(ref this._head.Value)) == 0;
+  public bool IsEmpty => (uint)(Volatile.Read(ref this._pos.Tail)
+    - Volatile.Read(ref this._pos.Head)) == 0;
 
   public BoundedMpmcQueue(uint capacity) {
     capacity = System.Math.Clamp(capacity, 4, 1 << 30);
@@ -47,13 +48,13 @@ public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
     this._mask = this._capacity - 1;
 
     this._arr = new Slot[this._capacity];
-    for (int i = 0; i < this._capacity; i++) {
-      this._arr[i].Stamp = (uint)i;
+    for (nuint i = 0; i < this._capacity; i++) {
+      this._arr[i].Stamp = i;
     }
   }
 
   public bool TryEnqueue(T item) {
-    ulong pos = Volatile.Read(ref this._tail.Value);
+    ulong pos = Volatile.Read(ref this._pos.Tail);
 
     while (true) {
       int idx = (int)(pos & this._mask);
@@ -62,7 +63,7 @@ public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
       long diff = unchecked((long)(stamp - pos));
 
       if (diff == 0) {
-        ulong prev = Interlocked.CompareExchange(ref this._tail.Value, pos + 1, pos);
+        ulong prev = Interlocked.CompareExchange(ref this._pos.Tail, pos + 1, pos);
         if (prev == pos) {
           this._arr[idx].Item = item;
           Volatile.Write(ref this._arr[idx].Stamp, pos + 1);
@@ -71,12 +72,12 @@ public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
         pos = prev;
       }
       else if (diff < 0) return false;
-      else pos = Volatile.Read(ref this._tail.Value);
+      else pos = Volatile.Read(ref this._pos.Tail);
     }
   }
 
   public bool TryDequeue(out T item) {
-    ulong pos = Volatile.Read(ref this._head.Value);
+    ulong pos = Volatile.Read(ref this._pos.Head);
 
     while (true) {
       int idx = (int)(pos & this._mask);
@@ -85,7 +86,7 @@ public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
       long diff = (long)(stamp - pos);
 
       if (diff == 1) {
-        ulong prev = Interlocked.CompareExchange(ref this._head.Value, pos + 1, pos);
+        ulong prev = Interlocked.CompareExchange(ref this._pos.Head, pos + 1, pos);
         if (prev == pos) {
           item = this._arr[idx].Item;
           this._arr[idx].Item = default!;
@@ -98,7 +99,7 @@ public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
         item = default!;
         return false;
       }
-      else pos = Volatile.Read(ref this._head.Value);
+      else pos = Volatile.Read(ref this._pos.Head);
     }
   }
 }
@@ -108,8 +109,7 @@ public sealed class BoundedMpscQueue<T> : IBoundedQueue<T> {
   private readonly uint _mask;
   private readonly Slot[] _arr;
 
-  private Paddedulong _head = new();
-  private Paddedulong _tail = new();
+  private Padded _pos = new();
 
   private struct Slot {
     public ulong Stamp;
@@ -118,11 +118,11 @@ public sealed class BoundedMpscQueue<T> : IBoundedQueue<T> {
 
   public uint Capacity => this._capacity;
 
-  public uint Count => (uint)(Volatile.Read(ref this._tail.Value)
-    - Volatile.Read(ref this._head.Value));
+  public uint Count => (uint)(Volatile.Read(ref this._pos.Tail)
+    - Volatile.Read(ref this._pos.Head));
 
-  public bool IsEmpty => (uint)(Volatile.Read(ref this._tail.Value)
-    - Volatile.Read(ref this._head.Value)) == 0;
+  public bool IsEmpty => (uint)(Volatile.Read(ref this._pos.Tail)
+    - Volatile.Read(ref this._pos.Head)) == 0;
 
   public BoundedMpscQueue(uint capacity) {
     capacity = System.Math.Clamp(capacity, 4, 1 << 30);
@@ -131,13 +131,13 @@ public sealed class BoundedMpscQueue<T> : IBoundedQueue<T> {
     this._mask = this._capacity - 1;
 
     this._arr = new Slot[this._capacity];
-    for (int i = 0; i < this._capacity; i++) {
-      this._arr[i].Stamp = (uint)i;
+    for (nuint i = 0; i < this._capacity; i++) {
+      this._arr[i].Stamp = i;
     }
   }
 
   public bool TryEnqueue(T item) {
-    ulong pos = Volatile.Read(ref this._tail.Value);
+    ulong pos = Volatile.Read(ref this._pos.Tail);
 
     while (true) {
       int idx = (int)(pos & this._mask);
@@ -146,7 +146,7 @@ public sealed class BoundedMpscQueue<T> : IBoundedQueue<T> {
       long diff = unchecked((long)(stamp - pos));
 
       if (diff == 0) {
-        ulong prev = Interlocked.CompareExchange(ref this._tail.Value, pos + 1, pos);
+        ulong prev = Interlocked.CompareExchange(ref this._pos.Tail, pos + 1, pos);
         if (prev == pos) {
           this._arr[idx].Item = item;
           Volatile.Write(ref this._arr[idx].Stamp, pos + 1);
@@ -155,12 +155,12 @@ public sealed class BoundedMpscQueue<T> : IBoundedQueue<T> {
         pos = prev;
       }
       else if (diff < 0) return false;
-      else pos = Volatile.Read(ref this._tail.Value);
+      else pos = Volatile.Read(ref this._pos.Tail);
     }
   }
 
   public bool TryDequeue(out T item) {
-    ulong pos = this._head.Value;
+    ulong pos = this._pos.Head;
     int idx = (int)(pos & this._mask);
     ulong stamp = Volatile.Read(ref this._arr[idx].Stamp);
 
@@ -168,7 +168,7 @@ public sealed class BoundedMpscQueue<T> : IBoundedQueue<T> {
       item = this._arr[idx].Item;
       this._arr[idx].Item = default!;
       Volatile.Write(ref this._arr[idx].Stamp, pos + this._capacity);
-      Volatile.Write(ref this._head.Value, pos + 1);
+      Volatile.Write(ref this._pos.Head, pos + 1);
       return true;
     }
     item = default!;
@@ -181,8 +181,7 @@ public sealed class BoundedSpmcQueue<T> : IBoundedQueue<T> {
   private readonly uint _mask;
   private readonly Slot[] _arr;
 
-  private Paddedulong _head = new();
-  private Paddedulong _tail = new();
+  private Padded _pos = new();
 
   private struct Slot {
     public ulong Stamp;
@@ -191,11 +190,11 @@ public sealed class BoundedSpmcQueue<T> : IBoundedQueue<T> {
 
   public uint Capacity => this._capacity;
 
-  public uint Count => (uint)(Volatile.Read(ref this._tail.Value)
-    - Volatile.Read(ref this._head.Value));
+  public uint Count => (uint)(Volatile.Read(ref this._pos.Tail)
+    - Volatile.Read(ref this._pos.Head));
 
-  public bool IsEmpty => (uint)(Volatile.Read(ref this._tail.Value)
-    - Volatile.Read(ref this._head.Value)) == 0;
+  public bool IsEmpty => (uint)(Volatile.Read(ref this._pos.Tail)
+    - Volatile.Read(ref this._pos.Head)) == 0;
 
   public BoundedSpmcQueue(uint capacity) {
     capacity = System.Math.Clamp(capacity, 4, 1 << 30);
@@ -204,13 +203,13 @@ public sealed class BoundedSpmcQueue<T> : IBoundedQueue<T> {
     this._mask = this._capacity - 1;
 
     this._arr = new Slot[this._capacity];
-    for (int i = 0; i < this._capacity; i++) {
-      this._arr[i].Stamp = (uint)i;
+    for (nuint i = 0; i < this._capacity; i++) {
+      this._arr[i].Stamp = i;
     }
   }
 
   public bool TryEnqueue(T item) {
-    ulong pos = Volatile.Read(ref this._tail.Value);
+    ulong pos = Volatile.Read(ref this._pos.Tail);
     int idx = (int)(pos & this._mask);
     ulong stamp = Volatile.Read(ref this._arr[idx].Stamp);
 
@@ -218,13 +217,13 @@ public sealed class BoundedSpmcQueue<T> : IBoundedQueue<T> {
 
     this._arr[idx].Item = item;
     Volatile.Write(ref this._arr[idx].Stamp, pos + 1);
-    Volatile.Write(ref this._tail.Value, pos + 1);
+    Volatile.Write(ref this._pos.Tail, pos + 1);
 
     return true;
   }
 
   public bool TryDequeue(out T item) {
-    ulong pos = Volatile.Read(ref this._head.Value);
+    ulong pos = Volatile.Read(ref this._pos.Head);
 
     while (true) {
       int idx = (int)(pos & this._mask);
@@ -233,7 +232,7 @@ public sealed class BoundedSpmcQueue<T> : IBoundedQueue<T> {
       long diff = unchecked((long)(stamp - pos));
 
       if (diff == 1) {
-        ulong prev = Interlocked.CompareExchange(ref this._head.Value, pos + 1, pos);
+        ulong prev = Interlocked.CompareExchange(ref this._pos.Head, pos + 1, pos);
         if (prev == pos) {
           item = this._arr[idx].Item;
           this._arr[idx].Item = default!;
@@ -241,13 +240,13 @@ public sealed class BoundedSpmcQueue<T> : IBoundedQueue<T> {
           Volatile.Write(ref this._arr[idx].Stamp, pos + this._capacity);
           return true;
         }
-        pos = Volatile.Read(ref this._head.Value);
+        pos = Volatile.Read(ref this._pos.Head);
       }
       else if (diff < 1) {
         item = default!;
         return false;
       }
-      else pos = Volatile.Read(ref this._head.Value);
+      else pos = Volatile.Read(ref this._pos.Head);
     }
   }
 }
@@ -257,8 +256,7 @@ public sealed class BoundedSpscQueue<T> : IBoundedQueue<T> {
   private readonly uint _mask;
   private readonly T[] _arr;
 
-  private Paddedulong _head = new();
-  private Paddedulong _tail = new();
+  private Padded _pos = new();
 
   public BoundedSpscQueue(uint capacity) {
     capacity = System.Math.Clamp(capacity, 4, 1 << 30);
@@ -271,27 +269,27 @@ public sealed class BoundedSpscQueue<T> : IBoundedQueue<T> {
 
   public uint Capacity => this._capacity;
 
-  public uint Count => (uint)(Volatile.Read(ref this._tail.Value)
-    - Volatile.Read(ref this._head.Value));
+  public uint Count => (uint)(Volatile.Read(ref this._pos.Tail)
+    - Volatile.Read(ref this._pos.Head));
 
-  public bool IsEmpty => (uint)(Volatile.Read(ref this._tail.Value)
-    - Volatile.Read(ref this._head.Value)) == 0;
+  public bool IsEmpty => (uint)(Volatile.Read(ref this._pos.Tail)
+    - Volatile.Read(ref this._pos.Head)) == 0;
 
   public bool TryEnqueue(T item) {
-    ulong head = Volatile.Read(ref this._head.Value);
-    ulong tail = this._tail.Value;
+    ulong head = Volatile.Read(ref this._pos.Head);
+    ulong tail = this._pos.Tail;
 
     if (tail - head >= this._capacity) return false;
 
     this._arr[tail & this._mask] = item;
-    Volatile.Write(ref this._tail.Value, tail + 1);
+    Volatile.Write(ref this._pos.Tail, tail + 1);
 
     return true;
   }
 
   public bool TryDequeue(out T item) {
-    ulong head = this._head.Value;
-    ulong tail = Volatile.Read(ref this._tail.Value);
+    ulong head = this._pos.Head;
+    ulong tail = Volatile.Read(ref this._pos.Tail);
 
     if (head == tail) {
       item = default!;
@@ -301,7 +299,7 @@ public sealed class BoundedSpscQueue<T> : IBoundedQueue<T> {
     int idx = (int)(head & this._mask);
     item = this._arr[idx];
     this._arr[idx] = default!;
-    Volatile.Write(ref this._head.Value, head + 1);
+    Volatile.Write(ref this._pos.Head, head + 1);
 
     return true;
   }
