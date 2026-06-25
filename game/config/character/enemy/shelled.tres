@@ -1,0 +1,17 @@
+[gd_resource type="Resource" format=3 uid="uid://cw2tp6ijegd1w"]
+
+[ext_resource type="SpriteFrames" uid="uid://ddthaweb3e2jg" path="res://game/character/enemy/tic/shelled.tres" id="1_7mp5q"]
+[ext_resource type="Resource" uid="uid://cuqwxmn613v3a" path="res://game/config/pickup/rapid.tres" id="1_bd8vk"]
+[ext_resource type="Script" uid="uid://liiei3v4dlfq" path="res://game/config/Enemy.cs" id="1_sofsh"]
+
+[resource]
+script = ExtResource("1_sofsh")
+CurrentType = 3
+DisplayName = &"shelled"
+Frame = ExtResource("1_7mp5q")
+MaxHealth = 160
+Speed = 15.0
+CollisionRadius = 6.0
+Drop = [ExtResource("1_bd8vk")]
+DropWeights = PackedInt32Array(100)
+metadata/_custom_type_script = "uid://liiei3v4dlfq"

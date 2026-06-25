@@ -1,19 +1,19 @@
-<Project Sdk="Godot.NET.Sdk/4.6.2">
+﻿<Project Sdk="Godot.NET.Sdk/4.7.0">
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
 
     <EmitCompilerGeneratedFiles>true</EmitCompilerGeneratedFiles>
 
+    <RootNamespace>Game</RootNamespace>
+    <AssemblyName>Go</AssemblyName>
+
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
-
-    <Configuration>Release</Configuration>
-
-    <DefineConstants>DebugLog</DefineConstants>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="x/*" />
+    <ProjectReference Include="core\x.csproj" />
+    <Compile Remove="core/**" />
+    <Compile Remove="x/**" />
   </ItemGroup>
 </Project>

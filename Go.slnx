@@ -4,5 +4,7 @@
     <BuildType Name="ExportDebug" />
     <BuildType Name="ExportRelease" />
   </Configurations>
+
+  <Project Path="core/x.csproj" />
   <Project Path="Go.csproj" />
 </Solution>

@@ -1,0 +1,13 @@
+[gd_resource type="Resource" format=3 uid="uid://bm44qho5331dt"]
+
+[ext_resource type="Script" uid="uid://c1dn02ne15jl7" path="res://game/config/Pickup.cs" id="1_gltu7"]
+[ext_resource type="Texture2D" uid="uid://cvp8x3vo227wg" path="res://game/pickup/atlas/spiral.tres" id="1_olfwn"]
+
+[resource]
+script = ExtResource("1_gltu7")
+CurrentType = 2
+DisplayName = &"强化道具"
+Icon = ExtResource("1_olfwn")
+FormMode = 1
+ShotPattern = 1
+metadata/_custom_type_script = "uid://c1dn02ne15jl7"
