@@ -10,7 +10,7 @@ public static class Numeric {
   public const uint MiB = KiB * KiB;
   public const uint GiB = MiB * KiB;
 
-  public static void ZeroIfLessThan(Span<float> data, float threshold) {
+  public static void ZeroIfLessThan(scoped Span<float> data, float threshold) {
     if (data.IsEmpty) return;
 
     int vec_size = Vector<float>.Count;
@@ -18,7 +18,7 @@ public static class Numeric {
     Vector<float> right = new(threshold);
     Vector<float> zero = Vector<float>.Zero;
 
-    ref float start = ref data[0];
+    scoped ref float start = ref data[0];
     int i = 0;
     int last_vec_start = data.Length - vec_size;
 
@@ -39,12 +39,12 @@ public static class Numeric {
     }
   }
 
-  public static void ZeroIfLessThanAligned(Span<float> data, float threshold) {
+  public static void ZeroIfLessThanAligned(scoped Span<float> data, float threshold) {
     int vec_size = Vector<float>.Count;
     Vector<float> right = new(threshold);
     Vector<float> zero = Vector<float>.Zero;
 
-    ref float start = ref data[0];
+    scoped ref float start = ref data[0];
     int len = data.Length;
     for (int i = 0; i < len; i += vec_size) {
       Vector<float> vec = Vector.LoadUnsafe(ref start, (nuint)i);
@@ -53,4 +53,8 @@ public static class Numeric {
         .StoreUnsafe(ref start, (nuint)i);
     }
   }
+
+  public static uint MulHi(uint a, uint b) => (uint)((ulong)a * b >> 32);
+
+  public static ulong MulHi(ulong a, ulong b) => Math.BigMul(a, b, out _);
 }

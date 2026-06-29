@@ -1,4 +1,7 @@
 
+using System;
+using System.Runtime.CompilerServices;
+
 namespace Core.Encode;
 
 public static class Ascii {
@@ -140,4 +143,92 @@ public static class Ascii {
   public const byte CloseBrace = (byte)'}';
   public const byte Tilde = (byte)'~';
   public const byte DEL = 127;
+
+  public static ReadOnlySpan<byte> TwoDigit =>
+    "00010203040506070809"u8 +
+    "10111213141516171819"u8 +
+    "20212223242526272829"u8 +
+    "30313233343536373839"u8 +
+    "40414243444546474849"u8 +
+    "50515253545556575859"u8 +
+    "60616263646566676869"u8 +
+    "70717273747576777879"u8 +
+    "80818283848586878889"u8 +
+    "90919293949596979899"u8;
+
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public static int CountDigits(uint value) {
+    ReadOnlySpan<long> table = [
+      4294967296,
+      8589934582,  8589934582,  8589934582,
+      12884901788, 12884901788, 12884901788,
+      17179868184, 17179868184, 17179868184,
+      21474826480, 21474826480, 21474826480, 21474826480,
+      25769703776, 25769703776, 25769703776,
+      30063771072, 30063771072, 30063771072,
+      34349738368, 34349738368, 34349738368, 34349738368,
+      38554705664, 38554705664, 38554705664,
+      41949672960, 41949672960, 41949672960,
+      42949672960, 42949672960
+    ];
+
+    long tableValue = table[(int)uint.Log2(value)];
+    return (int)((value + tableValue) >> 32);
+  }
+
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public static unsafe byte ToAscii(this int num, scoped Span<byte> sp) {
+    if (sp.IsEmpty) return 0;
+
+    if (num < 0) {
+      fixed (byte* ptr = sp)
+        ptr[0] = Ascii.HyphenMinus;
+
+      uint n = unchecked((uint)-num);
+      byte r = n.ToAscii(sp[1..]);
+      if (r == 0) return 0;
+
+      return (byte)(r + 1);
+    }
+
+    return ((uint)num).ToAscii(sp);
+  }
+
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
+  public static unsafe byte ToAscii(this uint num, scoped Span<byte> sp) {
+    if (sp.IsEmpty) return 0;
+
+    if (num < 10) {
+      sp[0] = (byte)(Ascii.Zero + num);
+      return 1;
+    }
+
+    int len = CountDigits(num);
+    if (len > sp.Length) return 0;
+
+    var LUT = TwoDigit;
+
+    fixed (byte* pdest = sp) {
+      var ptr = pdest + len;
+
+      while (num >= 100) {
+        ptr -= 2;
+        (num, uint idx) = Math.DivRem(num, 100);
+        idx *= 2;
+        ptr[0] = LUT[(int)idx];
+        ptr[1] = LUT[(int)idx + 1];
+      }
+
+      if (num < 10)
+        *--ptr = (byte)(Ascii.Zero + num);
+      else {
+        ptr -= 2;
+        int idx = (int)(num * 2);
+        ptr[0] = LUT[idx];
+        ptr[1] = LUT[idx + 1];
+      }
+    }
+
+    return (byte)len;
+  }
 }

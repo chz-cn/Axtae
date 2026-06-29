@@ -1,14 +1,13 @@
 
 using System;
 using System.Threading;
-using System.Threading.Tasks;
 
 using Godot;
 
 namespace Game.Scene.P1;
 
 public interface ICameraFollowable {
-  Task OnExit { get; }
+  event Action OnExit;
   Vector2 GlobalPosition { get; }
 }
 
@@ -16,19 +15,18 @@ public sealed partial class Camera : Camera2D {
   public const int BaseResolutionX = 640;
   public const int BaseResolutionY = 360;
 
+  private ICameraFollowable? _targget;
   public required ICameraFollowable? TargetToFollow {
-    get;
+    get => this._targget;
     set {
-      this.CleanCTS();
-      field = value;
-      if (value is not null) {
-        this._cts = new();
-        this.FollowTarget(this._cts.Token);
-      }
+      if (value == this._targget) return;
+
+      this._targget?.OnExit -= this.FollowTarget;
+      value?.OnExit += this.FollowTarget;
+
+      this._targget = value;
     }
   }
-
-  private CancellationTokenSource? _cts;
 
   public Camera() {
     this.Enabled = true;
@@ -69,26 +67,8 @@ public sealed partial class Camera : Camera2D {
     this.Zoom = new(current, current);
   }
 
-  private void CleanCTS() {
-    if (this._cts is not null) {
-      this._cts.Cancel();
-      this._cts.Dispose();
-      this._cts = null;
-    }
-  }
-
-  private async void FollowTarget(CancellationToken token) {
-    var target = this.TargetToFollow;
-    if (target is null) return;
-
-    try {
-      await target.OnExit.WaitAsync(token);
-      this.TargetToFollow = null;
-      this.CleanCTS();
-    }
-    catch (OperationCanceledException) { }
-    catch (Exception ex) {
-      GD.PrintErr($"Camera: Error while waiting for target exit: {ex.Message}");
-    }
+  private void FollowTarget() {
+    if (this._targget is null) return;
+    this._targget = null;
   }
 }

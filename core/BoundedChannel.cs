@@ -39,8 +39,6 @@ public static class Channel {
     => reject_on_complete
     ? new RejectBoundedChannel<T>(capacity)
     : new DrainBoundedChannel<T>(capacity);
-
-  // public static IBoundedChannel<T> CreateUnbounded<T>(bool abort = false) { }
 }
 
 public sealed class DrainBoundedChannel<T> : IBoundedChannel<T> {
@@ -71,8 +69,8 @@ public sealed class DrainBoundedChannel<T> : IBoundedChannel<T> {
     if (this._writer_slim.CurrentCount < this._queue.Capacity
       || !this._queue.IsEmpty) return;
 
-    byte prev = Interlocked
-      .CompareExchange(ref this._state, Channel.Completed, Channel.Completing);
+    byte prev = Interlocked.CompareExchange(
+      ref this._state, Channel.Completed, Channel.Completing);
     if (prev != Channel.Completing) return;
 
     this._cts.Cancel();
@@ -105,8 +103,8 @@ public sealed class DrainBoundedChannel<T> : IBoundedChannel<T> {
 
     public void Complete() {
       var p = this._parent;
-      byte prev = Interlocked
-        .CompareExchange(ref p._state, Channel.Completing, Channel.Active);
+      byte prev = Interlocked.CompareExchange(
+        ref p._state, Channel.Completing, Channel.Active);
       if (prev != Channel.Active) return;
 
       p.CheckComplet();
@@ -135,6 +133,7 @@ public sealed class DrainBoundedChannel<T> : IBoundedChannel<T> {
       T item = default!;
       var p = this._parent;
       if (Volatile.Read(ref p._state) == Channel.Completed) return item;
+
       try {
         await p._reader_slim.WaitAsync(p._cts.Token)
           .ConfigureAwait(false);
@@ -178,8 +177,8 @@ public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
     if (this._writer_slim.CurrentCount < this._queue.Capacity
       || !this._queue.IsEmpty) return;
 
-    byte prev = Interlocked
-      .CompareExchange(ref this._state, Channel.Completed, Channel.Completing);
+    byte prev = Interlocked.CompareExchange(
+      ref this._state, Channel.Completed, Channel.Completing);
     if (prev != Channel.Completing) return;
 
     this._reader_cts.Cancel();
@@ -226,8 +225,8 @@ public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
 
     public void Complete() {
       var p = this._parent;
-      byte prev = Interlocked
-        .CompareExchange(ref p._state, Channel.Completing, Channel.Active);
+      byte prev = Interlocked.CompareExchange(
+        ref p._state, Channel.Completing, Channel.Active);
       if (prev != Channel.Active) return;
 
       p._writer_cts.Cancel();

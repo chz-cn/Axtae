@@ -63,7 +63,8 @@ public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
       long diff = unchecked((long)(stamp - pos));
 
       if (diff == 0) {
-        ulong prev = Interlocked.CompareExchange(ref this._pos.Tail, pos + 1, pos);
+        ulong prev = Interlocked.CompareExchange(
+          ref this._pos.Tail, pos + 1, pos);
         if (prev == pos) {
           this._arr[idx].Item = item;
           Volatile.Write(ref this._arr[idx].Stamp, pos + 1);
@@ -86,7 +87,8 @@ public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
       long diff = (long)(stamp - pos);
 
       if (diff == 1) {
-        ulong prev = Interlocked.CompareExchange(ref this._pos.Head, pos + 1, pos);
+        ulong prev = Interlocked.CompareExchange(
+          ref this._pos.Head, pos + 1, pos);
         if (prev == pos) {
           item = this._arr[idx].Item;
           this._arr[idx].Item = default!;
@@ -146,7 +148,8 @@ public sealed class BoundedMpscQueue<T> : IBoundedQueue<T> {
       long diff = unchecked((long)(stamp - pos));
 
       if (diff == 0) {
-        ulong prev = Interlocked.CompareExchange(ref this._pos.Tail, pos + 1, pos);
+        ulong prev = Interlocked.CompareExchange(
+          ref this._pos.Tail, pos + 1, pos);
         if (prev == pos) {
           this._arr[idx].Item = item;
           Volatile.Write(ref this._arr[idx].Stamp, pos + 1);
@@ -232,7 +235,8 @@ public sealed class BoundedSpmcQueue<T> : IBoundedQueue<T> {
       long diff = unchecked((long)(stamp - pos));
 
       if (diff == 1) {
-        ulong prev = Interlocked.CompareExchange(ref this._pos.Head, pos + 1, pos);
+        ulong prev = Interlocked.CompareExchange(
+          ref this._pos.Head, pos + 1, pos);
         if (prev == pos) {
           item = this._arr[idx].Item;
           this._arr[idx].Item = default!;

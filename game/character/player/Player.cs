@@ -35,16 +35,22 @@ public sealed partial class Player : CharacterBody2D,
   public enum FacingDirection : byte { Right, Left, Up, Down }
   private FacingDirection _facing = FacingDirection.Right;
 
-  public uint MaxHealth { get; init; } = 300;
-  public uint Health { get; private set; }
+  private readonly uint _max_health = 300;
+  private uint _health;
 
   // timers
   private float _shoot_timer = 0f;
   private float _spiral_accumulator = 0f;
 
   // on exit tree
-  private readonly TaskCompletionSource _exit = new();
-  public Task OnExit => this._exit.Task;
+  private System.Action? _on_exit = null;
+  public event System.Action OnExit {
+    add => this._on_exit += value;
+    remove => this._on_exit -= value;
+  }
+
+  public uint MaxHealth => this._max_health;
+  public uint Health => this._health;
 
   #region static
 
@@ -81,11 +87,11 @@ public sealed partial class Player : CharacterBody2D,
   #region Godot Lifecycle Overrides
 
   public override void _EnterTree() {
-    if (this.MaxHealth == 0) {
+    if (this._max_health == 0) {
       this.QueueFree();
       return;
     }
-    this.Health = this.MaxHealth;
+    this._health = this._max_health;
 
     this._state = this.GetWorld2D().DirectSpaceState;
     this._ray_query = new() {
@@ -100,7 +106,8 @@ public sealed partial class Player : CharacterBody2D,
   }
 
   public override void _ExitTree() {
-    this._exit.SetResult();
+    this._on_exit?.Invoke();
+    this._on_exit = null;
   }
 
   public override void _Ready() {
@@ -118,7 +125,7 @@ public sealed partial class Player : CharacterBody2D,
   }
 
   public override void _PhysicsProcess(double delta) {
-    if (this.Health == 0) {
+    if (this._health == 0) {
       this.SetPhysicsProcess(false);
 
       StringName name = "die";
@@ -147,9 +154,9 @@ public sealed partial class Player : CharacterBody2D,
   #endregion
 
   public void TakeDamage(uint damage) {
-    uint val = this.Health;
+    uint val = this._health;
     uint x = val - damage;
-    this.Health = val > damage ? x : 0;
+    this._health = val > damage ? x : 0;
   }
 
   public bool ApplyConfig(in Cfg config, float duration = 5f) {

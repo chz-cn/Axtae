@@ -3,13 +3,14 @@ using System;
 using System.Buffers;
 using System.IO;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Threading;
-
+using System.Threading.Tasks;
 using Core.Encode;
 
 namespace Core;
 
-public sealed class Logger {
+public static class Logger {
   public enum Level { Debug, Info, Warning, Error }
   public const int MaxEntryLength = 1024;
 
@@ -36,7 +37,7 @@ public sealed class Logger {
     }
   }
 
-  public static async void Log(
+  public static async ValueTask Log(
     string msg,
     Level level,
     [CallerFilePath] string file = "",
@@ -54,6 +55,7 @@ public sealed class Logger {
 
     TimeStamp.GetStamp(entry.timestamp);
     if (_writer.TryWrite(entry)) return;
+
     try {
       await _writer.WriteAsync(entry)
         .ConfigureAwait(false);
@@ -61,46 +63,137 @@ public sealed class Logger {
     catch (Exception) { }
   }
 
-  private static async void Write(uint how_many) {
+  private static async ValueTask<uint> Write(uint how_many) {
     Memory<byte> buffer = new byte[MaxEntryLength];
     while (how_many > 0) {
-      try {
-        var entry = await _reader.ReadAsync()
-          .ConfigureAwait(false);
-        if (entry.msg is null) return;
+      var entry = await _reader.ReadAsync()
+        .ConfigureAwait(false);
+      if (entry.msg is null) return how_many;
 
-        Prase(entry, buffer.Span);
+      Prase(entry, buffer.Span);
 
-        FileWriter.Writer.Write(buffer.Span);
-      }
-      catch (Exception) { }
+      FileWriter.Writer.Write(buffer.Span);
       how_many--;
     }
+    return 0;
   }
 
-  private static void Prase(LogEntry entry, Span<byte> buffer) {
+  private static uint Prase(LogEntry entry, scoped Span<byte> span) {
+    if (span.Length < 100) return 0;
 
+    scoped ReadOnlySpan<byte> level = entry.level switch {
+      Level.Debug => "[Debug]"u8,
+      Level.Info => "[Info]"u8,
+      Level.Warning => "[Warn]"u8,
+      Level.Error => "[Error]"u8,
+      _ => "[Unknown]"u8
+    };
+
+    level.CopyTo(span);
+    int len = level.Length;
+    span[len++] = Ascii.Space;
+
+    MemoryMarshal.CreateReadOnlySpan(ref entry.timestamp[0], TimeStamp.Size)
+     .CopyTo(span[len..]);
+    len += TimeStamp.Size;
+
+    span[len++] = Ascii.Space;
+
+    // enocde
+
+    if (!AddString(span, entry.file, ref len)) return (uint)len;
+
+    if (!AddByte(span, Ascii.OpenParenthesis, ref len)) return (uint)len;
+
+    byte l = entry.line.ToAscii(span[len..]);
+    if (l != 0) len += l;
+    else {
+      if (!AddByte(span, Ascii.QuestionMark, ref len)) return (uint)len;
+    }
+
+    if (!AddBytes(span, ") --> "u8, ref len)) return (uint)len;
+
+    if (!AddString(span, entry.member, ref len)) return (uint)len;
+
+    if (!AddByte(span, Ascii.LF, ref len)) return (uint)len;
+
+    if (!AddString(span, entry.msg, ref len)) return (uint)len;
+
+    return (uint)len;
+
+    static void AddDots(scoped Span<byte> span, ref int used) {
+      while (used > 0 && span.Length - used < 3) {
+        var status = System.Text.Rune.DecodeLastFromUtf8(
+          span[..used], out _, out int count);
+
+        used -= status == OperationStatus.Done ? count : 1;
+      }
+
+      span[used++] = Ascii.Period;
+      span[used++] = Ascii.Period;
+      span[used++] = Ascii.Period;
+    }
+
+    static bool AddByte(scoped Span<byte> span, byte str, ref int used) {
+      if (span.Length - used >= 1) {
+        span[used++] = str;
+        return true;
+      }
+
+      AddDots(span, ref used);
+      return false;
+    }
+
+    static bool AddBytes(scoped Span<byte> span, ReadOnlySpan<byte> str, ref int used) {
+      int has = span.Length - used;
+      int len = str.Length;
+
+      if (has >= len) {
+        str.CopyTo(span[used..]);
+        used += len;
+        return true;
+      }
+
+      int write = Math.Min(has, len);
+      str[..write].CopyTo(span[used..]);
+      used += write;
+      AddDots(span, ref used);
+      return false;
+    }
+
+    static bool AddString(scoped Span<byte> span, string str, ref int used) {
+      if (str is { Length: > 0 } msg) {
+        System.Text.Encoding.UTF8.GetEncoder().Convert(
+          msg,
+          span[used..],
+          true,
+          out _,
+          out int bytes_used,
+          out bool completed
+        );
+
+        used += bytes_used;
+        if (!completed) {
+          AddDots(span, ref used);
+          return false;
+        }
+        else return true;
+      }
+
+      return AddByte(span, Ascii.QuestionMark, ref used);
+    }
   }
 }
 
-public sealed class TimeStamp {
+public static class TimeStamp {
   public const uint TTL = 10;
   public const byte Size = 22;
-
-  private static readonly byte[] LUT = new byte[200];
 
   private static readonly Lock _lock = new();
   private static readonly byte[] _cache = new byte[22];
   private static long _stamp = 0;
 
   static TimeStamp() {
-    for (int i = 0; i < 100; i++) {
-      int idx = i * 2;
-      (int q, int r) = Math.DivRem(i, 10);
-      LUT[idx] = (byte)(Ascii.Zero + q);
-      LUT[idx + 1] = (byte)(Ascii.Zero + r);
-    }
-
     _cache[0] = Ascii.Two;
     _cache[1] = Ascii.Zero;
     _cache[4] = Ascii.HyphenMinus;
@@ -111,7 +204,7 @@ public sealed class TimeStamp {
     _cache[19] = Ascii.Period;
   }
 
-  public static void GetStamp(Span<byte> span) {
+  public static void GetStamp(scoped Span<byte> span) {
     if (span.Length < 22) return;
 
     long now = Environment.TickCount64;
@@ -135,6 +228,7 @@ public sealed class TimeStamp {
 
   private static void UpdateCache() {
     DateTime now = DateTime.UtcNow;
+    var LUT = Ascii.TwoDigit;
 
     int year = (now.Year - 2000) * 2;
     _cache[2] = LUT[year];
@@ -183,10 +277,9 @@ public sealed class FileWriter : IDisposable {
       8 * 1024);
   }
 
-  public void Write(ReadOnlySpan<byte> what) {
-    lock (this._lock) {
+  public void Write(scoped ReadOnlySpan<byte> what) {
+    lock (this._lock)
       this._stream.Write(what);
-    }
   }
 
   public void Dispose() {

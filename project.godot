@@ -10,9 +10,9 @@ config_version=5
 
 [application]
 
-config/name="Smp"
+config/name="Go"
 run/main_scene="uid://2j0dwncbmo40"
-config/features=PackedStringArray("4.7", "Forward Plus")
+config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 boot_splash/show_image=false
 boot_splash/stretch_mode=0
 boot_splash/use_filter=false
@@ -22,9 +22,9 @@ config/icon="res://icon.svg"
 
 settings/profiler/max_functions=128
 settings/stdout/print_fps=true
+settings/stdout/print_gpu_profile=true
 gdscript/warnings/enable=false
 gdscript/warnings/missing_await=1
-gdscript/warnings/renamed_in_godot_4_hint=false
 
 [display]
 
@@ -85,12 +85,3 @@ shoot={
 2d_physics/layer_7="AreaEffect"
 2d_physics/layer_8="Melee"
 2d_physics/layer_9="Hazard"
-
-[physics]
-
-3d/physics_engine="Jolt Physics"
-
-[rendering]
-
-textures/canvas_textures/default_texture_filter=0
-rendering_device/driver.windows="d3d12"
