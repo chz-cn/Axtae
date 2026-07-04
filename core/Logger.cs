@@ -12,15 +12,35 @@ namespace Core;
 
 public static class Logger {
   public enum Level { Debug, Info, Warning, Error }
-  public const int MaxEntryLength = 1024;
+  public const uint MaxEntryLength = 4 * Numeric.KiB;
 
-  private static readonly IChannelWriter<LogEntry> _writer;
-  private static readonly IChannelReader<LogEntry> _reader;
+  public static readonly string LogFilePath
+    = Path.Combine(Path.GetTempPath(), "GO", "x.log");
+
+  private static readonly IChannel<LogEntry> _channel;
 
   static Logger() {
-    var _channel = Channel.CreateBounded<LogEntry>(128);
-    _writer = _channel.Writer;
-    _reader = _channel.Reader;
+    _channel = Channel.CreateBounded<LogEntry>(128);
+
+    _ = Task.Run(static async () => {
+      byte[] buffer = new byte[(int)MaxEntryLength];
+
+      while (true) {
+        if (_channel.State == Channel.Completed) break;
+
+        var entry = await _channel.Reader.ReadAsync()
+          .ConfigureAwait(false);
+
+        var span = buffer.AsSpan();
+        uint len = Prase(entry, span);
+
+        FileWriter.Writer.Write(span[..(int)len]);
+
+        if (entry.level == Level.Error) FileWriter.Writer.Flush();
+      }
+
+      FileWriter.Writer.Dispose();
+    });
   }
 
   public struct LogEntry {
@@ -40,10 +60,18 @@ public static class Logger {
   public static async ValueTask Log(
     string msg,
     Level level,
-    [CallerFilePath] string file = "",
-    [CallerMemberName] string member = "",
-    [CallerLineNumber] int line = 0) {
-    if (string.IsNullOrWhiteSpace(msg)) return;
+#if DEBUG
+      [CallerFilePath] string file = "",
+      [CallerMemberName] string member = "",
+      [CallerLineNumber] int line = 0
+#else
+      string file = "?",
+      string member = "?",
+      int line = -1
+#endif
+    ) {
+    if (string.IsNullOrWhiteSpace(msg)
+      || _channel.State != Channel.Active) return;
 
     var entry = new LogEntry {
       msg = msg,
@@ -54,29 +82,18 @@ public static class Logger {
     };
 
     TimeStamp.GetStamp(entry.timestamp);
-    if (_writer.TryWrite(entry)) return;
+
+    var writer = _channel.Writer;
+    if (writer.TryWrite(entry)) return;
 
     try {
-      await _writer.WriteAsync(entry)
+      await writer.WriteAsync(entry)
         .ConfigureAwait(false);
     }
     catch (Exception) { }
   }
 
-  private static async ValueTask<uint> Write(uint how_many) {
-    Memory<byte> buffer = new byte[MaxEntryLength];
-    while (how_many > 0) {
-      var entry = await _reader.ReadAsync()
-        .ConfigureAwait(false);
-      if (entry.msg is null) return how_many;
-
-      Prase(entry, buffer.Span);
-
-      FileWriter.Writer.Write(buffer.Span);
-      how_many--;
-    }
-    return 0;
-  }
+  public static void Complete() => _channel.Writer.Complete();
 
   private static uint Prase(LogEntry entry, scoped Span<byte> span) {
     if (span.Length < 100) return 0;
@@ -119,10 +136,12 @@ public static class Logger {
 
     if (!AddString(span, entry.msg, ref len)) return (uint)len;
 
+    if (!AddByte(span, Ascii.LF, ref len)) return (uint)len;
+
     return (uint)len;
 
     static void AddDots(scoped Span<byte> span, ref int used) {
-      while (used > 0 && span.Length - used < 3) {
+      while (used > 0 && span.Length - used < 4) {
         var status = System.Text.Rune.DecodeLastFromUtf8(
           span[..used], out _, out int count);
 
@@ -132,9 +151,13 @@ public static class Logger {
       span[used++] = Ascii.Period;
       span[used++] = Ascii.Period;
       span[used++] = Ascii.Period;
+      span[used++] = Ascii.LF;
     }
 
-    static bool AddByte(scoped Span<byte> span, byte str, ref int used) {
+    static bool AddByte(
+      scoped Span<byte> span,
+      byte str,
+      scoped ref int used) {
       if (span.Length - used >= 1) {
         span[used++] = str;
         return true;
@@ -144,7 +167,10 @@ public static class Logger {
       return false;
     }
 
-    static bool AddBytes(scoped Span<byte> span, ReadOnlySpan<byte> str, ref int used) {
+    static bool AddBytes(
+      scoped Span<byte> span,
+      scoped ReadOnlySpan<byte> str,
+      scoped ref int used) {
       int has = span.Length - used;
       int len = str.Length;
 
@@ -161,7 +187,10 @@ public static class Logger {
       return false;
     }
 
-    static bool AddString(scoped Span<byte> span, string str, ref int used) {
+    static bool AddString(
+      scoped Span<byte> span,
+      string str,
+      scoped ref int used) {
       if (str is { Length: > 0 } msg) {
         System.Text.Encoding.UTF8.GetEncoder().Convert(
           msg,
@@ -182,6 +211,42 @@ public static class Logger {
 
       return AddByte(span, Ascii.QuestionMark, ref used);
     }
+  }
+
+  private sealed class FileWriter : IDisposable {
+    public const byte NewLine = 10;
+
+    public static readonly FileWriter Writer
+      = new(LogFilePath);
+
+    private readonly FileStream _stream;
+    private readonly Lock _lock = new();
+
+    private FileWriter(string file_path) {
+      string? dir = Path.GetDirectoryName(file_path);
+      if (!string.IsNullOrEmpty(dir))
+        _ = Directory.CreateDirectory(dir);
+
+      this._stream = new(file_path,
+        FileMode.Append,
+        FileAccess.Write,
+        FileShare.Read,
+        8 * 1024);
+
+      this._stream.WriteByte(Ascii.LF);
+    }
+
+    public void Write(scoped ReadOnlySpan<byte> what) {
+      lock (this._lock)
+        this._stream.Write(what);
+    }
+
+    public void Flush() {
+      lock (this._lock)
+        this._stream.Flush();
+    }
+
+    public void Dispose() => this._stream.Dispose();
   }
 }
 
@@ -257,32 +322,5 @@ public static class TimeStamp {
     int millisecond = now.Millisecond / 10 * 2;
     _cache[20] = LUT[millisecond];
     _cache[21] = LUT[millisecond + 1];
-  }
-}
-
-public sealed class FileWriter : IDisposable {
-  public const byte NewLine = 10;
-
-  public static readonly FileWriter Writer
-    = new(Path.Combine(Path.GetTempPath(), "GO", "x.log"));
-
-  private readonly FileStream _stream;
-  private readonly Lock _lock = new();
-
-  private FileWriter(string filePath) {
-    this._stream = new(filePath,
-      FileMode.Append,
-      FileAccess.Write,
-      FileShare.Read,
-      8 * 1024);
-  }
-
-  public void Write(scoped ReadOnlySpan<byte> what) {
-    lock (this._lock)
-      this._stream.Write(what);
-  }
-
-  public void Dispose() {
-    this._stream.Dispose();
   }
 }

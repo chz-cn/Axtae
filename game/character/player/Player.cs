@@ -1,5 +1,4 @@
 
-using System.Threading.Tasks;
 using Game.Scene.P1;
 using Godot;
 
@@ -172,8 +171,6 @@ public sealed partial class Player : CharacterBody2D,
 
     float dt = delta;
 
-    this.UpdatePickupEffect(dt);
-
     this.UpdateShoot(dt);
     this.UpdateSpiralShoot(dt);
   }
@@ -217,10 +214,6 @@ public sealed partial class Player : CharacterBody2D,
     StringName effect = "default";
     if (this._armed_effect_sprite.SpriteFrames.HasAnimation(effect))
       this._armed_effect_sprite.Play(effect);
-  }
-
-  private void UpdatePickupEffect(float delta) {
-
   }
 
   private void UpdateShoot(float delta) {

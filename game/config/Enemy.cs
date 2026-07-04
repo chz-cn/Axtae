@@ -3,7 +3,7 @@ using Godot;
 
 namespace Game.Config;
 
-public partial class Enemy {
+public sealed class Enemy {
   /// <summary>静态图标资源</summary>
   public SpriteFrames? Frame = null;
 
@@ -24,5 +24,4 @@ public partial class Enemy {
 
   /// <summary>掉落物 掉落权重: uint</summary>/// <summary>掉落物 掉落权重: uint</summary>
   public System.Tuple<IPickup, uint>[] Drop = [];
-
 }

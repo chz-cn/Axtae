@@ -33,7 +33,7 @@ public interface IPool {
 }
 
 /// <summary>
-/// Represents a rented block of memory from a <see cref="PagePool"/>.
+/// Represents a rented block of memory from a Pool.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -49,7 +49,7 @@ public interface IPool {
 /// </para>
 /// <para>
 /// For safe bounds-checked access, use the <see cref="Span"/> property
-/// instead of the indexer <see cref="this[uint]"/>.
+/// instead of the indexer <see cref="this[nuint]"/>.
 /// </para>
 /// </remarks>
 public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size) {
@@ -182,6 +182,11 @@ public unsafe sealed class PagePool : IDisposable, IPool {
     }
   }
 
+  ~PagePool() {
+    if (this._disposed) return;
+    NativeMemory.AlignedFree(this._pool);
+  }
+
   /// <summary>
   /// Allocates a free data block from the pool.
   /// </summary>
@@ -280,6 +285,7 @@ public unsafe sealed class PagePool : IDisposable, IPool {
       this._disposed = true;
       NativeMemory.AlignedFree(this._pool);
     }
+    GC.SuppressFinalize(this);
   }
 
   // stack
