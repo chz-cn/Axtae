@@ -1,15 +1,20 @@
 
+using System;
+using Game.Combat;
+using Game.Config.Pickup;
 using Godot;
-using Cfg = Game.Config.Character.Player.Player;
+using static Core.Logger;
 using L = Game.Config.Layer;
 
-namespace Pickup.Scene;
+namespace Game.Pickup.Scene;
 
-public partial class Pickup : Area2D {
+public partial class Pickup : Area2D, IBlinkable {
   public const uint Layer = L.Pickup;
   public const uint Mask = L.CharacterBody;
 
   public float BlinkBeforeExpire { get; init; } = 1.5f;
+
+  #region IBlinkable
 
   public float BlinkSpeed {
     get; init {
@@ -27,35 +32,43 @@ public partial class Pickup : Area2D {
       // .5f is default blink speed
       if (value != .5f && value > 0f && value < 1f)
         (this._body_sprite.Material as ShaderMaterial)?
-          .SetShaderParameter("blink_speed", value);
+          .SetShaderParameter("hidden_ratio", value);
     }
   }
 
-  private bool _blink = false;
   public bool Blink {
-    get => this.Blink;
-    private set {
-      if (this._blink != value)
+    get; private set {
+      if (field != value) {
         (this._body_sprite.Material as ShaderMaterial)?
           .SetShaderParameter("blink", value);
+        field = value;
+      }
     }
   }
 
-  public float Radius { get; init; } = 6f;
+  #endregion
 
-  public required Game.Config.IPickup Config { get; init; }
+  public Config.IPickup Config { get; }
 
   private readonly Sprite2D _body_sprite;
 
-  public Pickup(string texture_path) {
+  public Pickup(Config.IPickup config) {
+    ArgumentNullException.ThrowIfNull(config, nameof(config));
+    if (config is Empty)
+      throw new ArgumentException("Empty Pickup config", nameof(config));
+
+    ArgumentOutOfRangeException.ThrowIfLessThan(
+      config.Duration, .1f, nameof(config.Duration));
+
     this.CollisionLayer = Layer;
     this.CollisionMask = Mask;
 
+    this.Config = config;
+
     this._body_sprite = new() {
-      Texture = ResourceLoader.Load<Texture2D>(texture_path),
-      Material = new ShaderMaterial() {
-        Shader = ResourceLoader
-          .Load<Shader>("res://game/pickup/sence/blink.gdshader")
+      Texture = ResourceLoader.Load<Texture2D>(config.TexturePath),
+      Material = new ShaderMaterial {
+        Shader = IBlinkable.Shader
       }
     };
   }
@@ -63,58 +76,58 @@ public partial class Pickup : Area2D {
   public override void _EnterTree() {
     this.AddChild(this._body_sprite);
 
-    this.AddChild(new CollisionShape2D() {
-      Shape = new CircleShape2D() {
-        Radius = this.Radius
-      }
+    this.AddChild(new CollisionShape2D {
+      Shape = this.Config.Shape
     });
   }
 
   public override void _Ready() {
-    this.BodyEntered += (area) => {
-      if (area is Game.Character.Player.Player player) {
-        var cfg = (this.Config as Game.Config.IPickup<Cfg>)?.GetPickup();
-        if (cfg is not null) {
-          if (player.ApplyConfig(cfg.Value, this.Config.Duration))
-            this.QueueFree();
-        }
-        else
-          GD.PrintErr("Missing pickup config for player");
+    this.BodyEntered += async (node) => {
+      if (node is Character.Player.Player player) {
+        (this.Config as Config.IPickup<Character.Player.Player>)?
+          .ApplyTo(player);
+        this.QueueFree();
       }
     };
 
     this.InitTimer();
 
-    if (this._body_sprite is null) GD.PrintErr("Missing pickup sprite");
+    if (this._body_sprite is null)
+      Log(Level.Warning, "Missing pickup sprite");
     else {
       if (this._body_sprite.Texture is null)
-        GD.PrintErr("Missing pickup texture");
+        Log(Level.Warning, "Missing pickup texture");
 
       if (this._body_sprite.Material is not ShaderMaterial)
-        GD.PrintErr("Missing shader material");
+        Log(Level.Warning, "Missing shader material");
       else if (this._body_sprite.Material is ShaderMaterial shm
         && shm.Shader is null)
-        GD.PrintErr("Missing shader program");
+        Log(Level.Warning, "Missing shader program");
     }
   }
 
   private async void InitTimer() {
-    float total = System.MathF.Max(.1f, this.Config.Duration);
-    float blink = System.Math.Clamp(this.BlinkBeforeExpire, 0, total);
-    float before_blink = total - blink;
+    try {
+      float blink = Math.Clamp(this.BlinkBeforeExpire, 0, (float)this.Config.Duration);
+      float before_blink = this.Config.Duration - blink;
 
-    if (before_blink > 0.1f)
-      await this.ToSignal(
-        this.GetTree().CreateTimer(before_blink),
-        Timer.SignalName.Timeout);
+      if (before_blink > 0.1f)
+        await this.ToSignal(
+          this.GetTree().CreateTimer(before_blink),
+          Timer.SignalName.Timeout);
 
-    if (blink > 0.1f) {
-      this.Blink = true;
-      await this.ToSignal(
-        this.GetTree().CreateTimer(blink),
-        Timer.SignalName.Timeout);
+      if (blink > 0.1f) {
+        this.Blink = true;
+        await this.ToSignal(
+          this.GetTree().CreateTimer(blink),
+          Timer.SignalName.Timeout);
+      }
     }
-
-    this.QueueFree();
+    catch (Exception ex) {
+      Log(Level.Error, ex.Message);
+    }
+    finally {
+      this.QueueFree();
+    }
   }
 }

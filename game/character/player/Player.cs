@@ -1,6 +1,7 @@
 
 using Game.Scene.P1;
 using Godot;
+using static Core.Logger;
 
 using Bullet = Game.Combat.Projectile.Bullet;
 using Cfg = Game.Config.Character.Player.Player;
@@ -16,6 +17,7 @@ public sealed partial class Player : CharacterBody2D,
   public const float DefaultSpeedMultiplier = 1f;
 
   private Cfg _config = new();
+  public Cfg Config => this._config;
 
   #region node
 
@@ -34,9 +36,6 @@ public sealed partial class Player : CharacterBody2D,
   public enum FacingDirection : byte { Right, Left, Up, Down }
   private FacingDirection _facing = FacingDirection.Right;
 
-  private readonly uint _max_health = 300;
-  private uint _health;
-
   // timers
   private float _shoot_timer = 0f;
   private float _spiral_accumulator = 0f;
@@ -48,8 +47,12 @@ public sealed partial class Player : CharacterBody2D,
     remove => this._on_exit -= value;
   }
 
-  public uint MaxHealth => this._max_health;
-  public uint Health => this._health;
+  private readonly uint _mask = (uint)System.Random.Shared.Next();
+  public uint MaxHealth { get; init; } = 4;
+  public uint Health {
+    get => field ^ this._mask;
+    private set => field = value ^ this._mask;
+  }
 
   #region static
 
@@ -86,11 +89,11 @@ public sealed partial class Player : CharacterBody2D,
   #region Godot Lifecycle Overrides
 
   public override void _EnterTree() {
-    if (this._max_health == 0) {
+    if (this.MaxHealth == 0) {
       this.QueueFree();
       return;
     }
-    this._health = this._max_health;
+    this.Health = this.MaxHealth;
 
     this._state = this.GetWorld2D().DirectSpaceState;
     this._ray_query = new() {
@@ -101,12 +104,13 @@ public sealed partial class Player : CharacterBody2D,
     };
 
     if (this._bullet_scene is null)
-      GD.PrintErr("Failed to load bullet scene");
+      Log(Level.Warning, "Failed to load bullet scene");
   }
 
   public override void _ExitTree() {
     this._on_exit?.Invoke();
     this._on_exit = null;
+    Log(Level.Error, "flush");
   }
 
   public override void _Ready() {
@@ -114,17 +118,17 @@ public sealed partial class Player : CharacterBody2D,
     this._armed_effect_sprite = this.GetNodeOrNull<AnimatedSprite2D>("ArmedEffect");
 
     if (this._body_sprite is null) {
-      GD.PrintErr("Missing Player sprite");
+      Log(Level.Warning, "Missing Player sprite");
       this.QueueFree();
     }
     else this._body_sprite.AnimationFinished += this.QueueFree;
 
     if (this._armed_effect_sprite is null)
-      GD.PrintErr("Missing Player armed effect sprite");
+      Log(Level.Warning, "Missing Player armed effect sprite");
   }
 
   public override void _PhysicsProcess(double delta) {
-    if (this._health == 0) {
+    if (this.Health == 0) {
       this.SetPhysicsProcess(false);
 
       StringName name = "die";
@@ -132,19 +136,19 @@ public sealed partial class Player : CharacterBody2D,
       if (this._body_sprite.SpriteFrames.HasAnimation(name)) {
         if (this._body_sprite.Animation != name) this._body_sprite.Play(name);
       }
-      else GD.PushWarning("die animation not found");
+      else Log(Level.Warning, "die animation not found");
 
       return;
     }
 
     Vector2 input = Input.GetVector(
-      Config.InputMap.MoveLeft,
-      Config.InputMap.MoveRight,
-      Config.InputMap.MoveUp,
-      Config.InputMap.MoveDown);
+      Game.Config.InputMap.MoveLeft,
+      Game.Config.InputMap.MoveRight,
+      Game.Config.InputMap.MoveUp,
+      Game.Config.InputMap.MoveDown);
 
     this.Velocity = input.Normalized()
-      * this._config.Speed * this._config.SpeedMultiplier;
+      * this._config.MoveSpeed * this._config.SpeedMultiplier;
     this.MoveAndSlide();
 
     this.Update((float)delta);
@@ -153,14 +157,16 @@ public sealed partial class Player : CharacterBody2D,
   #endregion
 
   public void TakeDamage(uint damage) {
-    uint val = this._health;
+    uint val = this.Health;
     uint x = val - damage;
-    this._health = val > damage ? x : 0;
+    this.Health = val > damage ? x : 0;
   }
 
-  public bool ApplyConfig(in Cfg config, float duration = 5f) {
-    if (duration <= 0f) return false;
-    return false;
+  public void SpiralShoot() {
+    this._config.ShotPatternMode = Cfg.ShotPattern.Spiral;
+    this._config.FormMode = Cfg.Form.Armed;
+    this._spiral_shoot = this.SpiralShoot(this._config.SpiralBullets,
+      this._config.SpiralBulletsPerCircle);
   }
 
   #region update
@@ -219,7 +225,7 @@ public sealed partial class Player : CharacterBody2D,
   private void UpdateShoot(float delta) {
     if (this._shoot_timer > 0) this._shoot_timer -= delta;
 
-    if (Input.IsActionPressed(Config.InputMap.Shoot)
+    if (Input.IsActionPressed(Game.Config.InputMap.Shoot)
       && this._shoot_timer <= 0) {
       this.Shoot();
       this._shoot_timer = this._config.ShootDelay
@@ -241,6 +247,7 @@ public sealed partial class Player : CharacterBody2D,
 
       this._spiral_shoot = null;
       this._config.ShotPatternMode = Cfg.ShotPattern.Normal;
+      this._config.FormMode = Cfg.Form.Normal;
       this._spiral_accumulator = 0f;
       return;
     }

@@ -161,12 +161,12 @@ public abstract class BoundedChannelTests<TChannel> where TChannel
   }
 }
 
-public class DrainChannelTests : BoundedChannelTests<DrainBoundedChannel<int>> {
+public sealed class DrainChannelTests : BoundedChannelTests<DrainBoundedChannel<int>> {
   protected override DrainBoundedChannel<int> CreateChannel(uint capacity) =>
     (DrainBoundedChannel<int>)Channel.CreateBounded<int>(capacity, false);
 }
 
-public class RejectChannelTests : BoundedChannelTests<RejectBoundedChannel<int>> {
+public sealed class RejectChannelTests : BoundedChannelTests<RejectBoundedChannel<int>> {
   protected override RejectBoundedChannel<int> CreateChannel(uint capacity) =>
     (RejectBoundedChannel<int>)Channel.CreateBounded<int>(capacity, true);
 }

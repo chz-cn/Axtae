@@ -1,7 +1,7 @@
 
 using System.Runtime.CompilerServices;
 using static Core.Numeric;
-using static Core.Random.SplitMix64;
+using static Core.Random.IRandom;
 
 namespace Core.Random;
 

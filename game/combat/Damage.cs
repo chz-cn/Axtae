@@ -4,14 +4,10 @@ using static Core.Per50000;
 namespace Game.Combat;
 
 public interface ITakeDamage {
-  uint MaxHealth { get => 0; init { } }
-  uint Health { get => 0; set { } }
+  uint MaxHealth { get; init; }
+  uint Health { get; }
 
-  void TakeDamage(uint damage) {
-    uint val = this.Health;
-    uint x = val - damage;
-    this.Health = val > damage ? x : 0;
-  }
+  void TakeDamage(uint damage);
 }
 
 public interface ITakeMetalDamage : ITakeDamage {
@@ -223,23 +219,4 @@ public interface IBasicTakeDamage : ITakeDamage,
     Wind, Shadow, Star, Thunder,
     Blood, Poison, Sonic, Spirit
   }
-}
-
-public class P : ITakeDamage,
-  ITakeMetalDamage,
-  ITakeNatureDamage,
-  ITakeWaterDamage, ITakeIceDamage,
-  ITakeFireDamage,
-  ITakeEarthDamage {
-  public uint MaxHealth { get; init; }
-  public uint Health { get; private set; }
-
-  public void TakeDamage(uint damage) {
-    uint val = this.Health;
-    uint x = val - damage;
-    this.Health = val > damage ? x : 0;
-  }
-
-  private System.Collections.Generic.List<nint> values = [];
-
 }

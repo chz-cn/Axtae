@@ -5,7 +5,7 @@ using Core;
 
 namespace Test;
 
-public class NumericTests {
+public sealed class NumericTests {
   [Fact]
   public void ZeroIfLessThan_EmptySpan_DoesNothing() {
     Span<float> data = [];

@@ -24,6 +24,7 @@ public static class Logger {
 
     _ = Task.Run(static async () => {
       byte[] buffer = new byte[(int)MaxEntryLength];
+      var encoder = System.Text.Encoding.UTF8.GetEncoder();
 
       while (true) {
         if (_channel.State == Channel.Completed) break;
@@ -32,7 +33,7 @@ public static class Logger {
           .ConfigureAwait(false);
 
         var span = buffer.AsSpan();
-        uint len = Prase(entry, span);
+        uint len = Parse(entry, span, encoder);
 
         FileWriter.Writer.Write(span[..(int)len]);
 
@@ -40,7 +41,7 @@ public static class Logger {
       }
 
       FileWriter.Writer.Dispose();
-    });
+    }).ConfigureAwait(false);
   }
 
   public struct LogEntry {
@@ -57,9 +58,9 @@ public static class Logger {
     }
   }
 
-  public static async ValueTask Log(
-    string msg,
+  public static void Log(
     Level level,
+    string msg,
 #if DEBUG
       [CallerFilePath] string file = "",
       [CallerMemberName] string member = "",
@@ -86,17 +87,15 @@ public static class Logger {
     var writer = _channel.Writer;
     if (writer.TryWrite(entry)) return;
 
-    try {
-      await writer.WriteAsync(entry)
-        .ConfigureAwait(false);
-    }
-    catch (Exception) { }
+    _ = writer.WriteAsync(entry).AsTask();
   }
 
   public static void Complete() => _channel.Writer.Complete();
 
-  private static uint Prase(LogEntry entry, scoped Span<byte> span) {
+  private static uint Parse(LogEntry entry, scoped Span<byte> span,
+    System.Text.Encoder encoder) {
     if (span.Length < 100) return 0;
+    ArgumentNullException.ThrowIfNull(encoder);
 
     scoped ReadOnlySpan<byte> level = entry.level switch {
       Level.Debug => "[Debug]"u8,
@@ -118,7 +117,7 @@ public static class Logger {
 
     // enocde
 
-    if (!AddString(span, entry.file, ref len)) return (uint)len;
+    if (!AddString(span, entry.file, ref len, encoder)) return (uint)len;
 
     if (!AddByte(span, Ascii.OpenParenthesis, ref len)) return (uint)len;
 
@@ -130,11 +129,11 @@ public static class Logger {
 
     if (!AddBytes(span, ") --> "u8, ref len)) return (uint)len;
 
-    if (!AddString(span, entry.member, ref len)) return (uint)len;
+    if (!AddString(span, entry.member, ref len, encoder)) return (uint)len;
 
     if (!AddByte(span, Ascii.LF, ref len)) return (uint)len;
 
-    if (!AddString(span, entry.msg, ref len)) return (uint)len;
+    if (!AddString(span, entry.msg, ref len, encoder)) return (uint)len;
 
     if (!AddByte(span, Ascii.LF, ref len)) return (uint)len;
 
@@ -190,9 +189,10 @@ public static class Logger {
     static bool AddString(
       scoped Span<byte> span,
       string str,
-      scoped ref int used) {
+      scoped ref int used,
+      System.Text.Encoder encoder) {
       if (str is { Length: > 0 } msg) {
-        System.Text.Encoding.UTF8.GetEncoder().Convert(
+        encoder.Convert(
           msg,
           span[used..],
           true,
@@ -214,8 +214,6 @@ public static class Logger {
   }
 
   private sealed class FileWriter : IDisposable {
-    public const byte NewLine = 10;
-
     public static readonly FileWriter Writer
       = new(LogFilePath);
 

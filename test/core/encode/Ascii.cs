@@ -4,7 +4,7 @@ using Core.Encode;
 
 namespace Test.Encode;
 
-public class AsciiTests {
+public sealed class AsciiTests {
   public static readonly TheoryData<uint, int> CountDigitsData = new() {
     { 1u, 1}, {uint.MaxValue, 10 },
     { 10u, 2}, {999999999u, 9 },

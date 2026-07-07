@@ -59,7 +59,7 @@ public sealed class DrainBoundedChannel<T> : IBoundedChannel<T> {
   public DrainBoundedChannel(uint capacity) {
     this._queue = new(capacity);
     int cap = (int)this._queue.Capacity;
-    this._writer_slim = new(cap);
+    this._writer_slim = new(cap, cap);
     this._reader_slim = new(0, cap);
     this.Writer = new IWriter(this);
     this.Reader = new IReader(this);
@@ -167,7 +167,7 @@ public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
   public RejectBoundedChannel(uint capacity) {
     this._queue = new(capacity);
     int cap = (int)this._queue.Capacity;
-    this._writer_slim = new(cap);
+    this._writer_slim = new(cap, cap);
     this._reader_slim = new(0, cap);
     this.Writer = new IWriter(this);
     this.Reader = new IReader(this);

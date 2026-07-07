@@ -77,7 +77,7 @@ public abstract class BoundedQueueTests<TQueue> where TQueue : IBoundedQueue<int
   }
 }
 
-public class MpmcQueueTests : BoundedQueueTests<BoundedMpmcQueue<int>> {
+public sealed class MpmcQueueTests : BoundedQueueTests<BoundedMpmcQueue<int>> {
   protected override BoundedMpmcQueue<int> CreateQueue(uint capacity) => new(capacity);
 
   [Fact]
@@ -121,7 +121,7 @@ public class MpmcQueueTests : BoundedQueueTests<BoundedMpmcQueue<int>> {
   }
 }
 
-public class MpscQueueTests : BoundedQueueTests<BoundedMpscQueue<int>> {
+public sealed class MpscQueueTests : BoundedQueueTests<BoundedMpscQueue<int>> {
   protected override BoundedMpscQueue<int> CreateQueue(uint capacity) => new(capacity);
 
   [Fact]
@@ -158,7 +158,7 @@ public class MpscQueueTests : BoundedQueueTests<BoundedMpscQueue<int>> {
   }
 }
 
-public class SpmcQueueTests : BoundedQueueTests<BoundedSpmcQueue<int>> {
+public sealed class SpmcQueueTests : BoundedQueueTests<BoundedSpmcQueue<int>> {
   protected override BoundedSpmcQueue<int> CreateQueue(uint capacity) => new(capacity);
 
   [Fact]
@@ -196,7 +196,7 @@ public class SpmcQueueTests : BoundedQueueTests<BoundedSpmcQueue<int>> {
   }
 }
 
-public class SpscQueueTests : BoundedQueueTests<BoundedSpscQueue<int>> {
+public sealed class SpscQueueTests : BoundedQueueTests<BoundedSpscQueue<int>> {
   protected override BoundedSpscQueue<int> CreateQueue(uint capacity) => new(capacity);
 
   [Fact]

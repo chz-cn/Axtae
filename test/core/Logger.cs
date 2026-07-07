@@ -7,11 +7,11 @@ using Core;
 
 namespace Test;
 
-public class LoggerTests {
+public sealed class LoggerTests {
   [Fact]
   public async Task Log_ValidMessage_DoesNotThrow() {
     var ex = await Record.ExceptionAsync(static async () =>
-      await Logger.Log("Test message", Logger.Level.Info)
+      Logger.Log(Logger.Level.Info, "Test message")
     );
     Assert.Null(ex);
   }
@@ -19,26 +19,26 @@ public class LoggerTests {
   [Fact]
   public async Task Log_EmptyMessage_DoesNotThrow() {
     var ex = await Record.ExceptionAsync(static async () =>
-      await Logger.Log("", Logger.Level.Warning));
+      Logger.Log(Logger.Level.Warning, ""));
     Assert.Null(ex);
 
     ex = await Record.ExceptionAsync(static async () =>
-      await Logger.Log("   ", Logger.Level.Error));
+      Logger.Log(Logger.Level.Error, "   "));
     Assert.Null(ex);
   }
 
   [Fact]
   public async Task Log_NullMessage_DoesNotThrow() {
     var ex = await Record.ExceptionAsync(static async () =>
-      await Logger.Log("", Logger.Level.Debug));
+      Logger.Log(Logger.Level.Debug, null!));
     Assert.Null(ex);
   }
 
   [Fact]
   public async Task Log_WhenChannelFull_DoesNotBlockIndefinitely() {
-    var task = Task.Run(async () => {
+    var task = Task.Run(() => {
       for (int i = 0; i < 200; i++) {
-        await Logger.Log($"  Bulk message {i}", Logger.Level.Debug);
+        Logger.Log(Logger.Level.Debug, $"  Bulk message {i}");
       }
     });
 
@@ -48,20 +48,20 @@ public class LoggerTests {
   }
 
   [Fact]
-  public async Task Log_MaxEntryLength() {
-    await Logger.Log(new('a', 4096), Logger.Level.Error);
+  public void Log_MaxEntryLength() {
+    Logger.Log(Logger.Level.Error, new('a', 4096));
   }
 
   [Fact]
-  public async Task Log_EveryLevel() {
-    await Logger.Log("Debug", Logger.Level.Debug);
-    await Logger.Log("Info", Logger.Level.Info);
-    await Logger.Log("Warning", Logger.Level.Warning);
-    await Logger.Log("Error", Logger.Level.Error);
+  public void Log_EveryLevel() {
+    Logger.Log(Logger.Level.Debug, "Debug");
+    Logger.Log(Logger.Level.Info, "Info");
+    Logger.Log(Logger.Level.Warning, "Warning");
+    Logger.Log(Logger.Level.Error, "Error");
   }
 }
 
-public class TimeStampTests {
+public sealed class TimeStampTests {
   private const int ExpectedLength = TimeStamp.Size;
 
   [Fact]

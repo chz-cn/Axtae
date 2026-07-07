@@ -176,59 +176,63 @@ public static class Ascii {
     return (int)((value + tableValue) >> 32);
   }
 
-  [MethodImpl(MethodImplOptions.AggressiveInlining)]
-  public static unsafe byte ToAscii(this int num, scoped Span<byte> sp) {
-    if (sp.IsEmpty) return 0;
+  extension(int num) {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public unsafe byte ToAscii(scoped Span<byte> sp) {
+      if (sp.IsEmpty) return 0;
 
-    if (num < 0) {
-      fixed (byte* ptr = sp)
-        ptr[0] = Ascii.HyphenMinus;
+      if (num < 0) {
+        fixed (byte* ptr = sp)
+          ptr[0] = Ascii.HyphenMinus;
 
-      uint n = unchecked((uint)-num);
-      byte r = n.ToAscii(sp[1..]);
-      if (r == 0) return 0;
+        uint n = unchecked((uint)-num);
+        byte r = n.ToAscii(sp[1..]);
+        if (r == 0) return 0;
 
-      return (byte)(r + 1);
+        return (byte)(r + 1);
+      }
+
+      return ((uint)num).ToAscii(sp);
     }
-
-    return ((uint)num).ToAscii(sp);
   }
 
-  [MethodImpl(MethodImplOptions.AggressiveInlining)]
-  public static unsafe byte ToAscii(this uint num, scoped Span<byte> sp) {
-    if (sp.IsEmpty) return 0;
+  extension(uint num) {
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public unsafe byte ToAscii(scoped Span<byte> sp) {
+      if (sp.IsEmpty) return 0;
 
-    if (num < 10) {
-      sp[0] = (byte)(Ascii.Zero + num);
-      return 1;
-    }
-
-    int len = CountDigits(num);
-    if (len > sp.Length) return 0;
-
-    var LUT = TwoDigit;
-
-    fixed (byte* pdest = sp) {
-      var ptr = pdest + len;
-
-      while (num >= 100) {
-        ptr -= 2;
-        (num, uint idx) = Math.DivRem(num, 100);
-        idx *= 2;
-        ptr[0] = LUT[(int)idx];
-        ptr[1] = LUT[(int)idx + 1];
+      if (num < 10) {
+        sp[0] = (byte)(Ascii.Zero + num);
+        return 1;
       }
 
-      if (num < 10)
-        *--ptr = (byte)(Ascii.Zero + num);
-      else {
-        ptr -= 2;
-        int idx = (int)(num * 2);
-        ptr[0] = LUT[idx];
-        ptr[1] = LUT[idx + 1];
-      }
-    }
+      int len = CountDigits(num);
+      if (len > sp.Length) return 0;
 
-    return (byte)len;
+      var LUT = TwoDigit;
+
+      fixed (byte* pdest = sp) {
+        var ptr = pdest + len;
+
+        while (num >= 100) {
+          ptr -= 2;
+          (num, uint idx) = Math.DivRem(num, 100);
+          idx *= 2;
+          ptr[0] = LUT[(int)idx];
+          ptr[1] = LUT[(int)idx + 1];
+        }
+
+        if (num < 10)
+          *--ptr = (byte)(Ascii.Zero + num);
+        else {
+          ptr -= 2;
+          int idx = (int)(num * 2);
+          ptr[0] = LUT[idx];
+          ptr[1] = LUT[idx + 1];
+        }
+      }
+
+      return (byte)len;
+    }
   }
 }

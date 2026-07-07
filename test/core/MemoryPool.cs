@@ -7,7 +7,7 @@ using Core;
 
 namespace Test;
 
-public class PagePoolTests : IDisposable {
+public sealed class PagePoolTests : IDisposable {
   private readonly PagePool _pool;
 
   public PagePoolTests() => this._pool = new PagePool(size: 1, block_size: 1);
@@ -155,7 +155,7 @@ public class PagePoolTests : IDisposable {
   }
 }
 
-public class CachePoolTests : IDisposable {
+public sealed class CachePoolTests : IDisposable {
   private const ushort BufferSize = 8;
   private const ushort BlockSize = 1;
   private unsafe byte* _buffer;

@@ -1,11 +1,11 @@
 
 using System.Numerics;
 using System.Runtime.CompilerServices;
-using static Core.Random.SplitMix64;
+using static Core.Random.IRandom;
 
 namespace Core.Random;
 
-public struct Xoroshiro128Plus {
+public struct Xoroshiro128Plus : IRandom {
   private ulong _s0, _s1;
 
   public Xoroshiro128Plus(ulong seed) {
@@ -39,30 +39,9 @@ public struct Xoroshiro128Plus {
 
     return result;
   }
-
-  public ulong NextUInt64(ulong max) {
-    if (max == 0) return 0;
-    ulong threshold = unchecked((0ul - max) % max);
-    while (true) {
-      ulong r = this.NextUInt64();
-      if (r >= threshold) return r % max;
-    }
-  }
-
-  public long NextInt64(long min, long max) {
-    if (min > max) return 0;
-    ulong range = (ulong)(max - min);
-    return min + (long)this.NextUInt64(range + 1);
-  }
-
-  public double NextDouble()
-    => (this.NextUInt64() >> DoubleShift) * DoubleScale;
-
-  public double NextDoubleInclusive()
-    => this.NextUInt64() / (double)ulong.MaxValue;
 }
 
-public struct Xoroshiro128PlusPlus {
+public struct Xoroshiro128PlusPlus : IRandom {
   private ulong _s0, _s1;
 
   public Xoroshiro128PlusPlus(ulong seed) {
@@ -97,30 +76,9 @@ public struct Xoroshiro128PlusPlus {
 
     return result;
   }
-
-  public ulong NextUInt64(ulong max) {
-    if (max == 0) return 0;
-    ulong threshold = unchecked((0ul - max) % max);
-    while (true) {
-      ulong r = this.NextUInt64();
-      if (r >= threshold) return r % max;
-    }
-  }
-
-  public long NextInt64(long min, long max) {
-    if (min > max) return 0;
-    ulong range = (ulong)(max - min);
-    return min + (long)this.NextUInt64(range + 1);
-  }
-
-  public double NextDouble()
-    => (this.NextUInt64() >> DoubleShift) * DoubleScale;
-
-  public double NextDoubleInclusive()
-    => this.NextUInt64() / (double)ulong.MaxValue;
 }
 
-public struct Xoroshiro128StarStar {
+public struct Xoroshiro128StarStar : IRandom {
   private ulong _s0, _s1;
 
   public Xoroshiro128StarStar(ulong seed) {
@@ -155,25 +113,4 @@ public struct Xoroshiro128StarStar {
 
     return result;
   }
-
-  public ulong NextUInt64(ulong max) {
-    if (max == 0) return 0;
-    ulong threshold = unchecked((0ul - max) % max);
-    while (true) {
-      ulong r = this.NextUInt64();
-      if (r >= threshold) return r % max;
-    }
-  }
-
-  public long NextInt64(long min, long max) {
-    if (min > max) return 0;
-    ulong range = (ulong)(max - min);
-    return min + (long)this.NextUInt64(range + 1);
-  }
-
-  public double NextDouble()
-    => (this.NextUInt64() >> DoubleShift) * DoubleScale;
-
-  public double NextDoubleInclusive()
-    => this.NextUInt64() / (double)ulong.MaxValue;
 }
