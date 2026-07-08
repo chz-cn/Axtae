@@ -31,7 +31,7 @@ public interface IDropable {
     foreach (var (_, count) in what)
       total += count;
 
-    if (total == 0) return null;
+    if (total is 0) return null;
 
     var rand = Core.Rng.Shared.NextUInt64(total);
 
@@ -39,8 +39,7 @@ public interface IDropable {
     foreach (var (item, count) in what) {
       c += count;
       if (rand < c)
-        if (item is Empty) return null;
-        else return new(item);
+        return item is Empty ? null : new(item);
     }
 
     return null;

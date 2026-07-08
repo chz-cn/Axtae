@@ -15,7 +15,7 @@ public partial class Bullet : Area2D {
   private float _life_time = 0.0f;
 
   public static readonly AudioStream BulletAudio = ResourceLoader
-    .Load<AudioStream>("res://asset/audio/Cowboy_gunshot.wav");
+    .Load<AudioStream>(Url.Wav.CowboyGunshot);
   private static uint _playing = 0;
 
   public override void _Ready() {
@@ -30,9 +30,7 @@ public partial class Bullet : Area2D {
   }
 
   public override void _PhysicsProcess(double delta) {
-    Vector2 next = this.GlobalPosition + this._direction * Speed * (float)delta;
-
-    this.GlobalPosition = next;
+    this.GlobalPosition += this._direction * Speed * (float)delta;
     this._life_time += (float)delta;
     if (this._life_time > MaxLifeTime) this.QueueFree();
   }
@@ -55,9 +53,9 @@ public partial class Bullet : Area2D {
     };
     this.GetTree().Root.AddChild(audio);
     audio.Play();
-    audio.Connect("finished", Callable.From(() => {
+    audio.Finished += () => {
       System.Threading.Interlocked.Decrement(ref _playing);
       audio.QueueFree();
-    }));
+    };
   }
 }

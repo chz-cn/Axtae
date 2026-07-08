@@ -13,6 +13,7 @@ public interface IBoundedQueue<T> {
   bool TryDequeue(out T item);
 }
 
+#pragma warning disable S1104 // Fields should not have public accessibility
 [StructLayout(LayoutKind.Explicit, Size = 72)]
 public struct Padded {
   [FieldOffset(0)]
@@ -20,9 +21,9 @@ public struct Padded {
   [FieldOffset(64)]
   public ulong Tail;
 }
+#pragma warning restore S1104 // Fields should not have public accessibility
 
 public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
-  private readonly uint _capacity;
   private readonly uint _mask;
   private readonly Slot[] _arr;
 
@@ -33,22 +34,22 @@ public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
     public T Item;
   }
 
-  public uint Capacity => this._capacity;
+  public uint Capacity { get; }
 
   public uint Count => (uint)(Volatile.Read(ref this._pos.Tail)
     - Volatile.Read(ref this._pos.Head));
 
   public bool IsEmpty => (uint)(Volatile.Read(ref this._pos.Tail)
-    - Volatile.Read(ref this._pos.Head)) == 0;
+    - Volatile.Read(ref this._pos.Head)) is 0;
 
   public BoundedMpmcQueue(uint capacity) {
     capacity = System.Math.Clamp(capacity, 4, 1 << 30);
-    this._capacity = 1;
-    while (this._capacity < capacity) this._capacity <<= 1;
-    this._mask = this._capacity - 1;
+    this.Capacity = 1;
+    while (this.Capacity < capacity) this.Capacity <<= 1;
+    this._mask = this.Capacity - 1;
 
-    this._arr = new Slot[this._capacity];
-    for (nuint i = 0; i < this._capacity; i++) {
+    this._arr = new Slot[this.Capacity];
+    for (nuint i = 0; i < this.Capacity; i++) {
       this._arr[i].Stamp = i;
     }
   }
@@ -62,7 +63,7 @@ public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
 
       long diff = unchecked((long)(stamp - pos));
 
-      if (diff == 0) {
+      if (diff is 0) {
         ulong prev = Interlocked.CompareExchange(
           ref this._pos.Tail, pos + 1, pos);
         if (prev == pos) {
@@ -86,13 +87,13 @@ public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
 
       long diff = (long)(stamp - pos);
 
-      if (diff == 1) {
+      if (diff is 1) {
         ulong prev = Interlocked.CompareExchange(
           ref this._pos.Head, pos + 1, pos);
         if (prev == pos) {
           item = this._arr[idx].Item;
           this._arr[idx].Item = default!;
-          Volatile.Write(ref this._arr[idx].Stamp, pos + this._capacity);
+          Volatile.Write(ref this._arr[idx].Stamp, pos + this.Capacity);
           return true;
         }
         pos = prev;
@@ -107,7 +108,6 @@ public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
 }
 
 public sealed class BoundedMpscQueue<T> : IBoundedQueue<T> {
-  private readonly uint _capacity;
   private readonly uint _mask;
   private readonly Slot[] _arr;
 
@@ -118,22 +118,22 @@ public sealed class BoundedMpscQueue<T> : IBoundedQueue<T> {
     public T Item;
   }
 
-  public uint Capacity => this._capacity;
+  public uint Capacity { get; }
 
   public uint Count => (uint)(Volatile.Read(ref this._pos.Tail)
     - Volatile.Read(ref this._pos.Head));
 
   public bool IsEmpty => (uint)(Volatile.Read(ref this._pos.Tail)
-    - Volatile.Read(ref this._pos.Head)) == 0;
+    - Volatile.Read(ref this._pos.Head)) is 0;
 
   public BoundedMpscQueue(uint capacity) {
     capacity = System.Math.Clamp(capacity, 4, 1 << 30);
-    this._capacity = 1;
-    while (this._capacity < capacity) this._capacity <<= 1;
-    this._mask = this._capacity - 1;
+    this.Capacity = 1;
+    while (this.Capacity < capacity) this.Capacity <<= 1;
+    this._mask = this.Capacity - 1;
 
-    this._arr = new Slot[this._capacity];
-    for (nuint i = 0; i < this._capacity; i++) {
+    this._arr = new Slot[this.Capacity];
+    for (nuint i = 0; i < this.Capacity; i++) {
       this._arr[i].Stamp = i;
     }
   }
@@ -147,7 +147,7 @@ public sealed class BoundedMpscQueue<T> : IBoundedQueue<T> {
 
       long diff = unchecked((long)(stamp - pos));
 
-      if (diff == 0) {
+      if (diff is 0) {
         ulong prev = Interlocked.CompareExchange(
           ref this._pos.Tail, pos + 1, pos);
         if (prev == pos) {
@@ -170,7 +170,7 @@ public sealed class BoundedMpscQueue<T> : IBoundedQueue<T> {
     if (stamp == pos + 1) {
       item = this._arr[idx].Item;
       this._arr[idx].Item = default!;
-      Volatile.Write(ref this._arr[idx].Stamp, pos + this._capacity);
+      Volatile.Write(ref this._arr[idx].Stamp, pos + this.Capacity);
       Volatile.Write(ref this._pos.Head, pos + 1);
       return true;
     }
@@ -180,7 +180,6 @@ public sealed class BoundedMpscQueue<T> : IBoundedQueue<T> {
 }
 
 public sealed class BoundedSpmcQueue<T> : IBoundedQueue<T> {
-  private readonly uint _capacity;
   private readonly uint _mask;
   private readonly Slot[] _arr;
 
@@ -191,22 +190,22 @@ public sealed class BoundedSpmcQueue<T> : IBoundedQueue<T> {
     public T Item;
   }
 
-  public uint Capacity => this._capacity;
+  public uint Capacity { get; }
 
   public uint Count => (uint)(Volatile.Read(ref this._pos.Tail)
     - Volatile.Read(ref this._pos.Head));
 
   public bool IsEmpty => (uint)(Volatile.Read(ref this._pos.Tail)
-    - Volatile.Read(ref this._pos.Head)) == 0;
+    - Volatile.Read(ref this._pos.Head)) is 0;
 
   public BoundedSpmcQueue(uint capacity) {
     capacity = System.Math.Clamp(capacity, 4, 1 << 30);
-    this._capacity = 1;
-    while (this._capacity < capacity) this._capacity <<= 1;
-    this._mask = this._capacity - 1;
+    this.Capacity = 1;
+    while (this.Capacity < capacity) this.Capacity <<= 1;
+    this._mask = this.Capacity - 1;
 
-    this._arr = new Slot[this._capacity];
-    for (nuint i = 0; i < this._capacity; i++) {
+    this._arr = new Slot[this.Capacity];
+    for (nuint i = 0; i < this.Capacity; i++) {
       this._arr[i].Stamp = i;
     }
   }
@@ -234,14 +233,14 @@ public sealed class BoundedSpmcQueue<T> : IBoundedQueue<T> {
 
       long diff = unchecked((long)(stamp - pos));
 
-      if (diff == 1) {
+      if (diff is 1) {
         ulong prev = Interlocked.CompareExchange(
           ref this._pos.Head, pos + 1, pos);
         if (prev == pos) {
           item = this._arr[idx].Item;
           this._arr[idx].Item = default!;
 
-          Volatile.Write(ref this._arr[idx].Stamp, pos + this._capacity);
+          Volatile.Write(ref this._arr[idx].Stamp, pos + this.Capacity);
           return true;
         }
         pos = Volatile.Read(ref this._pos.Head);
@@ -256,7 +255,6 @@ public sealed class BoundedSpmcQueue<T> : IBoundedQueue<T> {
 }
 
 public sealed class BoundedSpscQueue<T> : IBoundedQueue<T> {
-  private readonly uint _capacity;
   private readonly uint _mask;
   private readonly T[] _arr;
 
@@ -264,26 +262,26 @@ public sealed class BoundedSpscQueue<T> : IBoundedQueue<T> {
 
   public BoundedSpscQueue(uint capacity) {
     capacity = System.Math.Clamp(capacity, 4, 1 << 30);
-    this._capacity = 1;
-    while (this._capacity < capacity) this._capacity <<= 1;
-    this._mask = this._capacity - 1;
+    this.Capacity = 1;
+    while (this.Capacity < capacity) this.Capacity <<= 1;
+    this._mask = this.Capacity - 1;
 
-    this._arr = new T[this._capacity];
+    this._arr = new T[this.Capacity];
   }
 
-  public uint Capacity => this._capacity;
+  public uint Capacity { get; }
 
   public uint Count => (uint)(Volatile.Read(ref this._pos.Tail)
     - Volatile.Read(ref this._pos.Head));
 
   public bool IsEmpty => (uint)(Volatile.Read(ref this._pos.Tail)
-    - Volatile.Read(ref this._pos.Head)) == 0;
+    - Volatile.Read(ref this._pos.Head)) is 0;
 
   public bool TryEnqueue(T item) {
     ulong head = Volatile.Read(ref this._pos.Head);
     ulong tail = this._pos.Tail;
 
-    if (tail - head >= this._capacity) return false;
+    if (tail - head >= this.Capacity) return false;
 
     this._arr[tail & this._mask] = item;
     Volatile.Write(ref this._pos.Tail, tail + 1);

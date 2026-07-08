@@ -51,16 +51,15 @@ public sealed class AsciiTests {
 
   [Fact]
   public void ToAscii_UInt_BufferTooShort_ReturnsZero() {
-    uint value = 12345;
+    const uint Value = 12345;
     Span<byte> buffer = stackalloc byte[3];
-    byte len = Ascii.ToAscii(value, buffer);
+    byte len = Ascii.ToAscii(Value, buffer);
     Assert.Equal(0, len);
-
   }
 
   [Fact]
   public void ToAscii_UInt_EmptyBuffer_ReturnsZero() {
-    Span<byte> buffer = Span<byte>.Empty;
+    Span<byte> buffer = [];
     byte len = Ascii.ToAscii(123, buffer);
     Assert.Equal(0, len);
   }
@@ -83,24 +82,24 @@ public sealed class AsciiTests {
 
   [Fact]
   public void ToAscii_Int_Negative_WithBufferJustEnough() {
-    int value = -123;
+    const int Value = -123;
     Span<byte> buffer = stackalloc byte[4];
-    byte len = Ascii.ToAscii(value, buffer);
+    byte len = Ascii.ToAscii(Value, buffer);
     Assert.Equal(4, len);
     Assert.Equal("-123", System.Text.Encoding.UTF8.GetString(buffer));
   }
 
   [Fact]
   public void ToAscii_Int_BufferTooShort_ReturnsZero() {
-    int value = -12345;
+    const int Value = -12345;
     Span<byte> buffer = stackalloc byte[4];
-    byte len = Ascii.ToAscii(value, buffer);
+    byte len = Ascii.ToAscii(Value, buffer);
     Assert.Equal(0, len);
   }
 
   [Fact]
   public void ToAscii_Int_EmptyBuffer_ReturnsZero() {
-    Span<byte> buffer = Span<byte>.Empty;
+    Span<byte> buffer = [];
     byte len = Ascii.ToAscii(42, buffer);
     Assert.Equal(0, len);
   }

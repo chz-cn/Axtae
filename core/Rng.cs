@@ -9,14 +9,24 @@ using static Core.Random.IRandom;
 
 namespace Core;
 
+#pragma warning disable S3453 // Classes should not have only "private"
+// constructors
 public sealed class Rng : IRandom {
+#pragma warning restore S3453 // Classes should not have only "private"
+  // constructors
   public static readonly Rng Shared
     = new((ulong)Guid.NewGuid().GetHashCode());
 
   private readonly Lock _lock = new();
 
+#pragma warning disable S2933 // Fields that are only assigned in the
+  // constructor should be "readonly"
   private ulong _s0, _s1, _s2, _s3;
+#pragma warning restore S2933 // Fields that are only assigned in the
+  // constructor should be "readonly"
 
+#pragma warning disable S1144 // Unused private types or members should
+  // be removed
   private Rng(ulong seed) {
     SplitMix64 mix = new(seed);
     this._s0 = mix.NextUInt64();
@@ -24,13 +34,15 @@ public sealed class Rng : IRandom {
     this._s2 = mix.NextUInt64();
     this._s3 = mix.NextUInt64();
 
-    if ((this._s0 | this._s1 | this._s2 | this._s3) == 0) {
+    if ((this._s0 | this._s1 | this._s2 | this._s3) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
       this._s2 = MixConst2;
       this._s3 = GoldenRatio;
     }
   }
+#pragma warning restore S1144 // Unused private types or members should be
+  // removed
 
   public ulong NextUInt64() {
     lock (this._lock)

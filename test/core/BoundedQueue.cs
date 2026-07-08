@@ -5,7 +5,10 @@ using Core;
 
 namespace Test;
 
-public abstract class BoundedQueueTests<TQueue> where TQueue : IBoundedQueue<int> {
+#pragma warning disable S2326 // Unused type parameters should be removed
+public abstract class BoundedQueueTests<TQueue> where TQueue
+  : IBoundedQueue<int> {
+#pragma warning restore S2326 // Unused type parameters should be removed
   protected abstract IBoundedQueue<int> CreateQueue(uint capacity);
 
   [Fact]
@@ -78,7 +81,8 @@ public abstract class BoundedQueueTests<TQueue> where TQueue : IBoundedQueue<int
 }
 
 public sealed class MpmcQueueTests : BoundedQueueTests<BoundedMpmcQueue<int>> {
-  protected override BoundedMpmcQueue<int> CreateQueue(uint capacity) => new(capacity);
+  protected override BoundedMpmcQueue<int> CreateQueue(uint capacity)
+    => new(capacity);
 
   [Fact]
   public async Task Concurrent_MultiProducerMultiConsumer() {
@@ -92,18 +96,18 @@ public sealed class MpmcQueueTests : BoundedQueueTests<BoundedMpmcQueue<int>> {
       int pid = p;
       producerTasks.Add(Task.Run(async () => {
         for (int i = 0; i < itemsPerProducer; i++) {
-          while (!queue.TryEnqueue(pid * 10000 + i))
+          while (!queue.TryEnqueue((pid * 10000) + i))
             await Task.Yield();
         }
       }));
     }
 
-    int totalExpected = producers * itemsPerProducer;
+    const int TotalExpected = producers * itemsPerProducer;
     var consumerTasks = new List<Task<List<int>>>();
     for (int c = 0; c < consumers; c++) {
       consumerTasks.Add(Task.Run(async () => {
         var list = new List<int>();
-        while (list.Count < totalExpected / consumers) {
+        while (list.Count < TotalExpected / consumers) {
           if (queue.TryDequeue(out int v))
             list.Add(v);
           else
@@ -117,34 +121,35 @@ public sealed class MpmcQueueTests : BoundedQueueTests<BoundedMpmcQueue<int>> {
     var results = await Task.WhenAll(consumerTasks);
     int total = 0;
     foreach (var list in results) total += list.Count;
-    Assert.Equal(totalExpected, total);
+    Assert.Equal(TotalExpected, total);
   }
 }
 
 public sealed class MpscQueueTests : BoundedQueueTests<BoundedMpscQueue<int>> {
-  protected override BoundedMpscQueue<int> CreateQueue(uint capacity) => new(capacity);
+  protected override BoundedMpscQueue<int> CreateQueue(uint capacity)
+    => new(capacity);
 
   [Fact]
   public async Task Concurrent_MultiProducerSingleConsumer() {
-    const int producers = 4;
-    const int itemsPerProducer = 1000;
+    const int Producers = 4;
+    const int ItemsPerProducer = 1000;
     var queue = new BoundedMpscQueue<int>(1024);
 
     var producerTasks = new List<Task>();
-    for (int p = 0; p < producers; p++) {
+    for (int p = 0; p < Producers; p++) {
       int pid = p;
       producerTasks.Add(Task.Run(async () => {
-        for (int i = 0; i < itemsPerProducer; i++) {
-          while (!queue.TryEnqueue(pid * 10000 + i))
+        for (int i = 0; i < ItemsPerProducer; i++) {
+          while (!queue.TryEnqueue((pid * 10000) + i))
             await Task.Yield();
         }
       }));
     }
 
-    int totalExpected = producers * itemsPerProducer;
+    const int total = Producers * ItemsPerProducer;
     var results = new List<int>();
     var consumerTask = Task.Run(async () => {
-      while (results.Count < totalExpected) {
+      while (results.Count < total) {
         if (queue.TryDequeue(out int v))
           results.Add(v);
         else
@@ -154,12 +159,13 @@ public sealed class MpscQueueTests : BoundedQueueTests<BoundedMpscQueue<int>> {
 
     await Task.WhenAll(producerTasks);
     await consumerTask;
-    Assert.Equal(totalExpected, results.Count);
+    Assert.Equal(total, results.Count);
   }
 }
 
 public sealed class SpmcQueueTests : BoundedQueueTests<BoundedSpmcQueue<int>> {
-  protected override BoundedSpmcQueue<int> CreateQueue(uint capacity) => new(capacity);
+  protected override BoundedSpmcQueue<int> CreateQueue(uint capacity)
+    => new(capacity);
 
   [Fact]
   public async Task Concurrent_SingleProducerMultiConsumer() {
@@ -197,7 +203,8 @@ public sealed class SpmcQueueTests : BoundedQueueTests<BoundedSpmcQueue<int>> {
 }
 
 public sealed class SpscQueueTests : BoundedQueueTests<BoundedSpscQueue<int>> {
-  protected override BoundedSpscQueue<int> CreateQueue(uint capacity) => new(capacity);
+  protected override BoundedSpscQueue<int> CreateQueue(uint capacity)
+    => new(capacity);
 
   [Fact]
   public async Task Concurrent_SingleProducerSingleConsumer() {

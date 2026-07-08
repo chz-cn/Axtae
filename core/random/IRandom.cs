@@ -24,7 +24,7 @@ public interface IRandom {
 public static class IRandomExtensions {
   extension<T>(ref T random) where T : struct, IRandom, allows ref struct {
     public ulong NextUInt64(ulong max) {
-      if (max == 0) return 0;
+      if (max is 0) return 0;
       ulong threshold = unchecked((0ul - max) % max);
       while (true) {
         ulong r = random.NextUInt64();
@@ -47,7 +47,7 @@ public static class IRandomExtensions {
 
   extension<T>(T random) where T : class, IRandom {
     public ulong NextUInt64(ulong max) {
-      if (max == 0) return 0;
+      if (max is 0) return 0;
       ulong threshold = unchecked((0ul - max) % max);
       while (true) {
         ulong r = random.NextUInt64();

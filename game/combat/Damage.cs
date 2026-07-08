@@ -10,6 +10,9 @@ public interface ITakeDamage {
   void TakeDamage(uint damage);
 }
 
+#pragma warning disable S3237 // "value" parameters should be used
+#pragma warning disable S108 // Nested blocks of code should not be left empty
+
 public interface ITakeMetalDamage : ITakeDamage {
   ushort MetalDR { get => 0; set { } }
   ushort MetalVul { get => 0; set { } }
@@ -190,7 +193,14 @@ public interface ITakeSpiritDamage : ITakeDamage {
   }
 }
 
-public interface IBasicTakeDamage : ITakeDamage,
+#pragma warning restore S108 // Nested blocks of code should not be left empty
+#pragma warning restore S3237 // "value" parameters should be used
+
+#pragma warning disable S3444 // Interfaces should not simply inherit from
+// base interfaces with colliding members
+public interface IBasicTakeDamage :
+#pragma warning restore S3444 // Interfaces should not simply inherit from
+// base interfaces with colliding members
   ITakeMetalDamage,
   ITakeNatureDamage,
   ITakeWaterDamage, ITakeIceDamage,

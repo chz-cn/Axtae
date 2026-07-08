@@ -13,9 +13,9 @@ public sealed class Speed : IPickup<Player> {
 
   public static readonly Speed Instance = new();
 
-  public void ApplyTo(Player player) {
-    if (player is null) return;
+  public void ApplyTo(Player target) {
+    if (target is null) return;
 
-    player.Config.AddSpeedMultiplier(2f, this.Duration);
+    target.Config.AddSpeedMultiplier(2f, this.Duration);
   }
 }

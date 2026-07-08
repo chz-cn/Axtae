@@ -15,9 +15,21 @@ public sealed class Philox4x32 {
   private readonly uint _key0, _key1;
 
   [InlineArray(4)]
+#pragma warning disable S1144 // Unused private types or members should be
+  // removed
+#pragma warning disable RCS1169 // Make field read-only
+#pragma warning disable RCS1213 // Remove unused member declaration
   private struct Buffer { uint v; }
+#pragma warning restore RCS1213 // Remove unused member declaration
+#pragma warning restore RCS1169 // Make field read-only
+#pragma warning restore S1144 // Unused private types or members should be
+  // removed
 
+#pragma warning disable S2933 // Fields that are only assigned in the
+  // constructor should be "readonly"
   private Buffer _buffer = new();
+#pragma warning restore S2933 // Fields that are only assigned in the
+  // constructor should be "readonly"
   private int _index = 4;
 
   public Philox4x32(ulong seed) {
@@ -91,11 +103,11 @@ public sealed class Philox4x32 {
     this._buffer[3] = c3;
 
     this._ctr0++;
-    if (this._ctr0 == 0) {
+    if (this._ctr0 is 0) {
       this._ctr1++;
-      if (this._ctr1 == 0) {
+      if (this._ctr1 is 0) {
         this._ctr2++;
-        if (this._ctr2 == 0)
+        if (this._ctr2 is 0)
           this._ctr3++;
       }
     }
@@ -112,9 +124,21 @@ public sealed class Philox4x64 {
   private readonly ulong _key0, _key1;
 
   [InlineArray(4)]
+#pragma warning disable S1144 // Unused private types or members should be
+  // removed
+#pragma warning disable RCS1169 // Make field read-only
+#pragma warning disable RCS1213 // Remove unused member declaration
   private struct Buffer { ulong v; }
+#pragma warning restore RCS1213 // Remove unused member declaration
+#pragma warning restore RCS1169 // Make field read-only
+#pragma warning restore S1144 // Unused private types or members should be
+  // removed
 
+#pragma warning disable S2933 // Fields that are only assigned in the
+  // constructor should be "readonly"
   private Buffer _buffer = new();
+#pragma warning restore S2933 // Fields that are only assigned in the
+  // constructor should be "readonly"
   private int _index = 4;
 
   public Philox4x64(ulong seed) {
@@ -182,11 +206,11 @@ public sealed class Philox4x64 {
     this._buffer[3] = c3;
 
     this._ctr0++;
-    if (this._ctr0 == 0) {
+    if (this._ctr0 is 0) {
       this._ctr1++;
-      if (this._ctr1 == 0) {
+      if (this._ctr1 is 0) {
         this._ctr2++;
-        if (this._ctr2 == 0)
+        if (this._ctr2 is 0)
           this._ctr3++;
       }
     }

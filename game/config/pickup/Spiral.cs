@@ -13,9 +13,9 @@ public sealed class Spiral : IPickup<Player> {
 
   public static readonly Spiral Instance = new();
 
-  public void ApplyTo(Player player) {
-    if (player is null) return;
+  public void ApplyTo(Player target) {
+    if (target is null) return;
 
-    player.SpiralShoot();
+    target.SpiralShoot();
   }
 }

@@ -145,8 +145,7 @@ public sealed class TimeStampTests {
 
       for (int i = 0; i < s.Length; i++) {
         char c = s[i];
-        if (i == 4 || i == 7 || i == 10 || i == 13 || i == 16 || i == 19)
-          continue;
+        if (i is 4 or 7 or 10 or 13 or 16 or 19) continue;
         Assert.True(char.IsDigit(c), $"Non-digit at position {i}: '{c}'");
       }
     }

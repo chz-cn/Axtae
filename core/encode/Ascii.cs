@@ -187,9 +187,7 @@ public static class Ascii {
 
         uint n = unchecked((uint)-num);
         byte r = n.ToAscii(sp[1..]);
-        if (r == 0) return 0;
-
-        return (byte)(r + 1);
+        return r is 0 ? (byte)0 : (byte)(r + 1);
       }
 
       return ((uint)num).ToAscii(sp);

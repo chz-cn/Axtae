@@ -1,7 +1,5 @@
 
 using System;
-using System.Threading;
-
 using Godot;
 
 namespace Game.Scene.P1;
@@ -15,16 +13,20 @@ public sealed partial class Camera : Camera2D {
   public const int BaseResolutionX = 640;
   public const int BaseResolutionY = 360;
 
-  private ICameraFollowable? _targget;
+  private ICameraFollowable? _target;
   public required ICameraFollowable? TargetToFollow {
-    get => this._targget;
+    get => this._target;
     set {
-      if (value == this._targget) return;
+      if (value == this._target) return;
 
-      this._targget?.OnExit -= this.FollowTarget;
+#pragma warning disable S1121 // Assignments should not be made from within
+      // sub-expressions
+      this._target?.OnExit -= this.FollowTarget;
       value?.OnExit += this.FollowTarget;
+#pragma warning restore S1121 // Assignments should not be made from within
+      // sub-expressions
 
-      this._targget = value;
+      this._target = value;
     }
   }
 
@@ -68,7 +70,7 @@ public sealed partial class Camera : Camera2D {
   }
 
   private void FollowTarget() {
-    if (this._targget is null) return;
-    this._targget = null;
+    if (this._target is null) return;
+    this._target = null;
   }
 }

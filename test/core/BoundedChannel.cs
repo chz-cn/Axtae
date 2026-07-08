@@ -67,7 +67,7 @@ public abstract class BoundedChannelTests<TChannel> where TChannel
     bool found999 = false;
     while (!found999) {
       int val = await reader.ReadAsync();
-      if (val == 999) found999 = true;
+      if (val is 999) found999 = true;
     }
     Assert.True(found999);
   }
@@ -121,18 +121,18 @@ public abstract class BoundedChannelTests<TChannel> where TChannel
 
   [Fact]
   public async Task ConcurrentStressTest() {
-    const int producers = 4;
-    const int itemsPerProducer = 500;
+    const int Producers = 4;
+    const int ItemsPerProducer = 500;
     var channel = this.CreateChannel(128);
     var writer = channel.Writer;
     var reader = channel.Reader;
 
     var producerTasks = new List<Task>();
-    for (int p = 0; p < producers; p++) {
+    for (int p = 0; p < Producers; p++) {
       int pid = p;
       producerTasks.Add(Task.Run(async () => {
-        for (int i = 0; i < itemsPerProducer; i++) {
-          await writer.WriteAsync(pid * 10000 + i);
+        for (int i = 0; i < ItemsPerProducer; i++) {
+          await writer.WriteAsync((pid * 10000) + i);
         }
       }));
     }
@@ -140,8 +140,8 @@ public abstract class BoundedChannelTests<TChannel> where TChannel
     var results = new System.Collections.Concurrent.ConcurrentBag<int>();
     var consumerTask = Task.Run(async () => {
       int count = 0;
-      int total = producers * itemsPerProducer;
-      while (count < total) {
+      const int Total = Producers * ItemsPerProducer;
+      while (count < Total) {
         if (reader.TryRead(out int v)) {
           results.Add(v);
           count++;
@@ -157,7 +157,7 @@ public abstract class BoundedChannelTests<TChannel> where TChannel
     writer.Complete();
     await consumerTask;
 
-    Assert.Equal(producers * itemsPerProducer, results.Count);
+    Assert.Equal(Producers * ItemsPerProducer, results.Count);
   }
 }
 

@@ -5,7 +5,11 @@ using static Core.Random.IRandom;
 namespace Core.Random;
 
 public struct Xoshiro512Plus : IRandom {
+#pragma warning disable S2933 // Fields that are only assigned in the
+  // constructor should be "readonly"
   private ulong _s0, _s1, _s2, _s3, _s4, _s5, _s6, _s7;
+#pragma warning restore S2933 // Fields that are only assigned in the
+  // constructor should be "readonly"
 
   public Xoshiro512Plus(ulong seed) {
     SplitMix64 mix = new(seed);
@@ -19,7 +23,7 @@ public struct Xoshiro512Plus : IRandom {
     this._s7 = mix.NextUInt64();
 
     if ((this._s0 | this._s1 | this._s2 | this._s3
-      | this._s4 | this._s5 | this._s6 | this._s7) == 0) {
+      | this._s4 | this._s5 | this._s6 | this._s7) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
       this._s2 = MixConst2;
@@ -37,7 +41,7 @@ public struct Xoshiro512Plus : IRandom {
     (this._s4, this._s5, this._s6, this._s7) = (s4, s5, s6, s7);
 
     if ((this._s0 | this._s1 | this._s2 | this._s3 |
-      this._s4 | this._s5 | this._s6 | this._s7) == 0) {
+      this._s4 | this._s5 | this._s6 | this._s7) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
       this._s2 = MixConst2;
@@ -74,7 +78,11 @@ public struct Xoshiro512Plus : IRandom {
 }
 
 public struct Xoshiro512PlusPlus : IRandom {
+#pragma warning disable S2933 // Fields that are only assigned in the
+  // constructor should be "readonly"
   private ulong _s0, _s1, _s2, _s3, _s4, _s5, _s6, _s7;
+#pragma warning restore S2933 // Fields that are only assigned in the
+  // constructor should be "readonly"
 
   public Xoshiro512PlusPlus(ulong seed) {
     SplitMix64 mix = new(seed);
@@ -88,7 +96,7 @@ public struct Xoshiro512PlusPlus : IRandom {
     this._s7 = mix.NextUInt64();
 
     if ((this._s0 | this._s1 | this._s2 | this._s3
-      | this._s4 | this._s5 | this._s6 | this._s7) == 0) {
+      | this._s4 | this._s5 | this._s6 | this._s7) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
       this._s2 = MixConst2;
@@ -106,7 +114,7 @@ public struct Xoshiro512PlusPlus : IRandom {
     (this._s4, this._s5, this._s6, this._s7) = (s4, s5, s6, s7);
 
     if ((this._s0 | this._s1 | this._s2 | this._s3
-      | this._s4 | this._s5 | this._s6 | this._s7) == 0) {
+      | this._s4 | this._s5 | this._s6 | this._s7) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
       this._s2 = MixConst2;
@@ -144,7 +152,11 @@ public struct Xoshiro512PlusPlus : IRandom {
 }
 
 public struct Xoshiro512StarStar : IRandom {
+#pragma warning disable S2933 // Fields that are only assigned in the
+  // constructor should be "readonly"
   private ulong _s0, _s1, _s2, _s3, _s4, _s5, _s6, _s7;
+#pragma warning restore S2933 // Fields that are only assigned in the
+  // constructor should be "readonly"
 
   public Xoshiro512StarStar(ulong seed) {
     SplitMix64 mix = new(seed);
@@ -158,7 +170,7 @@ public struct Xoshiro512StarStar : IRandom {
     this._s7 = mix.NextUInt64();
 
     if ((this._s0 | this._s1 | this._s2 | this._s3
-      | this._s4 | this._s5 | this._s6 | this._s7) == 0) {
+      | this._s4 | this._s5 | this._s6 | this._s7) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
       this._s2 = MixConst2;
@@ -176,7 +188,7 @@ public struct Xoshiro512StarStar : IRandom {
     (this._s4, this._s5, this._s6, this._s7) = (s4, s5, s6, s7);
 
     if ((this._s0 | this._s1 | this._s2 | this._s3
-      | this._s4 | this._s5 | this._s6 | this._s7) == 0) {
+      | this._s4 | this._s5 | this._s6 | this._s7) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
       this._s2 = MixConst2;

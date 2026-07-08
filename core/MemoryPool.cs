@@ -52,10 +52,14 @@ public interface IPool {
 /// instead of the indexer <see cref="this[nuint]"/>.
 /// </para>
 /// </remarks>
+#pragma warning disable S3604 // Member initializer values should not be
+// redundant
 public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size) {
   private readonly IPool _parent = parent;
   public readonly byte* Ptr = ptr;
   public readonly uint Size = size;
+#pragma warning restore S3604 // Member initializer values should not be
+  // redundant
 
   /// <summary>
   /// Gets a value indicating whether this instance is empty.
@@ -85,7 +89,9 @@ public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size) {
     set => this.Ptr[index] = value;
   }
 
+#pragma warning disable S2953 // Methods named "Dispose" should implement "IDisposable.Dispose"
   public void Dispose() => this._parent?.Free(this.Ptr);
+#pragma warning restore S2953 // Methods named "Dispose" should implement "IDisposable.Dispose"
 }
 
 public unsafe sealed class PagePool : IDisposable, IPool {
@@ -134,9 +140,9 @@ public unsafe sealed class PagePool : IDisposable, IPool {
   /// paths (e.g., <see cref="Free"/>).
   /// </para>
   /// <para>
-  /// The number of blocks is calculated as <c>floor(total_byte /
-  /// (block_byte + 2))</c>, where <c>+2</c> accounts for one
-  /// <see cref="ushort"/> index per block in metadata.
+  /// The number of blocks is calculated as
+  /// <c>floor(total_byte / (block_byte + 2))</c>, where <c>+2</c> accounts
+  /// for one <see cref="ushort"/> index per block in metadata.
   /// Any remaining bytes are absorbed into the metadata section,
   /// ensuring zero wasted space.
   /// </para>
@@ -210,7 +216,7 @@ public unsafe sealed class PagePool : IDisposable, IPool {
     if (this._disposed) return null;
     lock (this._lock)
       if (!this._disposed && this.TryPop(out ushort index))
-        return this._pool + index * this.BlockSize;
+        return this._pool + (index * this.BlockSize);
 
     return null;
   }
@@ -242,7 +248,7 @@ public unsafe sealed class PagePool : IDisposable, IPool {
     uint offset = (uint)(ptr - pool);
     (uint index, uint r) = Math.DivRem(offset, this.BlockSize);
 
-    if (r != 0 || index >= this.BlockCount) return;
+    if (r is not 0 || index >= this.BlockCount) return;
 
     lock (this._lock)
       if (!this._disposed)
@@ -273,9 +279,7 @@ public unsafe sealed class PagePool : IDisposable, IPool {
   /// </remarks>
   public IOwner Rent() {
     byte* ptr = this.Alloc();
-    if (ptr is null) return default;
-
-    return new IOwner(this, ptr, this.BlockSize);
+    return ptr is null ? default : new IOwner(this, ptr, this.BlockSize);
   }
 
   public void Dispose() {
@@ -289,15 +293,14 @@ public unsafe sealed class PagePool : IDisposable, IPool {
   }
 
   // stack
-  private bool TryPush(ushort item) {
-    if (this._top == this.BlockCount) return false;
+  private void TryPush(ushort item) {
+    if (this._top == this.BlockCount) return;
     this._items[this._top] = item;
     this._top++;
-    return true;
   }
 
   private bool TryPop(out ushort item) {
-    if (this._top == 0) {
+    if (this._top is 0) {
       item = default;
       return false;
     }
@@ -402,8 +405,7 @@ public unsafe sealed class CachePool : IDisposable, IPool {
     uint total_byte = size * 4u * KiB;
     uint block_byte = block_size * 64u;
 
-
-    uint block_count = (8 * total_byte - 7) / (8 * block_byte + 1);
+    uint block_count = ((8 * total_byte) - 7) / ((8 * block_byte) + 1);
 
     ArgumentOutOfRangeException
         .ThrowIfLessThan(block_count, 2u, nameof(block_count));
@@ -448,7 +450,7 @@ public unsafe sealed class CachePool : IDisposable, IPool {
       for (uint idx = 0; idx < count; idx++) {
         ulong word = this._map[idx];
 
-        if (word == ulong.MaxValue) continue;
+        if (word is ulong.MaxValue) continue;
 
         ulong inverted = ~word;
         int bit = System.Numerics.BitOperations.TrailingZeroCount(inverted);
@@ -456,7 +458,7 @@ public unsafe sealed class CachePool : IDisposable, IPool {
         uint block_idx = (idx * 64) + (uint)bit;
         if (block_idx < this.BlockCount) {
           this._map[idx] |= 1ul << bit;
-          return this._ptr + block_idx * this.BlockSize;
+          return this._ptr + (block_idx * this.BlockSize);
         }
       }
     }
@@ -496,14 +498,14 @@ public unsafe sealed class CachePool : IDisposable, IPool {
     uint index = offset / this.BlockSize;
     uint remainder = offset % this.BlockSize;
 
-    if (remainder != 0 || index >= this.BlockCount) return;
+    if (remainder is not 0 || index >= this.BlockCount) return;
 
     uint wordIdx = index / 64;
     uint bitOffset = index & 63;
     ulong mask = 1UL << (int)bitOffset;
 
     lock (this._lock) {
-      if (this._disposed || (this._map[wordIdx] & mask) == 0) return;
+      if (this._disposed || (this._map[wordIdx] & mask) is 0) return;
       this._map[wordIdx] &= ~mask;
     }
   }
@@ -532,9 +534,7 @@ public unsafe sealed class CachePool : IDisposable, IPool {
   /// </remarks>
   public IOwner Rent() {
     byte* ptr = this.Alloc();
-    if (ptr is null) return default;
-
-    return new IOwner(this, ptr, this.BlockSize);
+    return ptr is null ? default : new IOwner(this, ptr, this.BlockSize);
   }
 
   /// <summary>

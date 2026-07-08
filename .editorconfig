@@ -22,3 +22,29 @@ dotnet_style_qualification_for_field = true:warning
 dotnet_style_qualification_for_property = true:warning
 dotnet_style_qualification_for_method = true:warning
 dotnet_style_qualification_for_event = true:warning
+
+# use matching
+dotnet_style_prefer_pattern_matching_over_is_with_cast_check = true:warning
+dotnet_style_prefer_pattern_matching_over_as_with_null_check = true:warning
+
+# Int32 -> int
+dotnet_style_predefined_type_for_member_access = true:warning
+
+# Namespace does not match folder structure
+dotnet_diagnostic.IDE0130.severity = none
+
+# error for namespace
+dotnet_diagnostic.S3903.severity = none
+
+# error for in/out T
+dotnet_diagnostic.S3246.severity = none
+
+# error for if stat add {}
+dotnet_diagnostic.RCS1001.severity = none
+dotnet_diagnostic.RCS1003.severity = none
+
+# error for `IOwner` this kind like
+dotnet_diagnostic.S101.severity = none
+
+# error for `= 0`/`= false`
+dotnet_diagnostic.RCS1129.severity = none

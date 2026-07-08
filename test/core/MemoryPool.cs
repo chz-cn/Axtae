@@ -33,7 +33,7 @@ public sealed class PagePoolTests : IDisposable {
   [Fact]
   public unsafe void Alloc_WhenPoolHasBlocks_ReturnsNonNullPointer() {
     byte* ptr = this._pool.Alloc();
-    Assert.True(ptr != null);
+    Assert.True(ptr is not null);
     this._pool.Free(ptr);
   }
 
@@ -42,16 +42,16 @@ public sealed class PagePoolTests : IDisposable {
     var pointers = new List<IntPtr>();
     for (int i = 0; i < this._pool.BlockCount; i++) {
       byte* p = this._pool.Alloc();
-      Assert.True(p != null);
+      Assert.True(p is not null);
       pointers.Add((IntPtr)p);
     }
 
     byte* last = this._pool.Alloc();
-    Assert.True(last == null);
+    Assert.True(last is null);
 
     this._pool.Free((byte*)pointers[0]);
     byte* reused = this._pool.Alloc();
-    Assert.True(reused != null);
+    Assert.True(reused is not null);
     this._pool.Free(reused);
   }
 
@@ -70,10 +70,10 @@ public sealed class PagePoolTests : IDisposable {
   [Fact]
   public unsafe void Free_AfterDispose_DoesNothing() {
     byte* ptr = this._pool.Alloc();
-    Assert.True(ptr != null);
+    Assert.True(ptr is not null);
     this._pool.Dispose();
     this._pool.Free(ptr);
-    Assert.True(this._pool.Alloc() == null);
+    Assert.True(this._pool.Alloc() is null);
   }
 
   [Fact]
@@ -81,7 +81,7 @@ public sealed class PagePoolTests : IDisposable {
     IOwner owner = this._pool.Rent();
     Assert.False(owner.IsEmpty);
     Assert.Equal(this._pool.BlockSize, owner.Size);
-    Assert.True(owner.Ptr != null);
+    Assert.True(owner.Ptr is not null);
 
     Span<byte> span = owner.Span;
     span[0] = 0xAA;
@@ -127,7 +127,9 @@ public sealed class PagePoolTests : IDisposable {
   public void Dispose_MultipleCalls_IsSafe() {
     IOwner owner = this._pool.Rent();
     owner.Dispose();
+#pragma warning disable S3966 // Objects should not be disposed more than once
     owner.Dispose();
+#pragma warning restore S3966 // Objects should not be disposed more than once
   }
 
   [Fact]
@@ -139,7 +141,7 @@ public sealed class PagePoolTests : IDisposable {
         for (int i = 0; i < iterations; i++) {
           unsafe {
             byte* ptr = this._pool.Alloc();
-            if (ptr != null) {
+            if (ptr is not null) {
               *ptr = (byte)i;
               this._pool.Free(ptr);
             }
@@ -168,7 +170,7 @@ public sealed class CachePoolTests : IDisposable {
 
   public unsafe void Dispose() {
     this._pool?.Dispose();
-    if (this._buffer != null) {
+    if (this._buffer is not null) {
       Marshal.FreeHGlobal((IntPtr)this._buffer);
       this._buffer = null;
     }
@@ -176,10 +178,10 @@ public sealed class CachePoolTests : IDisposable {
 
   [Fact]
   public void Constructor_ValidParameters_CreatesPool() {
-    uint totalByte = BufferSize * 4u * 1024u;
-    uint blockByte = BlockSize * 64u;
-    Assert.Equal(totalByte, this._pool.TotalByte);
-    Assert.Equal(blockByte, this._pool.BlockSize);
+    const uint TotalByte = BufferSize * 4u * 1024u;
+    const uint BlockByte = BlockSize * 64u;
+    Assert.Equal(TotalByte, this._pool.TotalByte);
+    Assert.Equal(BlockByte, this._pool.BlockSize);
     Assert.True(this._pool.BlockCount >= 2);
   }
 
@@ -190,7 +192,7 @@ public sealed class CachePoolTests : IDisposable {
     unsafe {
       byte* dummy = (byte*)Marshal.AllocHGlobal(4096);
       try {
-        if (size == 0 || blockSize == 0)
+        if (size is 0 || blockSize is 0)
           Assert.Throws<ArgumentOutOfRangeException>(
             () => new CachePool(dummy, size, blockSize));
       }
@@ -204,14 +206,14 @@ public sealed class CachePoolTests : IDisposable {
   public void Constructor_NullPointer_ThrowsArgumentNull() {
     unsafe {
       Assert.Throws<ArgumentNullException>(
-        () => new CachePool(null, 8, 1));
+        static () => new CachePool(null, 8, 1));
     }
   }
 
   [Fact]
   public unsafe void Alloc_WhenBlocksAvailable_ReturnsPointer() {
     byte* ptr = this._pool.Alloc();
-    Assert.True(ptr != null);
+    Assert.True(ptr is not null);
     this._pool.Free(ptr);
   }
 
@@ -220,16 +222,16 @@ public sealed class CachePoolTests : IDisposable {
     var pointers = new List<IntPtr>();
     for (int i = 0; i < this._pool.BlockCount; i++) {
       byte* p = this._pool.Alloc();
-      Assert.True(p != null);
+      Assert.True(p is not null);
       pointers.Add((IntPtr)p);
     }
 
     byte* last = this._pool.Alloc();
-    Assert.True(last == null);
+    Assert.True(last is null);
 
     this._pool.Free((byte*)pointers[0]);
     byte* reused = this._pool.Alloc();
-    Assert.True(reused != null);
+    Assert.True(reused is not null);
     this._pool.Free(reused);
   }
 
@@ -251,7 +253,7 @@ public sealed class CachePoolTests : IDisposable {
     IOwner owner = this._pool.Rent();
     Assert.False(owner.IsEmpty);
     Assert.Equal(this._pool.BlockSize, owner.Size);
-    Assert.True(owner.Ptr != null);
+    Assert.True(owner.Ptr is not null);
 
     Span<byte> span = owner.Span;
     span[0] = 0xCD;
@@ -267,7 +269,7 @@ public sealed class CachePoolTests : IDisposable {
   public void Dispose_MarksPoolDisposed_AllocReturnsNull() {
     this._pool.Dispose();
     unsafe {
-      Assert.True(this._pool.Alloc() == null);
+      Assert.True(this._pool.Alloc() is null);
       this._pool.Free(this._buffer);
     }
   }
@@ -281,13 +283,11 @@ public sealed class CachePoolTests : IDisposable {
         for (int i = 0; i < iterations; i++) {
           unsafe {
             byte* ptr = this._pool.Alloc();
-            if (ptr != null) {
+            if (ptr is not null) {
               *ptr = (byte)i;
               this._pool.Free(ptr);
             }
-            else {
-              Task.Delay(1).Wait();
-            }
+            else Task.Delay(1).Wait();
           }
         }
       }));

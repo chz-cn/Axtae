@@ -71,19 +71,20 @@ public sealed class DrainBoundedChannel<T> : IBoundedChannel<T> {
 
     byte prev = Interlocked.CompareExchange(
       ref this._state, Channel.Completed, Channel.Completing);
-    if (prev != Channel.Completing) return;
+    if (prev is not Channel.Completing) return;
 
     this._cts.Cancel();
     this._completion.TrySetResult();
   }
 
+#pragma warning disable S3604
   private sealed class IWriter(DrainBoundedChannel<T> parent)
     : IChannelWriter<T> {
     private readonly DrainBoundedChannel<T> _parent = parent;
 
     public bool TryWrite(T item) {
       var p = this._parent;
-      if (Volatile.Read(ref p._state) != Channel.Active
+      if (Volatile.Read(ref p._state) is not Channel.Active
         || !p._writer_slim.Wait(0)) return false;
 
       p._queue.TryEnqueue(item);
@@ -93,7 +94,7 @@ public sealed class DrainBoundedChannel<T> : IBoundedChannel<T> {
 
     public async ValueTask WriteAsync(T item) {
       var p = this._parent;
-      if (Volatile.Read(ref p._state) != Channel.Active) return;
+      if (Volatile.Read(ref p._state) is not Channel.Active) return;
 
       await p._writer_slim.WaitAsync().ConfigureAwait(false);
 
@@ -105,7 +106,7 @@ public sealed class DrainBoundedChannel<T> : IBoundedChannel<T> {
       var p = this._parent;
       byte prev = Interlocked.CompareExchange(
         ref p._state, Channel.Completing, Channel.Active);
-      if (prev != Channel.Active) return;
+      if (prev is not Channel.Active) return;
 
       p.CheckComplet();
     }
@@ -120,7 +121,7 @@ public sealed class DrainBoundedChannel<T> : IBoundedChannel<T> {
     public bool TryRead(out T item) {
       item = default!;
       var p = this._parent;
-      if (Volatile.Read(ref p._state) == Channel.Completed
+      if (Volatile.Read(ref p._state) is Channel.Completed
         || !p._reader_slim.Wait(0)) return false;
 
       p._queue.TryDequeue(out item);
@@ -132,7 +133,7 @@ public sealed class DrainBoundedChannel<T> : IBoundedChannel<T> {
     public async ValueTask<T> ReadAsync() {
       T item = default!;
       var p = this._parent;
-      if (Volatile.Read(ref p._state) == Channel.Completed) return item;
+      if (Volatile.Read(ref p._state) is Channel.Completed) return item;
 
       try {
         await p._reader_slim.WaitAsync(p._cts.Token)
@@ -146,6 +147,7 @@ public sealed class DrainBoundedChannel<T> : IBoundedChannel<T> {
       return item;
     }
   }
+#pragma warning restore S3604
 }
 
 public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
@@ -179,22 +181,23 @@ public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
 
     byte prev = Interlocked.CompareExchange(
       ref this._state, Channel.Completed, Channel.Completing);
-    if (prev != Channel.Completing) return;
+    if (prev is not Channel.Completing) return;
 
     this._reader_cts.Cancel();
     this._completion.TrySetResult();
   }
 
+#pragma warning disable S3604
   private sealed class IWriter(RejectBoundedChannel<T> parent)
     : IChannelWriter<T> {
     private readonly RejectBoundedChannel<T> _parent = parent;
 
     public bool TryWrite(T item) {
       var p = this._parent;
-      if (Volatile.Read(ref p._state) != Channel.Active
+      if (Volatile.Read(ref p._state) is not Channel.Active
         || !p._writer_slim.Wait(0)) return false;
 
-      if (Volatile.Read(ref p._state) != Channel.Active) {
+      if (Volatile.Read(ref p._state) is not Channel.Active) {
         p._writer_slim.Release();
         return false;
       }
@@ -206,7 +209,7 @@ public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
 
     public async ValueTask WriteAsync(T item) {
       var p = this._parent;
-      if (Volatile.Read(ref p._state) != Channel.Active) return;
+      if (Volatile.Read(ref p._state) is not Channel.Active) return;
 
       try {
         await p._writer_slim.WaitAsync(p._writer_cts.Token)
@@ -214,7 +217,7 @@ public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
       }
       catch (OperationCanceledException) { return; }
 
-      if (Volatile.Read(ref p._state) != Channel.Active) {
+      if (Volatile.Read(ref p._state) is not Channel.Active) {
         p._writer_slim.Release();
         return;
       }
@@ -227,7 +230,7 @@ public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
       var p = this._parent;
       byte prev = Interlocked.CompareExchange(
         ref p._state, Channel.Completing, Channel.Active);
-      if (prev != Channel.Active) return;
+      if (prev is not Channel.Active) return;
 
       p._writer_cts.Cancel();
       p.CheckComplet();
@@ -243,7 +246,7 @@ public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
     public bool TryRead(out T item) {
       item = default!;
       var p = this._parent;
-      if (Volatile.Read(ref p._state) == Channel.Completed
+      if (Volatile.Read(ref p._state) is Channel.Completed
         || !p._reader_slim.Wait(0)) return false;
 
       switch (Volatile.Read(ref p._state)) {
@@ -267,7 +270,7 @@ public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
     public async ValueTask<T> ReadAsync() {
       T item = default!;
       var p = this._parent;
-      if (Volatile.Read(ref p._state) == Channel.Completed) return item;
+      if (Volatile.Read(ref p._state) is Channel.Completed) return item;
 
       try {
         await p._reader_slim.WaitAsync(p._reader_cts.Token)
@@ -293,4 +296,5 @@ public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
       }
     }
   }
+#pragma warning restore S3604
 }

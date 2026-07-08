@@ -25,7 +25,7 @@ public sealed partial class Bom : CharacterBody2D,
   public required Player.Player TargetPlayer { get; set; }
   public float Speed { get; init; } = 30;
 
-  private readonly uint _mask = (uint)Random.Shared.Next();
+  private readonly uint _mask = (uint)Core.Rng.Shared.NextUInt64();
   public uint MaxHealth { get; init; } = 4;
   public uint Health {
     get => field ^ this._mask;
@@ -38,19 +38,21 @@ public sealed partial class Bom : CharacterBody2D,
 
   public float BlinkSpeed {
     get; private set {
-      field = value;
-      if (value > .1f)
+      if (value is > .1f and < 30) {
         (this._body_sprite.Material as ShaderMaterial)?
-          .SetShaderParameter("blink_speed", value);
+          .SetShaderParameter(Pickup.Scene.Blink.BlinkSpeed, value);
+        field = value;
+      }
     }
   }
 
   public float HiddenRatio {
     get; private set {
-      field = value;
-      if (value > 0f && value < 1f)
+      if (value is > 0f and < 1f) {
         (this._body_sprite.Material as ShaderMaterial)?
-          .SetShaderParameter("hidden_ratio", value);
+          .SetShaderParameter(Pickup.Scene.Blink.HiddenRatio, value);
+        field = value;
+      }
     }
   }
 
@@ -58,7 +60,7 @@ public sealed partial class Bom : CharacterBody2D,
     get; private set {
       if (field != value) {
         (this._body_sprite.Material as ShaderMaterial)?
-          .SetShaderParameter("blink", value);
+          .SetShaderParameter(Pickup.Scene.Blink.blink, value);
         field = value;
       }
     }
@@ -70,38 +72,28 @@ public sealed partial class Bom : CharacterBody2D,
   private float _blink_timer = 0;
   private bool _touch_palyer = false;
 
-  private readonly AnimatedSprite2D _body_sprite;
+  private readonly AnimatedSprite2D _body_sprite = new() {
+    Frame = 0,
+    Autoplay = Move,
+    SpriteFrames = ResourceLoader.Load<SpriteFrames>(Url.Tres.Bom),
+    Material = new ShaderMaterial {
+      Shader = IBlinkable.Shader
+    }
+  };
 
   public Bom() {
     this.CollisionLayer = Layer;
     this.CollisionMask = Mask;
-
-    AnimatedSprite2D sprite = new() {
-      Frame = 0,
-      Autoplay = Move,
-      SpriteFrames = ResourceLoader.Load<SpriteFrames>
-        ("res://game/character/enemy/tic/bom.tres"),
-      Material = new ShaderMaterial {
-        Shader = IBlinkable.Shader
-      }
-    };
-
-    this._body_sprite = sprite;
   }
 
   public override void _EnterTree() {
-    if (this.MaxHealth == 0) {
+    if (this.MaxHealth is 0) {
       this.QueueFree();
       return;
     }
     this.Health = this.MaxHealth;
 
     var sprite = this._body_sprite;
-    if (sprite is null) {
-      Log(Level.Warning, "Failed to load bullet scene");
-      this.QueueFree();
-      return;
-    }
 
     sprite.AnimationFinished += this.QueueFree;
 
@@ -115,7 +107,7 @@ public sealed partial class Bom : CharacterBody2D,
       CollisionMask = L.CharacterBody
     };
     area.BodyEntered += (node) => {
-      if (this.Health != 0 && node is Player.Player player) {
+      if (this.Health is not 0 && node is Player.Player player) {
         this._touch_palyer = true;
         this._damage_timer = 0;
         player.TakeDamage(1);
@@ -132,7 +124,7 @@ public sealed partial class Bom : CharacterBody2D,
   }
 
   public override void _PhysicsProcess(double delta) {
-    if (this.Health == 0) {
+    if (this.Health is 0) {
       this.SetPhysicsProcess(false);
 
       StringName name = "bom";

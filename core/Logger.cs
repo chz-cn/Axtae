@@ -23,40 +23,45 @@ public static class Logger {
     _channel = Channel.CreateBounded<LogEntry>(128);
 
     _ = Task.Run(static async () => {
-      byte[] buffer = new byte[(int)MaxEntryLength];
-      var encoder = System.Text.Encoding.UTF8.GetEncoder();
+      try {
+        byte[] buffer = new byte[(int)MaxEntryLength];
+        var encoder = System.Text.Encoding.UTF8.GetEncoder();
 
-      while (true) {
-        if (_channel.State == Channel.Completed) break;
+        while (true) {
+          if (_channel.State is Channel.Completed) return;
 
-        var entry = await _channel.Reader.ReadAsync()
-          .ConfigureAwait(false);
+          var entry = await _channel.Reader.ReadAsync()
+            .ConfigureAwait(false);
 
-        var span = buffer.AsSpan();
-        uint len = Parse(entry, span, encoder);
+          var span = buffer.AsSpan();
+          uint len = Parse(entry, span, encoder);
 
-        FileWriter.Writer.Write(span[..(int)len]);
+          FileWriter.Writer.Write(span[..(int)len]);
 
-        if (entry.level == Level.Error) FileWriter.Writer.Flush();
+          if (entry.Level is Level.Error) FileWriter.Writer.Flush();
+        }
       }
-
-      FileWriter.Writer.Dispose();
+      finally {
+        FileWriter.Writer.Dispose();
+      }
     }).ConfigureAwait(false);
   }
 
+#pragma warning disable S1104
   public struct LogEntry {
-    public string msg;
-    public string file;
-    public string member;
-    public TimestampBuffer timestamp;
-    public int line;
-    public Level level;
+    public string Msg { get; init; }
+    public string File { get; init; }
+    public string Member { get; init; }
+    public TimestampBuffer Timestamp;
+    public int Line { get; init; }
+    public Level Level { get; init; }
 
     [InlineArray(TimeStamp.Size)]
     public struct TimestampBuffer {
-      private byte _element;
+      public byte Value;
     }
   }
+#pragma warning restore S1104
 
   public static void Log(
     Level level,
@@ -72,17 +77,17 @@ public static class Logger {
 #endif
     ) {
     if (string.IsNullOrWhiteSpace(msg)
-      || _channel.State != Channel.Active) return;
+      || _channel.State is not Channel.Active) return;
 
     var entry = new LogEntry {
-      msg = msg,
-      level = level,
-      file = file,
-      member = member,
-      line = line
+      Msg = msg,
+      Level = level,
+      File = file,
+      Member = member,
+      Line = line
     };
 
-    TimeStamp.GetStamp(entry.timestamp);
+    TimeStamp.GetStamp(entry.Timestamp);
 
     var writer = _channel.Writer;
     if (writer.TryWrite(entry)) return;
@@ -97,7 +102,7 @@ public static class Logger {
     if (span.Length < 100) return 0;
     ArgumentNullException.ThrowIfNull(encoder);
 
-    scoped ReadOnlySpan<byte> level = entry.level switch {
+    scoped ReadOnlySpan<byte> level = entry.Level switch {
       Level.Debug => "[Debug]"u8,
       Level.Info => "[Info]"u8,
       Level.Warning => "[Warn]"u8,
@@ -109,7 +114,7 @@ public static class Logger {
     int len = level.Length;
     span[len++] = Ascii.Space;
 
-    MemoryMarshal.CreateReadOnlySpan(ref entry.timestamp[0], TimeStamp.Size)
+    MemoryMarshal.CreateReadOnlySpan(ref entry.Timestamp[0], TimeStamp.Size)
      .CopyTo(span[len..]);
     len += TimeStamp.Size;
 
@@ -117,23 +122,23 @@ public static class Logger {
 
     // enocde
 
-    if (!AddString(span, entry.file, ref len, encoder)) return (uint)len;
+    if (!AddString(span, entry.File, ref len, encoder)) return (uint)len;
 
     if (!AddByte(span, Ascii.OpenParenthesis, ref len)) return (uint)len;
 
-    byte l = entry.line.ToAscii(span[len..]);
-    if (l != 0) len += l;
+    byte l = entry.Line.ToAscii(span[len..]);
+    if (l is not 0) len += l;
     else {
       if (!AddByte(span, Ascii.QuestionMark, ref len)) return (uint)len;
     }
 
     if (!AddBytes(span, ") --> "u8, ref len)) return (uint)len;
 
-    if (!AddString(span, entry.member, ref len, encoder)) return (uint)len;
+    if (!AddString(span, entry.Member, ref len, encoder)) return (uint)len;
 
     if (!AddByte(span, Ascii.LF, ref len)) return (uint)len;
 
-    if (!AddString(span, entry.msg, ref len, encoder)) return (uint)len;
+    if (!AddString(span, entry.Msg, ref len, encoder)) return (uint)len;
 
     if (!AddByte(span, Ascii.LF, ref len)) return (uint)len;
 
@@ -144,7 +149,7 @@ public static class Logger {
         var status = System.Text.Rune.DecodeLastFromUtf8(
           span[..used], out _, out int count);
 
-        used -= status == OperationStatus.Done ? count : 1;
+        used -= status is OperationStatus.Done ? count : 1;
       }
 
       span[used++] = Ascii.Period;
@@ -213,13 +218,16 @@ public static class Logger {
     }
   }
 
+#pragma warning disable S3453
   private sealed class FileWriter : IDisposable {
+#pragma warning restore S3453
     public static readonly FileWriter Writer
       = new(LogFilePath);
 
     private readonly FileStream _stream;
     private readonly Lock _lock = new();
 
+#pragma warning disable S1144
     private FileWriter(string file_path) {
       string? dir = Path.GetDirectoryName(file_path);
       if (!string.IsNullOrEmpty(dir))
@@ -233,6 +241,7 @@ public static class Logger {
 
       this._stream.WriteByte(Ascii.LF);
     }
+#pragma warning restore S1144
 
     public void Write(scoped ReadOnlySpan<byte> what) {
       lock (this._lock)

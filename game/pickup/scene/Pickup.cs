@@ -18,21 +18,23 @@ public partial class Pickup : Area2D, IBlinkable {
 
   public float BlinkSpeed {
     get; init {
-      field = value;
       // 6f is default blink speed
-      if (value != 6f && value > .1f)
+      if (value is not 6f and > .1f and < 30) {
         (this._body_sprite.Material as ShaderMaterial)?
-          .SetShaderParameter("blink_speed", value);
+          .SetShaderParameter(Scene.Blink.BlinkSpeed, value);
+        field = value;
+      }
     }
   }
 
   public float HiddenRatio {
     get; init {
-      field = value;
       // .5f is default blink speed
-      if (value != .5f && value > 0f && value < 1f)
+      if (value is not .5f and > 0f and < 1f) {
         (this._body_sprite.Material as ShaderMaterial)?
-          .SetShaderParameter("hidden_ratio", value);
+          .SetShaderParameter(Scene.Blink.HiddenRatio, value);
+        field = value;
+      }
     }
   }
 
@@ -40,7 +42,7 @@ public partial class Pickup : Area2D, IBlinkable {
     get; private set {
       if (field != value) {
         (this._body_sprite.Material as ShaderMaterial)?
-          .SetShaderParameter("blink", value);
+          .SetShaderParameter(Scene.Blink.blink, value);
         field = value;
       }
     }
@@ -92,23 +94,21 @@ public partial class Pickup : Area2D, IBlinkable {
 
     this.InitTimer();
 
-    if (this._body_sprite is null)
-      Log(Level.Warning, "Missing pickup sprite");
-    else {
-      if (this._body_sprite.Texture is null)
-        Log(Level.Warning, "Missing pickup texture");
+    var sprite = this._body_sprite;
 
-      if (this._body_sprite.Material is not ShaderMaterial)
-        Log(Level.Warning, "Missing shader material");
-      else if (this._body_sprite.Material is ShaderMaterial shm
-        && shm.Shader is null)
-        Log(Level.Warning, "Missing shader program");
-    }
+    if (sprite.Texture is null)
+      Log(Level.Warning, "Missing pickup texture");
+
+    if (sprite.Material is not ShaderMaterial material)
+      Log(Level.Warning, "Missing shader material");
+    else if (material.Shader is null)
+      Log(Level.Warning, "Missing shader program");
   }
 
+#pragma warning disable S3168 // "async" methods should not return "void"
   private async void InitTimer() {
     try {
-      float blink = Math.Clamp(this.BlinkBeforeExpire, 0, (float)this.Config.Duration);
+      float blink = Math.Clamp(this.BlinkBeforeExpire, 0, this.Config.Duration);
       float before_blink = this.Config.Duration - blink;
 
       if (before_blink > 0.1f)
@@ -130,4 +130,5 @@ public partial class Pickup : Area2D, IBlinkable {
       this.QueueFree();
     }
   }
+#pragma warning restore S3168 // "async" methods should not return "void"
 }

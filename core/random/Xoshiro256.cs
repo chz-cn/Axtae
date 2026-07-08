@@ -6,7 +6,11 @@ using static Core.Random.IRandom;
 namespace Core.Random;
 
 public struct Xoshiro256Plus : IRandom {
+#pragma warning disable S2933 // Fields that are only assigned in the
+  // constructor should be "readonly"
   private ulong _s0, _s1, _s2, _s3;
+#pragma warning restore S2933 // Fields that are only assigned in the
+  // constructor should be "readonly"
 
   public Xoshiro256Plus(ulong seed) {
     SplitMix64 mix = new(seed);
@@ -15,7 +19,7 @@ public struct Xoshiro256Plus : IRandom {
     this._s2 = mix.NextUInt64();
     this._s3 = mix.NextUInt64();
 
-    if ((this._s0 | this._s1 | this._s2 | this._s3) == 0) {
+    if ((this._s0 | this._s1 | this._s2 | this._s3) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
       this._s2 = MixConst2;
@@ -26,7 +30,7 @@ public struct Xoshiro256Plus : IRandom {
   public Xoshiro256Plus(ulong s0, ulong s1, ulong s2, ulong s3) {
     (this._s0, this._s1, this._s2, this._s3) = (s0, s1, s2, s3);
 
-    if ((this._s0 | this._s1 | this._s2 | this._s3) == 0) {
+    if ((this._s0 | this._s1 | this._s2 | this._s3) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
       this._s2 = MixConst2;
@@ -54,7 +58,11 @@ public struct Xoshiro256Plus : IRandom {
 }
 
 public struct Xoshiro256PlusPlus : IRandom {
+#pragma warning disable S2933 // Fields that are only assigned in the
+  // constructor should be "readonly"
   private ulong _s0, _s1, _s2, _s3;
+#pragma warning restore S2933 // Fields that are only assigned in the
+  // constructor should be "readonly"
 
   public Xoshiro256PlusPlus(ulong seed) {
     SplitMix64 mix = new(seed);
@@ -63,7 +71,7 @@ public struct Xoshiro256PlusPlus : IRandom {
     this._s2 = mix.NextUInt64();
     this._s3 = mix.NextUInt64();
 
-    if ((this._s0 | this._s1 | this._s2 | this._s3) == 0) {
+    if ((this._s0 | this._s1 | this._s2 | this._s3) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
       this._s2 = MixConst2;
@@ -74,7 +82,7 @@ public struct Xoshiro256PlusPlus : IRandom {
   public Xoshiro256PlusPlus(ulong s0, ulong s1, ulong s2, ulong s3) {
     (this._s0, this._s1, this._s2, this._s3) = (s0, s1, s2, s3);
 
-    if ((this._s0 | this._s1 | this._s2 | this._s3) == 0) {
+    if ((this._s0 | this._s1 | this._s2 | this._s3) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
       this._s2 = MixConst2;
@@ -102,7 +110,11 @@ public struct Xoshiro256PlusPlus : IRandom {
 }
 
 public struct Xoshiro256StarStar : IRandom {
+#pragma warning disable S2933 // Fields that are only assigned in the
+  // constructor should be "readonly"
   private ulong _s0, _s1, _s2, _s3;
+#pragma warning restore S2933 // Fields that are only assigned in the
+  // constructor should be "readonly"
 
   public Xoshiro256StarStar(ulong seed) {
     SplitMix64 mix = new(seed);
@@ -111,7 +123,7 @@ public struct Xoshiro256StarStar : IRandom {
     this._s2 = mix.NextUInt64();
     this._s3 = mix.NextUInt64();
 
-    if ((this._s0 | this._s1 | this._s2 | this._s3) == 0) {
+    if ((this._s0 | this._s1 | this._s2 | this._s3) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
       this._s2 = MixConst2;
@@ -122,7 +134,7 @@ public struct Xoshiro256StarStar : IRandom {
   public Xoshiro256StarStar(ulong s0, ulong s1, ulong s2, ulong s3) {
     (this._s0, this._s1, this._s2, this._s3) = (s0, s1, s2, s3);
 
-    if ((this._s0 | this._s1 | this._s2 | this._s3) == 0) {
+    if ((this._s0 | this._s1 | this._s2 | this._s3) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
       this._s2 = MixConst2;

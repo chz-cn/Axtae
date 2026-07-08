@@ -21,7 +21,8 @@ public sealed partial class Player : CharacterBody2D,
 
   #region node
 
-  private readonly PackedScene _bullet_scene;
+  private readonly PackedScene _bullet_scene = ResourceLoader
+    .Load<PackedScene>(Url.Tscn.Bullet);
 
   private AnimatedSprite2D? _body_sprite;
   private AnimatedSprite2D? _armed_effect_sprite;
@@ -41,13 +42,12 @@ public sealed partial class Player : CharacterBody2D,
   private float _spiral_accumulator = 0f;
 
   // on exit tree
-  private System.Action? _on_exit = null;
   public event System.Action OnExit {
-    add => this._on_exit += value;
-    remove => this._on_exit -= value;
+    add => this.TreeExited += value;
+    remove => this.TreeExited -= value;
   }
 
-  private readonly uint _mask = (uint)System.Random.Shared.Next();
+  private readonly uint _mask = (uint)Core.Rng.Shared.NextUInt64();
   public uint MaxHealth { get; init; } = 4;
   public uint Health {
     get => field ^ this._mask;
@@ -72,24 +72,21 @@ public sealed partial class Player : CharacterBody2D,
       _ => "right"
     };
 
+#pragma warning disable S3358 // Ternary operators should not be nested
   public static FacingDirection Vector2FacingSuffix(Vector2 input)
     => (Mathf.Abs(input.X) >= Mathf.Abs(input.Y))
       ? (input.X > 0f ? FacingDirection.Right : FacingDirection.Left)
       : (input.Y > 0f ? FacingDirection.Down : FacingDirection.Up);
+#pragma warning restore S3358 // Ternary operators should not be nested
 
   #endregion
 
-  public Player() {
-    this.MotionMode = MotionModeEnum.Floating;
-
-    this._bullet_scene = ResourceLoader
-      .Load<PackedScene>("res://game/combat/projectile/bullet.tscn");
-  }
+  public Player() => this.MotionMode = MotionModeEnum.Floating;
 
   #region Godot Lifecycle Overrides
 
   public override void _EnterTree() {
-    if (this.MaxHealth == 0) {
+    if (this.MaxHealth is 0) {
       this.QueueFree();
       return;
     }
@@ -107,11 +104,7 @@ public sealed partial class Player : CharacterBody2D,
       Log(Level.Warning, "Failed to load bullet scene");
   }
 
-  public override void _ExitTree() {
-    this._on_exit?.Invoke();
-    this._on_exit = null;
-    Log(Level.Error, "flush");
-  }
+  public override void _ExitTree() => Log(Level.Error, "flush");
 
   public override void _Ready() {
     this._body_sprite = this.GetNodeOrNull<AnimatedSprite2D>("Body");
@@ -128,7 +121,7 @@ public sealed partial class Player : CharacterBody2D,
   }
 
   public override void _PhysicsProcess(double delta) {
-    if (this.Health == 0) {
+    if (this.Health is 0) {
       this.SetPhysicsProcess(false);
 
       StringName name = "die";
@@ -206,7 +199,7 @@ public sealed partial class Player : CharacterBody2D,
   private void UpdateArmedEffect() {
     if (this._armed_effect_sprite is null) return;
 
-    if (this._config.FormMode != Cfg.Form.Armed) {
+    if (this._config.FormMode is not Cfg.Form.Armed) {
       this._armed_effect_sprite.Visible = false;
       if (this._armed_effect_sprite.IsPlaying())
         this._armed_effect_sprite.Stop();
@@ -240,7 +233,7 @@ public sealed partial class Player : CharacterBody2D,
     float delay = this._config.SpiralShootDelay;
     ushort steps = (ushort)(this._spiral_accumulator / delay);
 
-    if (steps == 0) return;
+    if (steps is 0) return;
 
     for (ushort i = 0; i < steps; i++) {
       if (this._spiral_shoot.MoveNext()) continue;
@@ -262,7 +255,7 @@ public sealed partial class Player : CharacterBody2D,
       || direction == Vector2.Zero
       || offset <= 0f) return null;
 
-    Vector2 to = from + direction.Normalized() * offset;
+    Vector2 to = from + (direction.Normalized() * offset);
     this._ray_query.From = from;
     this._ray_query.To = to;
 
@@ -283,11 +276,11 @@ public sealed partial class Player : CharacterBody2D,
     bool? hit = this.WillHit(GetShootDirection(),
       this.GlobalPosition,
       ShotOffset);
-    if (hit is null || hit == true) return;
+    if (hit is null or true) return;
 
     Bullet bullet = this._bullet_scene.Instantiate<Bullet>();
     bullet.GlobalPosition
-      = this.GlobalPosition + GetShootDirection() * ShotOffset;
+      = this.GlobalPosition + (GetShootDirection() * ShotOffset);
 
     bullet.Setup(GetShootDirection());
     this.GetTree().Root.AddChild(bullet);
@@ -313,10 +306,10 @@ public sealed partial class Player : CharacterBody2D,
 
         if (this.WillHit(direction_f,
           this.GlobalPosition,
-          ShotOffset) == false) {
+          ShotOffset) is false) {
           Bullet forward = this._bullet_scene.Instantiate<Bullet>();
           forward.GlobalPosition
-            = this.GlobalPosition + direction_f * ShotOffset;
+            = this.GlobalPosition + (direction_f * ShotOffset);
 
           forward.Setup(direction_f);
           this.GetTree().Root.AddChild(forward);
@@ -325,11 +318,11 @@ public sealed partial class Player : CharacterBody2D,
 
         if (this.WillHit(direction_b,
           this.GlobalPosition,
-          ShotOffset) == false) {
+          ShotOffset) is false) {
           Bullet backward = this._bullet_scene.Instantiate<Bullet>();
 
           backward.GlobalPosition
-            = this.GlobalPosition + direction_b * ShotOffset;
+            = this.GlobalPosition + (direction_b * ShotOffset);
 
           backward.Setup(direction_b);
           this.GetTree().Root.AddChild(backward);
