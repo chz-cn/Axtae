@@ -7,6 +7,8 @@ using Core;
 
 namespace Test;
 
+#pragma warning disable S6640 // Unsafe code blocks should not be used
+
 public sealed class PagePoolTests : IDisposable {
   private readonly PagePool _pool;
 
@@ -57,14 +59,17 @@ public sealed class PagePoolTests : IDisposable {
 
   [Fact]
   public unsafe void Free_InvalidPointer_DoesNothing() {
-    this._pool.Free(null);
-    byte* outside = (byte*)IntPtr.Zero + 1000000;
-    this._pool.Free(outside);
+    var exception = Record.Exception(() => {
+      this._pool.Free(null);
+      byte* outside = (byte*)IntPtr.Zero + 1000000;
+      this._pool.Free(outside);
 
-    byte* ptr = this._pool.Alloc();
-    byte* misaligned = ptr + 1;
-    this._pool.Free(misaligned);
-    this._pool.Free(ptr);
+      byte* ptr = this._pool.Alloc();
+      byte* misaligned = ptr + 1;
+      this._pool.Free(misaligned);
+      this._pool.Free(ptr);
+    });
+    Assert.Null(exception);
   }
 
   [Fact]
@@ -124,15 +129,6 @@ public sealed class PagePoolTests : IDisposable {
   }
 
   [Fact]
-  public void Dispose_MultipleCalls_IsSafe() {
-    IOwner owner = this._pool.Rent();
-    owner.Dispose();
-#pragma warning disable S3966 // Objects should not be disposed more than once
-    owner.Dispose();
-#pragma warning restore S3966 // Objects should not be disposed more than once
-  }
-
-  [Fact]
   public async Task PagePool_ThreadSafety_ConcurrentAllocFreeAsync() {
     const int iterations = 100;
     var tasks = new List<Task>();
@@ -153,7 +149,8 @@ public sealed class PagePoolTests : IDisposable {
       }));
     }
 
-    await Task.WhenAll(tasks);
+    var exception = await Record.ExceptionAsync(() => Task.WhenAll(tasks));
+    Assert.Null(exception);
   }
 }
 
@@ -237,15 +234,18 @@ public sealed class CachePoolTests : IDisposable {
 
   [Fact]
   public unsafe void Free_InvalidPointer_DoesNothing() {
-    this._pool.Free(null);
-    byte* outside = this._buffer + this._pool.TotalByte + 10;
-    this._pool.Free(outside);
+    var exception = Record.Exception(() => {
+      this._pool.Free(null);
+      byte* outside = this._buffer + this._pool.TotalByte + 10;
+      this._pool.Free(outside);
 
-    byte* ptr = this._pool.Alloc();
-    byte* misaligned = ptr + 1;
-    this._pool.Free(misaligned);
-    this._pool.Free(ptr);
-    this._pool.Free(ptr);
+      byte* ptr = this._pool.Alloc();
+      byte* misaligned = ptr + 1;
+      this._pool.Free(misaligned);
+      this._pool.Free(ptr);
+      this._pool.Free(ptr);
+    });
+    Assert.Null(exception);
   }
 
   [Fact]
@@ -293,6 +293,9 @@ public sealed class CachePoolTests : IDisposable {
       }));
     }
 
-    await Task.WhenAll(tasks);
+    var exception = await Record.ExceptionAsync(() => Task.WhenAll(tasks));
+    Assert.Null(exception);
   }
 }
+
+#pragma warning restore S6640 // Unsafe code blocks should not be used

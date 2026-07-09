@@ -2,7 +2,7 @@
 using System;
 using Godot;
 
-namespace Game.Scene.P1;
+namespace Game.Scene;
 
 public interface ICameraFollowable {
   event Action OnExit;
@@ -19,12 +19,8 @@ public sealed partial class Camera : Camera2D {
     set {
       if (value == this._target) return;
 
-#pragma warning disable S1121 // Assignments should not be made from within
-      // sub-expressions
       this._target?.OnExit -= this.FollowTarget;
       value?.OnExit += this.FollowTarget;
-#pragma warning restore S1121 // Assignments should not be made from within
-      // sub-expressions
 
       this._target = value;
     }

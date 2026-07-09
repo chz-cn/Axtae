@@ -16,6 +16,6 @@ public sealed class Speed : IPickup<Player> {
   public void ApplyTo(Player target) {
     if (target is null) return;
 
-    target.Config.AddSpeedMultiplier(2f, this.Duration);
+    target.Config.AddSpeedMultiplier(1.5f, this.Duration);
   }
 }

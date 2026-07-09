@@ -10,6 +10,7 @@ public sealed class NumericTests {
   public void ZeroIfLessThan_EmptySpan_DoesNothing() {
     Span<float> data = [];
     Numeric.ZeroIfLessThan(data, 0.5f);
+    Assert.True(data is []);
   }
 
   [Fact]

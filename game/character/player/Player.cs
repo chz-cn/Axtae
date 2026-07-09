@@ -1,17 +1,23 @@
 
-using Game.Scene.P1;
+using System.Collections;
+using Game.Scene;
 using Godot;
 using static Core.Logger;
 
 using Bullet = Game.Combat.Projectile.Bullet;
 using Cfg = Game.Config.Character.Player.Player;
+using L = Game.Config.Layer;
 
 namespace Game.Character.Player;
 
 public sealed partial class Player : CharacterBody2D,
   Combat.IBasicTakeDamage,
   ICameraFollowable {
-  public const float ShotOffset = 10f;
+  public const uint Layer = L.CharacterBody;
+  public const uint Mask = L.World | L.CharacterBody | L.CharacterSensor
+    | L.Pickup | L.Projectile | L.AreaEffect | L.Melee | L.Hazard;
+
+  public const float ShotOffset = 18f;
 
   public const float DefaultFireRateMultiplier = 1f;
   public const float DefaultSpeedMultiplier = 1f;
@@ -32,10 +38,9 @@ public sealed partial class Player : CharacterBody2D,
 
   #endregion
 
-  private System.Collections.IEnumerator? _spiral_shoot = null;
+  private IEnumerator? _spiral_shoot = null;
 
-  public enum FacingDirection : byte { Right, Left, Up, Down }
-  private FacingDirection _facing = FacingDirection.Right;
+  private Cfg.FacingDirection _facing = Cfg.FacingDirection.Right;
 
   // timers
   private float _shoot_timer = 0f;
@@ -48,40 +53,24 @@ public sealed partial class Player : CharacterBody2D,
   }
 
   private readonly uint _mask = (uint)Core.Rng.Shared.NextUInt64();
-  public uint MaxHealth { get; init; } = 4;
+  public uint MaxHealth { get; init; } = 5;
   public uint Health {
     get => field ^ this._mask;
     private set => field = value ^ this._mask;
   }
 
-  #region static
-
-  public static string Form2Prefix(Cfg.Form form)
-    => form switch {
-      Cfg.Form.Normal => "n_",
-      Cfg.Form.Armed => "armed_",
-      _ => "n_"
-    };
-
-  public static string Facing2Suffix(FacingDirection facing)
-    => facing switch {
-      FacingDirection.Right => "right",
-      FacingDirection.Left => "left",
-      FacingDirection.Up => "up",
-      FacingDirection.Down => "down",
-      _ => "right"
-    };
-
 #pragma warning disable S3358 // Ternary operators should not be nested
-  public static FacingDirection Vector2FacingSuffix(Vector2 input)
+  public static Cfg.FacingDirection Vector2FacingSuffix(Vector2 input)
     => (Mathf.Abs(input.X) >= Mathf.Abs(input.Y))
-      ? (input.X > 0f ? FacingDirection.Right : FacingDirection.Left)
-      : (input.Y > 0f ? FacingDirection.Down : FacingDirection.Up);
+      ? (input.X > 0f ? Cfg.FacingDirection.Right : Cfg.FacingDirection.Left)
+      : (input.Y > 0f ? Cfg.FacingDirection.Down : Cfg.FacingDirection.Up);
 #pragma warning restore S3358 // Ternary operators should not be nested
 
-  #endregion
-
-  public Player() => this.MotionMode = MotionModeEnum.Floating;
+  public Player() {
+    this.MotionMode = MotionModeEnum.Floating;
+    this.CollisionLayer = Layer;
+    this.CollisionMask = Mask;
+  }
 
   #region Godot Lifecycle Overrides
 
@@ -107,17 +96,19 @@ public sealed partial class Player : CharacterBody2D,
   public override void _ExitTree() => Log(Level.Error, "flush");
 
   public override void _Ready() {
-    this._body_sprite = this.GetNodeOrNull<AnimatedSprite2D>("Body");
-    this._armed_effect_sprite = this.GetNodeOrNull<AnimatedSprite2D>("ArmedEffect");
+    var body = this.GetNodeOrNull<AnimatedSprite2D>("Body");
+    var armed_sprite = this.GetNodeOrNull<AnimatedSprite2D>("ArmedEffect");
 
-    if (this._body_sprite is null) {
+    if (body is null) {
       Log(Level.Warning, "Missing Player sprite");
       this.QueueFree();
     }
-    else this._body_sprite.AnimationFinished += this.QueueFree;
+    else body.AnimationFinished += this.QueueFree;
 
-    if (this._armed_effect_sprite is null)
+    if (armed_sprite is null)
       Log(Level.Warning, "Missing Player armed effect sprite");
+    this._body_sprite = body;
+    this._armed_effect_sprite = armed_sprite;
   }
 
   public override void _PhysicsProcess(double delta) {
@@ -125,9 +116,11 @@ public sealed partial class Player : CharacterBody2D,
       this.SetPhysicsProcess(false);
 
       StringName name = "die";
-      if (this._body_sprite is null) return;
-      if (this._body_sprite.SpriteFrames.HasAnimation(name)) {
-        if (this._body_sprite.Animation != name) this._body_sprite.Play(name);
+
+      var sprite = this._body_sprite;
+      if (sprite is null) return;
+      if (sprite.SpriteFrames.HasAnimation(name)) {
+        if (sprite.Animation != name) sprite.Play(name);
       }
       else Log(Level.Warning, "die animation not found");
 
@@ -140,6 +133,7 @@ public sealed partial class Player : CharacterBody2D,
       Game.Config.InputMap.MoveUp,
       Game.Config.InputMap.MoveDown);
 
+    this._config.Update(delta);
     this.Velocity = input.Normalized()
       * this._config.MoveSpeed * this._config.SpeedMultiplier;
     this.MoveAndSlide();
@@ -184,35 +178,36 @@ public sealed partial class Player : CharacterBody2D,
   }
 
   private void UpdateAnim() {
-    if (this._body_sprite is null) return;
+    var sprite = this._body_sprite;
+    if (sprite is null) return;
 
-    StringName name = Form2Prefix(this._config.FormMode)
-      + Facing2Suffix(this._facing);
-    if (!this._body_sprite.SpriteFrames.HasAnimation(name)) {
-      GD.PushWarning(name, " not found");
+    var name = Cfg.GetAnim(this._config.FormMode, this._facing);
+    if (!sprite.SpriteFrames.HasAnimation(name)) {
+      Log(Level.Warning, name + " not found");
       return;
     }
 
-    if (this._body_sprite.Animation != name) this._body_sprite.Play(name);
+    if (sprite.Animation != name) sprite.Play(name);
   }
 
   private void UpdateArmedEffect() {
-    if (this._armed_effect_sprite is null) return;
+    var sprite = this._armed_effect_sprite;
+    if (sprite is null) return;
 
     if (this._config.FormMode is not Cfg.Form.Armed) {
-      this._armed_effect_sprite.Visible = false;
-      if (this._armed_effect_sprite.IsPlaying())
-        this._armed_effect_sprite.Stop();
+      sprite.Visible = false;
+      if (sprite.IsPlaying())
+        sprite.Stop();
 
       return;
     }
 
-    this._armed_effect_sprite.Visible = true;
-    if (this._armed_effect_sprite.IsPlaying()) return;
+    sprite.Visible = true;
+    if (sprite.IsPlaying()) return;
 
     StringName effect = "default";
-    if (this._armed_effect_sprite.SpriteFrames.HasAnimation(effect))
-      this._armed_effect_sprite.Play(effect);
+    if (sprite.SpriteFrames.HasAnimation(effect))
+      sprite.Play(effect);
   }
 
   private void UpdateShoot(float delta) {
@@ -220,7 +215,7 @@ public sealed partial class Player : CharacterBody2D,
 
     if (Input.IsActionPressed(Game.Config.InputMap.Shoot)
       && this._shoot_timer <= 0) {
-      this.Shoot();
+      this.Shoot(this.GetGlobalMousePosition());
       this._shoot_timer = this._config.ShootDelay
         / this._config.FireRateMultiplier;
     }
@@ -250,46 +245,36 @@ public sealed partial class Player : CharacterBody2D,
   #endregion
 
   private bool? WillHit(Vector2 direction, Vector2 from, float offset) {
-    if (this._ray_query is null
-      || this._state is null
+    var ray = this._ray_query;
+    var state = this._state;
+    if (ray is null
+      || state is null
       || direction == Vector2.Zero
       || offset <= 0f) return null;
 
-    Vector2 to = from + (direction.Normalized() * offset);
-    this._ray_query.From = from;
-    this._ray_query.To = to;
+    ray.From = from;
+    ray.To = from + (direction.Normalized() * offset);
 
-    return this._state.IntersectRay(this._ray_query).Count > 0;
+    return state.IntersectRay(ray).Count > 0;
   }
 
-  private void Shoot() {
-    Vector2 GetShootDirection()
-      => this._facing switch {
-        FacingDirection.Right => Vector2.Right,
-        FacingDirection.Left => Vector2.Left,
-        FacingDirection.Up => Vector2.Up,
-        FacingDirection.Down => Vector2.Down,
-        _ => Vector2.Right
-      };
-
+  private void Shoot(Vector2 direction) {
     if (this._bullet_scene is null) return;
-    bool? hit = this.WillHit(GetShootDirection(),
-      this.GlobalPosition,
-      ShotOffset);
+
+    var p = this.GlobalPosition;
+    var to = p.DirectionTo(direction);
+    bool? hit = this.WillHit(to, p, ShotOffset);
     if (hit is null or true) return;
 
     Bullet bullet = this._bullet_scene.Instantiate<Bullet>();
-    bullet.GlobalPosition
-      = this.GlobalPosition + (GetShootDirection() * ShotOffset);
+    bullet.GlobalPosition = p + (to * ShotOffset);
 
-    bullet.Setup(GetShootDirection());
+    bullet.Setup(to);
     this.GetTree().Root.AddChild(bullet);
     bullet.PlayAudio();
   }
 
-  private System.Collections.IEnumerator SpiralShoot(
-    ushort total,
-    byte shots_per_circle) {
+  private IEnumerator SpiralShoot(ushort total, byte shots_per_circle) {
     if (this._bullet_scene is null || shots_per_circle < 1 || total < 2)
       yield break;
 
@@ -304,25 +289,21 @@ public sealed partial class Player : CharacterBody2D,
         Vector2 direction_f = Vector2.FromAngle(Mathf.DegToRad(deg));
         Vector2 direction_b = -direction_f;
 
-        if (this.WillHit(direction_f,
-          this.GlobalPosition,
-          ShotOffset) is false) {
+        var p = this.GlobalPosition;
+
+        if (this.WillHit(direction_f, p, ShotOffset) is false) {
           Bullet forward = this._bullet_scene.Instantiate<Bullet>();
-          forward.GlobalPosition
-            = this.GlobalPosition + (direction_f * ShotOffset);
+          forward.GlobalPosition = p + (direction_f * ShotOffset);
 
           forward.Setup(direction_f);
           this.GetTree().Root.AddChild(forward);
           forward.PlayAudio();
         }
 
-        if (this.WillHit(direction_b,
-          this.GlobalPosition,
-          ShotOffset) is false) {
+        if (this.WillHit(direction_b, p, ShotOffset) is false) {
           Bullet backward = this._bullet_scene.Instantiate<Bullet>();
 
-          backward.GlobalPosition
-            = this.GlobalPosition + (direction_b * ShotOffset);
+          backward.GlobalPosition = p + (direction_b * ShotOffset);
 
           backward.Setup(direction_b);
           this.GetTree().Root.AddChild(backward);

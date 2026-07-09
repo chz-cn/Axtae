@@ -9,7 +9,7 @@ public partial class Bullet : Area2D {
   public const float MaxLifeTime = 2f;
   public const uint Mask = L.CharacterBody | L.World;
   public const byte MaxAudio = 4;
-  public const int damage = 20;
+  public uint Damage { get; init; } = 20;
 
   private Vector2 _direction = Vector2.Zero;
   private float _life_time = 0.0f;
@@ -23,7 +23,7 @@ public partial class Bullet : Area2D {
 
     this.BodyEntered += (body) => {
       if (body is ITakeDamage player)
-        player.TakeDamage(damage);
+        player.TakeDamage(this.Damage);
 
       this.QueueFree();
     };

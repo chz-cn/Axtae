@@ -5,8 +5,6 @@ using Godot;
 
 namespace Game.Config.Pickup;
 
-#pragma warning disable S3453 // Classes should not have only "private"
-// constructors
 public sealed class Empty : IPickup<Player> {
   public float Duration => 0;
 
@@ -18,9 +16,5 @@ public sealed class Empty : IPickup<Player> {
 
   private Empty() { }
 
-  public void ApplyTo(Player target) {
-    // Method intentionally left empty.
-  }
+  public void ApplyTo(Player target) { }
 }
-#pragma warning restore S3453 // Classes should not have only "private"
-// constructors

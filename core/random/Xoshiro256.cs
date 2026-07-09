@@ -6,11 +6,7 @@ using static Core.Random.IRandom;
 namespace Core.Random;
 
 public struct Xoshiro256Plus : IRandom {
-#pragma warning disable S2933 // Fields that are only assigned in the
-  // constructor should be "readonly"
   private ulong _s0, _s1, _s2, _s3;
-#pragma warning restore S2933 // Fields that are only assigned in the
-  // constructor should be "readonly"
 
   public Xoshiro256Plus(ulong seed) {
     SplitMix64 mix = new(seed);
@@ -58,11 +54,7 @@ public struct Xoshiro256Plus : IRandom {
 }
 
 public struct Xoshiro256PlusPlus : IRandom {
-#pragma warning disable S2933 // Fields that are only assigned in the
-  // constructor should be "readonly"
   private ulong _s0, _s1, _s2, _s3;
-#pragma warning restore S2933 // Fields that are only assigned in the
-  // constructor should be "readonly"
 
   public Xoshiro256PlusPlus(ulong seed) {
     SplitMix64 mix = new(seed);
@@ -110,11 +102,7 @@ public struct Xoshiro256PlusPlus : IRandom {
 }
 
 public struct Xoshiro256StarStar : IRandom {
-#pragma warning disable S2933 // Fields that are only assigned in the
-  // constructor should be "readonly"
   private ulong _s0, _s1, _s2, _s3;
-#pragma warning restore S2933 // Fields that are only assigned in the
-  // constructor should be "readonly"
 
   public Xoshiro256StarStar(ulong seed) {
     SplitMix64 mix = new(seed);

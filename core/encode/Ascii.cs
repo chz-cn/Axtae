@@ -178,6 +178,7 @@ public static class Ascii {
 
   extension(int num) {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
+#pragma warning disable S6640 // Unsafe code blocks should not be used
     public unsafe byte ToAscii(scoped Span<byte> sp) {
       if (sp.IsEmpty) return 0;
 
@@ -185,16 +186,18 @@ public static class Ascii {
         fixed (byte* ptr = sp)
           ptr[0] = Ascii.HyphenMinus;
 
-        uint n = unchecked((uint)-num);
-        byte r = n.ToAscii(sp[1..]);
-        return r is 0 ? (byte)0 : (byte)(r + 1);
+        uint ne = unchecked((uint)-num);
+        byte res = ne.ToAscii(sp[1..]);
+        return res is 0 ? (byte)0 : (byte)(res + 1);
       }
 
       return ((uint)num).ToAscii(sp);
     }
+#pragma warning restore S6640 // Unsafe code blocks should not be used
   }
 
   extension(uint num) {
+#pragma warning disable S6640 // Unsafe code blocks should not be used
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public unsafe byte ToAscii(scoped Span<byte> sp) {
       if (sp.IsEmpty) return 0;
@@ -221,16 +224,16 @@ public static class Ascii {
         }
 
         if (num < 10)
-          *--ptr = (byte)(Ascii.Zero + num);
+          ptr[-1] = (byte)(Ascii.Zero + num);
         else {
-          ptr -= 2;
           int idx = (int)(num * 2);
-          ptr[0] = LUT[idx];
-          ptr[1] = LUT[idx + 1];
+          ptr[-2] = LUT[idx];
+          ptr[-1] = LUT[idx + 1];
         }
       }
 
       return (byte)len;
     }
+#pragma warning restore S6640 // Unsafe code blocks should not be used
   }
 }

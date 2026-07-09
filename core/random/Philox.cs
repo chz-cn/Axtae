@@ -25,11 +25,8 @@ public sealed class Philox4x32 {
 #pragma warning restore S1144 // Unused private types or members should be
   // removed
 
-#pragma warning disable S2933 // Fields that are only assigned in the
-  // constructor should be "readonly"
   private Buffer _buffer = new();
-#pragma warning restore S2933 // Fields that are only assigned in the
-  // constructor should be "readonly"
+
   private int _index = 4;
 
   public Philox4x32(ulong seed) {
@@ -134,10 +131,9 @@ public sealed class Philox4x64 {
 #pragma warning restore S1144 // Unused private types or members should be
   // removed
 
-#pragma warning disable S2933 // Fields that are only assigned in the
   // constructor should be "readonly"
   private Buffer _buffer = new();
-#pragma warning restore S2933 // Fields that are only assigned in the
+
   // constructor should be "readonly"
   private int _index = 4;
 

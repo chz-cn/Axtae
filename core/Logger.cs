@@ -17,11 +17,10 @@ public static class Logger {
   public static readonly string LogFilePath
     = Path.Combine(Path.GetTempPath(), "GO", "x.log");
 
-  private static readonly IChannel<LogEntry> _channel;
+  private static readonly IChannel<LogEntry> _channel
+    = Channel.CreateBounded<LogEntry>(128);
 
   static Logger() {
-    _channel = Channel.CreateBounded<LogEntry>(128);
-
     _ = Task.Run(static async () => {
       try {
         byte[] buffer = new byte[(int)MaxEntryLength];
@@ -218,30 +217,27 @@ public static class Logger {
     }
   }
 
-#pragma warning disable S3453
   private sealed class FileWriter : IDisposable {
-#pragma warning restore S3453
     public static readonly FileWriter Writer
       = new(LogFilePath);
 
     private readonly FileStream _stream;
     private readonly Lock _lock = new();
 
-#pragma warning disable S1144
     private FileWriter(string file_path) {
       string? dir = Path.GetDirectoryName(file_path);
       if (!string.IsNullOrEmpty(dir))
         _ = Directory.CreateDirectory(dir);
 
-      this._stream = new(file_path,
+      var stream = new FileStream(file_path,
         FileMode.Append,
         FileAccess.Write,
         FileShare.Read,
         8 * 1024);
 
-      this._stream.WriteByte(Ascii.LF);
+      stream.WriteByte(Ascii.LF);
+      this._stream = stream;
     }
-#pragma warning restore S1144
 
     public void Write(scoped ReadOnlySpan<byte> what) {
       lock (this._lock)

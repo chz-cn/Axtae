@@ -12,7 +12,7 @@ public partial class Pickup : Area2D, IBlinkable {
   public const uint Layer = L.Pickup;
   public const uint Mask = L.CharacterBody;
 
-  public float BlinkBeforeExpire { get; init; } = 1.5f;
+  public float BlinkBeforeExpire { get; init; } = 1.2f;
 
   #region IBlinkable
 
@@ -55,12 +55,11 @@ public partial class Pickup : Area2D, IBlinkable {
   private readonly Sprite2D _body_sprite;
 
   public Pickup(Config.IPickup config) {
-    ArgumentNullException.ThrowIfNull(config, nameof(config));
+    ArgumentNullException.ThrowIfNull(config);
     if (config is Empty)
-      throw new ArgumentException("Empty Pickup config", nameof(config));
+      throw new ArgumentException("Empty Pickup config");
 
-    ArgumentOutOfRangeException.ThrowIfLessThan(
-      config.Duration, .1f, nameof(config.Duration));
+    ArgumentOutOfRangeException.ThrowIfLessThan(config.Duration, .1f);
 
     this.CollisionLayer = Layer;
     this.CollisionMask = Mask;
@@ -108,7 +107,8 @@ public partial class Pickup : Area2D, IBlinkable {
 #pragma warning disable S3168 // "async" methods should not return "void"
   private async void InitTimer() {
     try {
-      float blink = Math.Clamp(this.BlinkBeforeExpire, 0, this.Config.Duration);
+      float blink = Math.Clamp(this.BlinkBeforeExpire,
+        0, this.Config.Duration);
       float before_blink = this.Config.Duration - blink;
 
       if (before_blink > 0.1f)
@@ -116,7 +116,7 @@ public partial class Pickup : Area2D, IBlinkable {
           this.GetTree().CreateTimer(before_blink),
           Timer.SignalName.Timeout);
 
-      if (blink > 0.1f) {
+      if (!this.IsQueuedForDeletion() && blink > 0.1f) {
         this.Blink = true;
         await this.ToSignal(
           this.GetTree().CreateTimer(blink),

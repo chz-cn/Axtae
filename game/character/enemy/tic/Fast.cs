@@ -12,7 +12,6 @@ namespace Game.Character.Enemy.Tic;
 
 public sealed partial class Fast : CharacterBody2D,
   ITakeDamage,
-  IBlinkable,
   IDropable {
   public const uint Layer = L.CharacterBody;
   public const uint Mask = L.World | L.CharacterBody | L.CharacterSensor
@@ -23,10 +22,10 @@ public sealed partial class Fast : CharacterBody2D,
   public static readonly StringName Move = "move";
 
   public required Player.Player TargetPlayer { get; set; }
-  public float Speed { get; init; } = 60;
+  public float Speed { get; init; } = 30;
 
   private readonly uint _mask = (uint)Core.Rng.Shared.NextUInt64();
-  public uint MaxHealth { get; init; } = 4;
+  public uint MaxHealth { get; init; } = 2;
   public uint Health {
     get => field ^ this._mask;
     private set => field = value ^ this._mask;
@@ -38,43 +37,8 @@ public sealed partial class Fast : CharacterBody2D,
   private static readonly InlineArray2<(IPickup, uint)> _drop;
 #pragma warning restore S3459 // Unassigned members should be removed
 
-  #region IBlinkable
-
-  public float BlinkSpeed {
-    get; private set {
-      if (value is > .1f and < 30) {
-        (this._body_sprite.Material as ShaderMaterial)?
-          .SetShaderParameter(Pickup.Scene.Blink.BlinkSpeed, value);
-        field = value;
-      }
-    }
-  }
-
-  public float HiddenRatio {
-    get; private set {
-      if (value is > 0f and < 1f) {
-        (this._body_sprite.Material as ShaderMaterial)?
-          .SetShaderParameter(Pickup.Scene.Blink.HiddenRatio, value);
-        field = value;
-      }
-    }
-  }
-
-  public bool Blink {
-    get; private set {
-      if (field != value) {
-        (this._body_sprite.Material as ShaderMaterial)?
-          .SetShaderParameter(Pickup.Scene.Blink.blink, value);
-        field = value;
-      }
-    }
-  }
-
-  #endregion
-
   private float _damage_timer = 0;
-  private float _blink_timer = 0;
-  private bool _touch_palyer = false;
+  private bool _touched = false;
 
   private readonly AnimatedSprite2D _body_sprite = new() {
     Frame = 0,
@@ -86,8 +50,8 @@ public sealed partial class Fast : CharacterBody2D,
   };
 
   static Fast() {
-    _drop[0] = (Config.Pickup.Speed.Instance, 100);
-    _drop[1] = (Config.Pickup.Empty.Instance, 100);
+    _drop[0] = (Config.Pickup.Speed.Instance, 50);
+    _drop[1] = (Config.Pickup.Empty.Instance, 50);
   }
 
   public Fast() {
@@ -115,7 +79,7 @@ public sealed partial class Fast : CharacterBody2D,
 
     this.AddChild(sprite);
     this.AddChild(new CollisionShape2D {
-      Shape = new CircleShape2D { Radius = 4 }
+      Shape = new CircleShape2D { Radius = 5 }
     });
 
     Area2D area = new() {
@@ -123,14 +87,13 @@ public sealed partial class Fast : CharacterBody2D,
       CollisionMask = L.CharacterBody
     };
     area.BodyEntered += (node) => {
-      if (this.Health is not 0 && node is Player.Player player) {
-        this._touch_palyer = true;
+      if (this.Health is not 0 && node is Player.Player) {
+        this._touched = true;
         this._damage_timer = 0;
-        player.TakeDamage(1);
       }
     };
     area.BodyExited += (node) => {
-      if (node is Player.Player) this._touch_palyer = false;
+      if (node is Player.Player) this._touched = false;
     };
 
     area.AddChild(new CollisionShape2D {
@@ -144,9 +107,11 @@ public sealed partial class Fast : CharacterBody2D,
       this.SetPhysicsProcess(false);
 
       StringName name = "die";
-      if (this._body_sprite is null) return;
-      if (this._body_sprite.SpriteFrames.HasAnimation(name)) {
-        if (this._body_sprite.Animation != name) this._body_sprite.Play(name);
+
+      var sprite = this._body_sprite;
+      if (sprite is null) return;
+      if (sprite.SpriteFrames.HasAnimation(name)) {
+        if (sprite.Animation != name) sprite.Play(name);
       }
       else Log(Level.Warning, "die animation not found");
 
@@ -154,11 +119,10 @@ public sealed partial class Fast : CharacterBody2D,
     }
 
     var dt = (float)delta;
-    this.UpdateBlink(dt);
     this.UpdateTouchDamage(dt);
 
     if (!IsInstanceValid(this.TargetPlayer)) {
-      this._touch_palyer = false;
+      this._touched = false;
       this.Velocity = Vector2.Zero;
       this.MoveAndSlide();
       return;
@@ -172,13 +136,9 @@ public sealed partial class Fast : CharacterBody2D,
   }
 
   public void TakeDamage(uint damage) {
-    var h = this.Health;
-    if (h > damage) {
-      this.Health -= damage;
-      this.Blink = true;
-      this._blink_timer = BlinkTime;
-    }
-    else if (h > 0) this.Health = 0;
+    uint val = this.Health;
+    uint x = val - damage;
+    this.Health = val > damage ? x : 0;
   }
 
   public void UpdateFacingDirection(Vector2 direction) {
@@ -190,22 +150,11 @@ public sealed partial class Fast : CharacterBody2D,
   private void UpdateTouchDamage(float dt) {
     this._damage_timer -= dt;
 
-    if (!this._touch_palyer
+    if (!this._touched
       || !IsInstanceValid(this.TargetPlayer)
       || this._damage_timer > 0) return;
 
     this.TargetPlayer.TakeDamage(1);
     this._damage_timer = DamageInterval;
-  }
-
-  private void UpdateBlink(float dt) {
-    if (this._blink_timer <= 0) return;
-
-    this._blink_timer -= dt;
-
-    if (this._blink_timer <= 0) {
-      this.Blink = false;
-      this._blink_timer = 0;
-    }
   }
 }

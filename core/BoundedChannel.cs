@@ -75,9 +75,9 @@ public sealed class DrainBoundedChannel<T> : IBoundedChannel<T> {
 
     this._cts.Cancel();
     this._completion.TrySetResult();
+    this._cts.Dispose();
   }
 
-#pragma warning disable S3604
   private sealed class IWriter(DrainBoundedChannel<T> parent)
     : IChannelWriter<T> {
     private readonly DrainBoundedChannel<T> _parent = parent;
@@ -147,7 +147,6 @@ public sealed class DrainBoundedChannel<T> : IBoundedChannel<T> {
       return item;
     }
   }
-#pragma warning restore S3604
 }
 
 public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
@@ -185,9 +184,10 @@ public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
 
     this._reader_cts.Cancel();
     this._completion.TrySetResult();
+    this._writer_cts.Dispose();
+    this._reader_cts.Dispose();
   }
 
-#pragma warning disable S3604
   private sealed class IWriter(RejectBoundedChannel<T> parent)
     : IChannelWriter<T> {
     private readonly RejectBoundedChannel<T> _parent = parent;
@@ -296,5 +296,4 @@ public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
       }
     }
   }
-#pragma warning restore S3604
 }

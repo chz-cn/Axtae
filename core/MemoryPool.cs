@@ -26,8 +26,10 @@ public interface IPool {
   /// <value>The block count, which is at least 2.</value>
   public uint BlockCount { get; }
 
+#pragma warning disable S6640 // Unsafe code blocks should not be used
   unsafe byte* Alloc();
   unsafe void Free(byte* ptr);
+#pragma warning restore S6640 // Unsafe code blocks should not be used
 
   IOwner Rent();
 }
@@ -52,14 +54,12 @@ public interface IPool {
 /// instead of the indexer <see cref="this[nuint]"/>.
 /// </para>
 /// </remarks>
-#pragma warning disable S3604 // Member initializer values should not be
-// redundant
+#pragma warning disable S6640 // Unsafe code blocks should not be used
 public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size) {
+#pragma warning restore S6640 // Unsafe code blocks should not be used
   private readonly IPool _parent = parent;
   public readonly byte* Ptr = ptr;
   public readonly uint Size = size;
-#pragma warning restore S3604 // Member initializer values should not be
-  // redundant
 
   /// <summary>
   /// Gets a value indicating whether this instance is empty.
@@ -78,7 +78,8 @@ public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size) {
   /// This property provides bounds-checked access and is the recommended way
   /// to read or write the rented memory.
   /// </remarks>
-  public Span<byte> Span => new(this.Ptr, (int)this.Size);
+  public Span<byte> Span => new(this.Ptr,
+    this.Size > int.MaxValue ? int.MaxValue : (int)this.Size);
 
   /// <summary>
   /// <paramref name="index"/> access is unchecked — use <see cref="Span"/>
@@ -94,7 +95,9 @@ public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size) {
 #pragma warning restore S2953 // Methods named "Dispose" should implement "IDisposable.Dispose"
 }
 
-public unsafe sealed class PagePool : IDisposable, IPool {
+#pragma warning disable S6640 // Unsafe code blocks should not be used
+public sealed unsafe class PagePool : IDisposable, IPool {
+#pragma warning restore S6640 // Unsafe code blocks should not be used
   public uint TotalByte { get; }
   public uint BlockSize { get; }
 
@@ -158,17 +161,16 @@ public unsafe sealed class PagePool : IDisposable, IPool {
   /// </para>
   /// </remarks>
   public PagePool(ushort size = 8, uint block_size = 1) {
-    ArgumentOutOfRangeException.ThrowIfZero(size, nameof(size));
-    ArgumentOutOfRangeException.ThrowIfGreaterThan(size, 2048, nameof(size));
+    ArgumentOutOfRangeException.ThrowIfZero(size);
+    ArgumentOutOfRangeException.ThrowIfGreaterThan(size, 2048);
 
-    ArgumentOutOfRangeException.ThrowIfZero(block_size, nameof(block_size));
+    ArgumentOutOfRangeException.ThrowIfZero(block_size);
 
     uint total_byte = size * MiB;
     uint block_byte = block_size * 4 * KiB;
 
     uint theoretical = total_byte / (block_byte + 2);
-    ArgumentOutOfRangeException
-      .ThrowIfLessThan(theoretical, 2u, nameof(theoretical));
+    ArgumentOutOfRangeException.ThrowIfLessThan(theoretical, 2u);
 
     ushort block_count = (ushort)Math.Min(theoretical, ushort.MaxValue);
 
@@ -337,7 +339,9 @@ public unsafe sealed class PagePool : IDisposable, IPool {
 /// the pool as disposed and does <em>not</em> release the buffer memory.
 /// </para>
 /// </remarks>
-public unsafe sealed class CachePool : IDisposable, IPool {
+#pragma warning disable S6640 // Unsafe code blocks should not be used
+public sealed unsafe class CachePool : IDisposable, IPool {
+#pragma warning restore S6640 // Unsafe code blocks should not be used
   public uint TotalByte { get; }
   public uint BlockSize { get; }
 
@@ -397,18 +401,17 @@ public unsafe sealed class CachePool : IDisposable, IPool {
   /// </para>
   /// </remarks>
   public CachePool(byte* ptr, ushort size, ushort block_size = 1) {
-    ArgumentNullException.ThrowIfNull(ptr, nameof(ptr));
+    ArgumentNullException.ThrowIfNull(ptr);
 
-    ArgumentOutOfRangeException.ThrowIfZero(size, nameof(size));
-    ArgumentOutOfRangeException.ThrowIfZero(block_size, nameof(block_size));
+    ArgumentOutOfRangeException.ThrowIfZero(size);
+    ArgumentOutOfRangeException.ThrowIfZero(block_size);
 
     uint total_byte = size * 4u * KiB;
     uint block_byte = block_size * 64u;
 
     uint block_count = ((8 * total_byte) - 7) / ((8 * block_byte) + 1);
 
-    ArgumentOutOfRangeException
-        .ThrowIfLessThan(block_count, 2u, nameof(block_count));
+    ArgumentOutOfRangeException.ThrowIfLessThan(block_count, 2u);
 
     this.TotalByte = total_byte;
     this.BlockSize = block_byte;
@@ -443,12 +446,13 @@ public unsafe sealed class CachePool : IDisposable, IPool {
   public byte* Alloc() {
     if (this._disposed) return null;
     uint count = (this.BlockCount + 63) / 64;
+    var map = this._map;
 
     lock (this._lock) {
       if (this._disposed) return null;
 
       for (uint idx = 0; idx < count; idx++) {
-        ulong word = this._map[idx];
+        ulong word = map[idx];
 
         if (word is ulong.MaxValue) continue;
 
@@ -457,7 +461,7 @@ public unsafe sealed class CachePool : IDisposable, IPool {
 
         uint block_idx = (idx * 64) + (uint)bit;
         if (block_idx < this.BlockCount) {
-          this._map[idx] |= 1ul << bit;
+          map[idx] |= 1ul << bit;
           return this._ptr + (block_idx * this.BlockSize);
         }
       }
@@ -504,9 +508,11 @@ public unsafe sealed class CachePool : IDisposable, IPool {
     uint bitOffset = index & 63;
     ulong mask = 1UL << (int)bitOffset;
 
+    var map = this._map;
+
     lock (this._lock) {
-      if (this._disposed || (this._map[wordIdx] & mask) is 0) return;
-      this._map[wordIdx] &= ~mask;
+      if (this._disposed || (map[wordIdx] & mask) is 0) return;
+      map[wordIdx] &= ~mask;
     }
   }
 

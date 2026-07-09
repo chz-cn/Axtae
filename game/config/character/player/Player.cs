@@ -1,17 +1,49 @@
 
 using System.Runtime.CompilerServices;
+using Godot;
 
 namespace Game.Config.Character.Player;
 
 public struct Player() {
+  public static readonly StringName NormalRight = "n_right";
+  public static readonly StringName NormalLeft = "n_left";
+  public static readonly StringName NormalUp = "n_up";
+  public static readonly StringName NormalDown = "n_down";
+
+  public static readonly StringName ArmedRight = "armed_right";
+  public static readonly StringName ArmedLeft = "armed_left";
+  public static readonly StringName ArmedUp = "armed_up";
+  public static readonly StringName ArmedDown = "armed_down";
+
+  public static readonly InlineArray4<StringName> _n_dict;
+  public static readonly InlineArray4<StringName> _armed_dict;
+
+  public static StringName GetAnim(Form form, FacingDirection direaction)
+    => form switch {
+      Form.Normal => _n_dict[(int)direaction],
+      Form.Armed => _armed_dict[(int)direaction],
+      _ => NormalRight
+    };
+
+  static Player() {
+    _n_dict[(int)FacingDirection.Right] = NormalRight;
+    _n_dict[(int)FacingDirection.Left] = NormalLeft;
+    _n_dict[(int)FacingDirection.Up] = NormalUp;
+    _n_dict[(int)FacingDirection.Down] = NormalDown;
+
+    _armed_dict[(int)FacingDirection.Right] = ArmedRight;
+    _armed_dict[(int)FacingDirection.Left] = ArmedLeft;
+    _armed_dict[(int)FacingDirection.Up] = ArmedUp;
+    _armed_dict[(int)FacingDirection.Down] = ArmedDown;
+  }
+
+  public enum FacingDirection : byte { Right, Left, Up, Down }
   public enum Form : byte { Normal, Armed }
   public enum ShotPattern : byte { Normal, Spiral }
 
-#pragma warning disable S3604 // Member initializer values should not be
-  // redundant
-  public float BaseMoveSpeed { readonly get; set; } = 48f;
-  public float BaseShootDelay { readonly get; set; } = .4f;
-  public float BaseSpiralShootDelay { readonly get; set; } = .01f;
+  public float BaseMoveSpeed { readonly get; set; } = 120f;
+  public float BaseShootDelay { readonly get; set; } = .18f;
+  public float BaseSpiralShootDelay { readonly get; set; } = .18f;
 
   public ushort BaseSpiralBullets { readonly get; set; } = 64;
   public byte BaseSpiralBulletsPerCircle { readonly get; set; } = 16;
@@ -21,8 +53,6 @@ public struct Player() {
 
   public Form FormMode { readonly get; set; } = Form.Normal;
   public ShotPattern ShotPatternMode { readonly get; set; } = ShotPattern.Normal;
-#pragma warning restore S3604 // Member initializer values should not be
-  // redundant
 
   public record struct Buff<T>(float EndLifeTime, T Value);
 

@@ -33,9 +33,6 @@ dotnet_style_predefined_type_for_member_access = true:warning
 # Namespace does not match folder structure
 dotnet_diagnostic.IDE0130.severity = none
 
-# error for namespace
-dotnet_diagnostic.S3903.severity = none
-
 # error for in/out T
 dotnet_diagnostic.S3246.severity = none
 

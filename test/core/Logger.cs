@@ -49,15 +49,18 @@ public sealed class LoggerTests {
 
   [Fact]
   public void Log_MaxEntryLength() {
-    Logger.Log(Logger.Level.Error, new('a', 4096));
+    Assert.Null(Record.Exception(static ()
+      => Logger.Log(Logger.Level.Error, new('a', 4096))));
   }
 
   [Fact]
   public void Log_EveryLevel() {
-    Logger.Log(Logger.Level.Debug, "Debug");
-    Logger.Log(Logger.Level.Info, "Info");
-    Logger.Log(Logger.Level.Warning, "Warning");
-    Logger.Log(Logger.Level.Error, "Error");
+    Assert.Null(Record.Exception(static () => {
+      Logger.Log(Logger.Level.Debug, "Debug");
+      Logger.Log(Logger.Level.Info, "Info");
+      Logger.Log(Logger.Level.Warning, "Warning");
+      Logger.Log(Logger.Level.Error, "Error");
+    }));
   }
 }
 
