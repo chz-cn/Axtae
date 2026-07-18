@@ -15,26 +15,26 @@ public struct Player() {
   public static readonly StringName ArmedUp = "armed_up";
   public static readonly StringName ArmedDown = "armed_down";
 
-  public static readonly InlineArray4<StringName> _n_dict;
-  public static readonly InlineArray4<StringName> _armed_dict;
+  public static readonly InlineArray4<StringName> NDict;
+  public static readonly InlineArray4<StringName> ArmedDict;
 
   public static StringName GetAnim(Form form, FacingDirection direaction)
     => form switch {
-      Form.Normal => _n_dict[(int)direaction],
-      Form.Armed => _armed_dict[(int)direaction],
+      Form.Normal => NDict[(int)direaction],
+      Form.Armed => ArmedDict[(int)direaction],
       _ => NormalRight
     };
 
   static Player() {
-    _n_dict[(int)FacingDirection.Right] = NormalRight;
-    _n_dict[(int)FacingDirection.Left] = NormalLeft;
-    _n_dict[(int)FacingDirection.Up] = NormalUp;
-    _n_dict[(int)FacingDirection.Down] = NormalDown;
+    NDict[(int)FacingDirection.Right] = NormalRight;
+    NDict[(int)FacingDirection.Left] = NormalLeft;
+    NDict[(int)FacingDirection.Up] = NormalUp;
+    NDict[(int)FacingDirection.Down] = NormalDown;
 
-    _armed_dict[(int)FacingDirection.Right] = ArmedRight;
-    _armed_dict[(int)FacingDirection.Left] = ArmedLeft;
-    _armed_dict[(int)FacingDirection.Up] = ArmedUp;
-    _armed_dict[(int)FacingDirection.Down] = ArmedDown;
+    ArmedDict[(int)FacingDirection.Right] = ArmedRight;
+    ArmedDict[(int)FacingDirection.Left] = ArmedLeft;
+    ArmedDict[(int)FacingDirection.Up] = ArmedUp;
+    ArmedDict[(int)FacingDirection.Down] = ArmedDown;
   }
 
   public enum FacingDirection : byte { Right, Left, Up, Down }
@@ -61,6 +61,7 @@ public struct Player() {
   public void Update(double delta) => this._time += delta;
 
 #pragma warning disable S3459 // Unassigned members should be removed
+#pragma warning disable IDE1006 // 命名样式
   private InlineArray3<Buff<float>> _bMoveSpeed;
   private InlineArray3<Buff<float>> _bShootDelay;
   private InlineArray3<Buff<float>> _bSpiralShootDelay;
@@ -68,6 +69,7 @@ public struct Player() {
   private InlineArray3<Buff<float>> _bFireRateMultiplier;
   private InlineArray3<Buff<ushort>> _bSpiralBullets;
   private InlineArray3<Buff<byte>> _bSpiralBulletsPerCircle;
+#pragma warning restore IDE1006 // 命名样式
 #pragma warning restore S3459 // Unassigned members should be removed
 
   public readonly float MoveSpeed {

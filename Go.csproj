@@ -7,22 +7,15 @@
     <RootNamespace>Game</RootNamespace>
     <AssemblyName>Go</AssemblyName>
 
+    <Version>0.1.0</Version>
+
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="core/**" />
-    <Compile Remove="test/**" />
-    <Compile Remove="x/**" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="RLMatrix" Version="0.5.2" />
-    <PackageReference Include="RLMatrix.Toolkit" Version="0.5.2.3">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
+    <Compile Remove="**" />
+    <Compile Include="game/**/*.cs" />
   </ItemGroup>
 
   <ItemGroup>
@@ -30,7 +23,7 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.28.0.143324">
+    <PackageReference Include="SonarAnalyzer.CSharp" Version="10.29.0.143774">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers</IncludeAssets>
     </PackageReference>

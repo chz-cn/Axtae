@@ -16,14 +16,14 @@ public interface IPickup<T> : IPickup {
 }
 
 public interface IDropable {
-  ReadOnlySpan<(IPickup, uint)> DropItems { get; }
+  ReadOnlySpan<(IPickup?, uint)> DropItems { get; }
 
-  static Game.Pickup.Scene.Pickup? GetDrop(ReadOnlySpan<(IPickup, uint)> what) {
+  static Game.Pickup.Scene.Pickup? GetDrop(ReadOnlySpan<(IPickup?, uint)> what) {
     var len = what.Length;
     if (len is 0) return null;
     if (len is 1) {
       var (itme, weight) = what[0];
-      if (itme is null or Empty || weight is 0) return null;
+      if (itme is null || weight is 0) return null;
       else return new(itme);
     }
 
@@ -39,9 +39,10 @@ public interface IDropable {
     foreach (var (item, count) in what) {
       c += count;
       if (rand < c)
-        return item is Empty ? null : new(item);
+        return item is null ? null : new(item);
     }
 
+    // will never reach here
     return null;
   }
 }

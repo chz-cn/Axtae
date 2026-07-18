@@ -11,7 +11,7 @@ config_version=5
 [application]
 
 config/name="Go"
-run/main_scene="uid://bb503es34j5xf"
+run/main_scene="uid://2j0dwncbmo40"
 config/features=PackedStringArray("4.7", "C#", "Forward Plus")
 boot_splash/show_image=false
 boot_splash/stretch_mode=0

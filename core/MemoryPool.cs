@@ -57,7 +57,7 @@ public interface IPool {
 #pragma warning disable S6640 // Unsafe code blocks should not be used
 public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size) {
 #pragma warning restore S6640 // Unsafe code blocks should not be used
-  private readonly IPool _parent = parent;
+  private readonly IPool? _parent = parent;
   public readonly byte* Ptr = ptr;
   public readonly uint Size = size;
 
@@ -79,7 +79,7 @@ public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size) {
   /// to read or write the rented memory.
   /// </remarks>
   public Span<byte> Span => new(this.Ptr,
-    this.Size > int.MaxValue ? int.MaxValue : (int)this.Size);
+    (int)this.Size); // we dont need add check int.MaxValuel is very big
 
   /// <summary>
   /// <paramref name="index"/> access is unchecked — use <see cref="Span"/>

@@ -43,7 +43,7 @@ public partial class Bullet : Area2D {
   public void PlayAudio() {
     uint current = System.Threading.Interlocked.Increment(ref _playing);
     if (current >= MaxAudio) {
-      System.Threading.Interlocked.Decrement(ref _playing);
+      _ = System.Threading.Interlocked.Decrement(ref _playing);
       return;
     }
 
@@ -54,7 +54,7 @@ public partial class Bullet : Area2D {
     this.GetTree().Root.AddChild(audio);
     audio.Play();
     audio.Finished += () => {
-      System.Threading.Interlocked.Decrement(ref _playing);
+      _ = System.Threading.Interlocked.Decrement(ref _playing);
       audio.QueueFree();
     };
   }

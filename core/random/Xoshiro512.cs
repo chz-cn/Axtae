@@ -17,27 +17,11 @@ public struct Xoshiro512Plus : IRandom {
     this._s5 = mix.NextUInt64();
     this._s6 = mix.NextUInt64();
     this._s7 = mix.NextUInt64();
-
-    if ((this._s0 | this._s1 | this._s2 | this._s3
-      | this._s4 | this._s5 | this._s6 | this._s7) is 0) {
-      this._s0 = GoldenRatio;
-      this._s1 = MixConst1;
-      this._s2 = MixConst2;
-      this._s3 = GoldenRatio;
-      this._s4 = MixConst1;
-      this._s5 = MixConst2;
-      this._s6 = GoldenRatio;
-      this._s7 = MixConst1;
-    }
   }
 
   public Xoshiro512Plus(ulong s0, ulong s1, ulong s2, ulong s3,
     ulong s4, ulong s5, ulong s6, ulong s7) {
-    (this._s0, this._s1, this._s2, this._s3) = (s0, s1, s2, s3);
-    (this._s4, this._s5, this._s6, this._s7) = (s4, s5, s6, s7);
-
-    if ((this._s0 | this._s1 | this._s2 | this._s3 |
-      this._s4 | this._s5 | this._s6 | this._s7) is 0) {
+    if ((s0 | s1 | s2 | s3 | s4 | s5 | s6 | s7) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
       this._s2 = MixConst2;
@@ -46,7 +30,11 @@ public struct Xoshiro512Plus : IRandom {
       this._s5 = MixConst2;
       this._s6 = GoldenRatio;
       this._s7 = MixConst1;
+      return;
     }
+
+    (this._s0, this._s1, this._s2, this._s3) = (s0, s1, s2, s3);
+    (this._s4, this._s5, this._s6, this._s7) = (s4, s5, s6, s7);
   }
 
   public ulong NextUInt64() {
@@ -86,27 +74,11 @@ public struct Xoshiro512PlusPlus : IRandom {
     this._s5 = mix.NextUInt64();
     this._s6 = mix.NextUInt64();
     this._s7 = mix.NextUInt64();
-
-    if ((this._s0 | this._s1 | this._s2 | this._s3
-      | this._s4 | this._s5 | this._s6 | this._s7) is 0) {
-      this._s0 = GoldenRatio;
-      this._s1 = MixConst1;
-      this._s2 = MixConst2;
-      this._s3 = GoldenRatio;
-      this._s4 = MixConst1;
-      this._s5 = MixConst2;
-      this._s6 = GoldenRatio;
-      this._s7 = MixConst1;
-    }
   }
 
   public Xoshiro512PlusPlus(ulong s0, ulong s1, ulong s2, ulong s3,
     ulong s4, ulong s5, ulong s6, ulong s7) {
-    (this._s0, this._s1, this._s2, this._s3) = (s0, s1, s2, s3);
-    (this._s4, this._s5, this._s6, this._s7) = (s4, s5, s6, s7);
-
-    if ((this._s0 | this._s1 | this._s2 | this._s3
-      | this._s4 | this._s5 | this._s6 | this._s7) is 0) {
+    if ((s0 | s1 | s2 | s3 | s4 | s5 | s6 | s7) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
       this._s2 = MixConst2;
@@ -115,7 +87,11 @@ public struct Xoshiro512PlusPlus : IRandom {
       this._s5 = MixConst2;
       this._s6 = GoldenRatio;
       this._s7 = MixConst1;
+      return;
     }
+
+    (this._s0, this._s1, this._s2, this._s3) = (s0, s1, s2, s3);
+    (this._s4, this._s5, this._s6, this._s7) = (s4, s5, s6, s7);
   }
 
   public ulong NextUInt64() {
@@ -156,27 +132,11 @@ public struct Xoshiro512StarStar : IRandom {
     this._s5 = mix.NextUInt64();
     this._s6 = mix.NextUInt64();
     this._s7 = mix.NextUInt64();
-
-    if ((this._s0 | this._s1 | this._s2 | this._s3
-      | this._s4 | this._s5 | this._s6 | this._s7) is 0) {
-      this._s0 = GoldenRatio;
-      this._s1 = MixConst1;
-      this._s2 = MixConst2;
-      this._s3 = GoldenRatio;
-      this._s4 = MixConst1;
-      this._s5 = MixConst2;
-      this._s6 = GoldenRatio;
-      this._s7 = MixConst1;
-    }
   }
 
   public Xoshiro512StarStar(ulong s0, ulong s1, ulong s2, ulong s3,
     ulong s4, ulong s5, ulong s6, ulong s7) {
-    (this._s0, this._s1, this._s2, this._s3) = (s0, s1, s2, s3);
-    (this._s4, this._s5, this._s6, this._s7) = (s4, s5, s6, s7);
-
-    if ((this._s0 | this._s1 | this._s2 | this._s3
-      | this._s4 | this._s5 | this._s6 | this._s7) is 0) {
+    if ((s0 | s1 | s2 | s3 | s4 | s5 | s6 | s7) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
       this._s2 = MixConst2;
@@ -185,7 +145,11 @@ public struct Xoshiro512StarStar : IRandom {
       this._s5 = MixConst2;
       this._s6 = GoldenRatio;
       this._s7 = MixConst1;
+      return;
     }
+
+    (this._s0, this._s1, this._s2, this._s3) = (s0, s1, s2, s3);
+    (this._s4, this._s5, this._s6, this._s7) = (s4, s5, s6, s7);
   }
 
   public ulong NextUInt64() {

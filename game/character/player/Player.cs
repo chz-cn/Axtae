@@ -46,12 +46,6 @@ public sealed partial class Player : CharacterBody2D,
   private float _shoot_timer = 0f;
   private float _spiral_accumulator = 0f;
 
-  // on exit tree
-  public event System.Action OnExit {
-    add => this.TreeExited += value;
-    remove => this.TreeExited -= value;
-  }
-
   private readonly uint _mask = (uint)Core.Rng.Shared.NextUInt64();
   public uint MaxHealth { get; init; } = 5;
   public uint Health {
@@ -83,30 +77,30 @@ public sealed partial class Player : CharacterBody2D,
 
     this._state = this.GetWorld2D().DirectSpaceState;
     this._ray_query = new() {
-      CollisionMask = Bullet.Mask,
+      CollisionMask = L.World,
       CollideWithAreas = false,
       CollideWithBodies = true,
       Exclude = [this.GetRid()]
     };
 
     if (this._bullet_scene is null)
-      Log(Level.Warning, "Failed to load bullet scene");
+      Warning("Failed to loadfile:  bullet scene");
   }
 
-  public override void _ExitTree() => Log(Level.Error, "flush");
+  public override void _ExitTree() => Error("flush");
 
   public override void _Ready() {
     var body = this.GetNodeOrNull<AnimatedSprite2D>("Body");
     var armed_sprite = this.GetNodeOrNull<AnimatedSprite2D>("ArmedEffect");
 
     if (body is null) {
-      Log(Level.Warning, "Missing Player sprite");
+      Warning("Missing Player sprite");
       this.QueueFree();
     }
     else body.AnimationFinished += this.QueueFree;
 
     if (armed_sprite is null)
-      Log(Level.Warning, "Missing Player armed effect sprite");
+      Warning("Missing Player armed effect sprite");
     this._body_sprite = body;
     this._armed_effect_sprite = armed_sprite;
   }
@@ -122,7 +116,7 @@ public sealed partial class Player : CharacterBody2D,
       if (sprite.SpriteFrames.HasAnimation(name)) {
         if (sprite.Animation != name) sprite.Play(name);
       }
-      else Log(Level.Warning, "die animation not found");
+      else Warning("die animation not found");
 
       return;
     }
@@ -136,7 +130,7 @@ public sealed partial class Player : CharacterBody2D,
     this._config.Update(delta);
     this.Velocity = input.Normalized()
       * this._config.MoveSpeed * this._config.SpeedMultiplier;
-    this.MoveAndSlide();
+    _ = this.MoveAndSlide();
 
     this.Update((float)delta);
   }
@@ -183,7 +177,7 @@ public sealed partial class Player : CharacterBody2D,
 
     var name = Cfg.GetAnim(this._config.FormMode, this._facing);
     if (!sprite.SpriteFrames.HasAnimation(name)) {
-      Log(Level.Warning, name + " not found");
+      Warning(name + " not found");
       return;
     }
 

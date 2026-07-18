@@ -9,5 +9,5 @@ interface IBlinkable {
 
   float BlinkSpeed { get; }
   float HiddenRatio { get; }
-  bool Blink { get; }
+  bool IsBlink { get; }
 }

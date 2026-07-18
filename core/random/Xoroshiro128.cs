@@ -12,20 +12,14 @@ public struct Xoroshiro128Plus : IRandom {
     SplitMix64 mix = new(seed);
     this._s0 = mix.NextUInt64();
     this._s1 = mix.NextUInt64();
-
-    if ((this._s0 | this._s1) is 0) {
-      this._s0 = GoldenRatio;
-      this._s1 = MixConst1;
-    }
   }
 
   public Xoroshiro128Plus(ulong s0, ulong s1) {
-    (this._s0, this._s1) = (s0, s1);
-
     if ((s0 | s1) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
     }
+    else (this._s0, this._s1) = (s0, s1);
   }
 
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -48,20 +42,14 @@ public struct Xoroshiro128PlusPlus : IRandom {
     SplitMix64 mix = new(seed);
     this._s0 = mix.NextUInt64();
     this._s1 = mix.NextUInt64();
-
-    if ((this._s0 | this._s1) is 0) {
-      this._s0 = GoldenRatio;
-      this._s1 = MixConst1;
-    }
   }
 
   public Xoroshiro128PlusPlus(ulong s0, ulong s1) {
-    (this._s0, this._s1) = (s0, s1);
-
-    if ((this._s0 | this._s1) is 0) {
+    if ((s0 | s1) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
     }
+    else (this._s0, this._s1) = (s0, s1);
   }
 
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -85,20 +73,14 @@ public struct Xoroshiro128StarStar : IRandom {
     SplitMix64 mix = new(seed);
     this._s0 = mix.NextUInt64();
     this._s1 = mix.NextUInt64();
-
-    if ((this._s0 | this._s1) is 0) {
-      this._s0 = GoldenRatio;
-      this._s1 = MixConst1;
-    }
   }
 
   public Xoroshiro128StarStar(ulong s0, ulong s1) {
-    (this._s0, this._s1) = (s0, s1);
-
-    if ((this._s0 | this._s1) is 0) {
+    if ((s0 | s1) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
     }
+    else (this._s0, this._s1) = (s0, s1);
   }
 
   [MethodImpl(MethodImplOptions.AggressiveInlining)]

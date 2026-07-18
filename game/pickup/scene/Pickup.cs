@@ -38,11 +38,11 @@ public partial class Pickup : Area2D, IBlinkable {
     }
   }
 
-  public bool Blink {
+  public bool IsBlink {
     get; private set {
       if (field != value) {
         (this._body_sprite.Material as ShaderMaterial)?
-          .SetShaderParameter(Scene.Blink.blink, value);
+          .SetShaderParameter(Scene.Blink.IsBlink, value);
         field = value;
       }
     }
@@ -56,9 +56,6 @@ public partial class Pickup : Area2D, IBlinkable {
 
   public Pickup(Config.IPickup config) {
     ArgumentNullException.ThrowIfNull(config);
-    if (config is Empty)
-      throw new ArgumentException("Empty Pickup config");
-
     ArgumentOutOfRangeException.ThrowIfLessThan(config.Duration, .1f);
 
     this.CollisionLayer = Layer;
@@ -96,12 +93,12 @@ public partial class Pickup : Area2D, IBlinkable {
     var sprite = this._body_sprite;
 
     if (sprite.Texture is null)
-      Log(Level.Warning, "Missing pickup texture");
+      Warning("Missing pickup texture");
 
     if (sprite.Material is not ShaderMaterial material)
-      Log(Level.Warning, "Missing shader material");
+      Warning("Missing shader material");
     else if (material.Shader is null)
-      Log(Level.Warning, "Missing shader program");
+      Warning("Missing shader program");
   }
 
 #pragma warning disable S3168 // "async" methods should not return "void"
@@ -112,19 +109,19 @@ public partial class Pickup : Area2D, IBlinkable {
       float before_blink = this.Config.Duration - blink;
 
       if (before_blink > 0.1f)
-        await this.ToSignal(
+        _ = await this.ToSignal(
           this.GetTree().CreateTimer(before_blink),
           Timer.SignalName.Timeout);
 
       if (!this.IsQueuedForDeletion() && blink > 0.1f) {
-        this.Blink = true;
-        await this.ToSignal(
+        this.IsBlink = true;
+        _ = await this.ToSignal(
           this.GetTree().CreateTimer(blink),
           Timer.SignalName.Timeout);
       }
     }
     catch (Exception ex) {
-      Log(Level.Error, ex.Message);
+      Error(ex.Message);
     }
     finally {
       this.QueueFree();

@@ -14,24 +14,16 @@ public struct Xoshiro256Plus : IRandom {
     this._s1 = mix.NextUInt64();
     this._s2 = mix.NextUInt64();
     this._s3 = mix.NextUInt64();
-
-    if ((this._s0 | this._s1 | this._s2 | this._s3) is 0) {
-      this._s0 = GoldenRatio;
-      this._s1 = MixConst1;
-      this._s2 = MixConst2;
-      this._s3 = GoldenRatio;
-    }
   }
 
   public Xoshiro256Plus(ulong s0, ulong s1, ulong s2, ulong s3) {
-    (this._s0, this._s1, this._s2, this._s3) = (s0, s1, s2, s3);
-
-    if ((this._s0 | this._s1 | this._s2 | this._s3) is 0) {
+    if ((s0 | s1 | s2 | s3) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
       this._s2 = MixConst2;
       this._s3 = GoldenRatio;
     }
+    else (this._s0, this._s1, this._s2, this._s3) = (s0, s1, s2, s3);
   }
 
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -62,24 +54,16 @@ public struct Xoshiro256PlusPlus : IRandom {
     this._s1 = mix.NextUInt64();
     this._s2 = mix.NextUInt64();
     this._s3 = mix.NextUInt64();
-
-    if ((this._s0 | this._s1 | this._s2 | this._s3) is 0) {
-      this._s0 = GoldenRatio;
-      this._s1 = MixConst1;
-      this._s2 = MixConst2;
-      this._s3 = GoldenRatio;
-    }
   }
 
   public Xoshiro256PlusPlus(ulong s0, ulong s1, ulong s2, ulong s3) {
-    (this._s0, this._s1, this._s2, this._s3) = (s0, s1, s2, s3);
-
-    if ((this._s0 | this._s1 | this._s2 | this._s3) is 0) {
+    if ((s0 | s1 | s2 | s3) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
       this._s2 = MixConst2;
       this._s3 = GoldenRatio;
     }
+    else (this._s0, this._s1, this._s2, this._s3) = (s0, s1, s2, s3);
   }
 
   [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -110,24 +94,16 @@ public struct Xoshiro256StarStar : IRandom {
     this._s1 = mix.NextUInt64();
     this._s2 = mix.NextUInt64();
     this._s3 = mix.NextUInt64();
-
-    if ((this._s0 | this._s1 | this._s2 | this._s3) is 0) {
-      this._s0 = GoldenRatio;
-      this._s1 = MixConst1;
-      this._s2 = MixConst2;
-      this._s3 = GoldenRatio;
-    }
   }
 
   public Xoshiro256StarStar(ulong s0, ulong s1, ulong s2, ulong s3) {
-    (this._s0, this._s1, this._s2, this._s3) = (s0, s1, s2, s3);
-
-    if ((this._s0 | this._s1 | this._s2 | this._s3) is 0) {
+    if ((s0 | s1 | s2 | s3) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
       this._s2 = MixConst2;
       this._s3 = GoldenRatio;
     }
+    else (this._s0, this._s1, this._s2, this._s3) = (s0, s1, s2, s3);
   }
 
   [MethodImpl(MethodImplOptions.AggressiveInlining)]

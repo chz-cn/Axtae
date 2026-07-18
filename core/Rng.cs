@@ -23,13 +23,6 @@ public sealed class Rng : IRandom {
     this._s1 = mix.NextUInt64();
     this._s2 = mix.NextUInt64();
     this._s3 = mix.NextUInt64();
-
-    if ((this._s0 | this._s1 | this._s2 | this._s3) is 0) {
-      this._s0 = GoldenRatio;
-      this._s1 = MixConst1;
-      this._s2 = MixConst2;
-      this._s3 = GoldenRatio;
-    }
   }
 
   public ulong NextUInt64() {

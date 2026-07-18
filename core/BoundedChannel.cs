@@ -74,7 +74,7 @@ public sealed class DrainBoundedChannel<T> : IBoundedChannel<T> {
     if (prev is not Channel.Completing) return;
 
     this._cts.Cancel();
-    this._completion.TrySetResult();
+    _ = this._completion.TrySetResult();
     this._cts.Dispose();
   }
 
@@ -87,8 +87,8 @@ public sealed class DrainBoundedChannel<T> : IBoundedChannel<T> {
       if (Volatile.Read(ref p._state) is not Channel.Active
         || !p._writer_slim.Wait(0)) return false;
 
-      p._queue.TryEnqueue(item);
-      p._reader_slim.Release();
+      _ = p._queue.TryEnqueue(item);
+      _ = p._reader_slim.Release();
       return true;
     }
 
@@ -98,8 +98,8 @@ public sealed class DrainBoundedChannel<T> : IBoundedChannel<T> {
 
       await p._writer_slim.WaitAsync().ConfigureAwait(false);
 
-      p._queue.TryEnqueue(item);
-      p._reader_slim.Release();
+      _ = p._queue.TryEnqueue(item);
+      _ = p._reader_slim.Release();
     }
 
     public void Complete() {
@@ -124,8 +124,8 @@ public sealed class DrainBoundedChannel<T> : IBoundedChannel<T> {
       if (Volatile.Read(ref p._state) is Channel.Completed
         || !p._reader_slim.Wait(0)) return false;
 
-      p._queue.TryDequeue(out item);
-      p._writer_slim.Release();
+      _ = p._queue.TryDequeue(out item);
+      _ = p._writer_slim.Release();
       p.CheckComplet();
       return true;
     }
@@ -141,8 +141,8 @@ public sealed class DrainBoundedChannel<T> : IBoundedChannel<T> {
       }
       catch (OperationCanceledException) { return item; }
 
-      p._queue.TryDequeue(out item);
-      p._writer_slim.Release();
+      _ = p._queue.TryDequeue(out item);
+      _ = p._writer_slim.Release();
       p.CheckComplet();
       return item;
     }
@@ -183,7 +183,7 @@ public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
     if (prev is not Channel.Completing) return;
 
     this._reader_cts.Cancel();
-    this._completion.TrySetResult();
+    _ = this._completion.TrySetResult();
     this._writer_cts.Dispose();
     this._reader_cts.Dispose();
   }
@@ -198,12 +198,12 @@ public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
         || !p._writer_slim.Wait(0)) return false;
 
       if (Volatile.Read(ref p._state) is not Channel.Active) {
-        p._writer_slim.Release();
+        _ = p._writer_slim.Release();
         return false;
       }
 
-      p._queue.TryEnqueue(item);
-      p._reader_slim.Release();
+      _ = p._queue.TryEnqueue(item);
+      _ = p._reader_slim.Release();
       return true;
     }
 
@@ -218,12 +218,12 @@ public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
       catch (OperationCanceledException) { return; }
 
       if (Volatile.Read(ref p._state) is not Channel.Active) {
-        p._writer_slim.Release();
+        _ = p._writer_slim.Release();
         return;
       }
 
-      p._queue.TryEnqueue(item);
-      p._reader_slim.Release();
+      _ = p._queue.TryEnqueue(item);
+      _ = p._reader_slim.Release();
     }
 
     public void Complete() {
@@ -251,18 +251,18 @@ public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
 
       switch (Volatile.Read(ref p._state)) {
         case Channel.Active:
-          p._queue.TryDequeue(out item);
-          p._writer_slim.Release();
+          _ = p._queue.TryDequeue(out item);
+          _ = p._writer_slim.Release();
           return true;
 
         case Channel.Completing:
-          p._queue.TryDequeue(out item);
-          p._writer_slim.Release();
+          _ = p._queue.TryDequeue(out item);
+          _ = p._writer_slim.Release();
           p.CheckComplet();
           return true;
 
         default:
-          p._reader_slim.Release();
+          _ = p._reader_slim.Release();
           return false;
       }
     }
@@ -280,18 +280,18 @@ public sealed class RejectBoundedChannel<T> : IBoundedChannel<T> {
 
       switch (Volatile.Read(ref p._state)) {
         case Channel.Active:
-          p._queue.TryDequeue(out item);
-          p._writer_slim.Release();
+          _ = p._queue.TryDequeue(out item);
+          _ = p._writer_slim.Release();
           return item;
 
         case Channel.Completing:
-          p._queue.TryDequeue(out item);
-          p._writer_slim.Release();
+          _ = p._queue.TryDequeue(out item);
+          _ = p._writer_slim.Release();
           p.CheckComplet();
           return item;
 
         default:
-          p._reader_slim.Release();
+          _ = p._reader_slim.Release();
           return item;
       }
     }

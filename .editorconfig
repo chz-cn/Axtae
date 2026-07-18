@@ -18,6 +18,45 @@ csharp_new_line_before_open_brace = none
 
 dotnet_style_require_accessibility_modifiers = always
 
+# --- sytles ---
+
+dotnet_naming_style.pascal_style.capitalization = pascal_case
+
+dotnet_naming_style._snake_case_style.capitalization = all_lower
+dotnet_naming_style._snake_case_style.word_separator = _
+dotnet_naming_style._snake_case_style.required_prefix = _
+
+# --- symbols ---
+
+# const be PascalCase
+dotnet_naming_symbols.const_symbols.applicable_kinds = field
+dotnet_naming_symbols.const_symbols.applicable_accessibilities = *
+dotnet_naming_symbols.const_symbols.required_modifiers = const
+
+# public be PascalCase
+dotnet_naming_symbols.public_symbols.applicable_kinds = field, property, event
+dotnet_naming_symbols.public_symbols.applicable_accessibilities = public
+dotnet_naming_symbols.public_symbols.required_modifiers = !const
+
+# private be _snake_case
+dotnet_naming_symbols.private_field_symbols.applicable_kinds = field, property, event
+dotnet_naming_symbols.private_field_symbols.applicable_accessibilities = private
+dotnet_naming_symbols.private_field_symbols.required_modifiers = !const
+
+# --- rules ---
+
+dotnet_naming_rule.const_should_be_pascal.severity = warning
+dotnet_naming_rule.const_should_be_pascal.symbols = const_symbols
+dotnet_naming_rule.const_should_be_pascal.style = pascal_style
+
+dotnet_naming_rule.public_should_be_pascal.severity = warning
+dotnet_naming_rule.public_should_be_pascal.symbols = public_symbols
+dotnet_naming_rule.public_should_be_pascal.style = pascal_style
+
+dotnet_naming_rule.private_fields_should_be_snake.severity = warning
+dotnet_naming_rule.private_fields_should_be_snake.symbols = private_field_symbols
+dotnet_naming_rule.private_fields_should_be_snake.style = _snake_case_style
+
 dotnet_style_qualification_for_field = true:warning
 dotnet_style_qualification_for_property = true:warning
 dotnet_style_qualification_for_method = true:warning
@@ -30,17 +69,21 @@ dotnet_style_prefer_pattern_matching_over_as_with_null_check = true:warning
 # Int32 -> int
 dotnet_style_predefined_type_for_member_access = true:warning
 
+# add for _ =
+dotnet_diagnostic.CA1806.severity = warning
+dotnet_diagnostic.IDE0058.severity = warning
+
 # Namespace does not match folder structure
 dotnet_diagnostic.IDE0130.severity = none
 
-# error for in/out T
+# error for in/out T where T maybe struct
 dotnet_diagnostic.S3246.severity = none
 
 # error for if stat add {}
 dotnet_diagnostic.RCS1001.severity = none
 dotnet_diagnostic.RCS1003.severity = none
 
-# error for `IOwner` this kind like
+# error for `IOwner` this liked class
 dotnet_diagnostic.S101.severity = none
 
 # error for `= 0`/`= false`

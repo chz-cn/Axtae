@@ -31,11 +31,9 @@ public sealed partial class Fast : CharacterBody2D,
     private set => field = value ^ this._mask;
   }
 
-  public ReadOnlySpan<(IPickup, uint)> DropItems => _drop;
+  public ReadOnlySpan<(IPickup?, uint)> DropItems => _drop;
 
-#pragma warning disable S3459 // Unassigned members should be removed
-  private static readonly InlineArray2<(IPickup, uint)> _drop;
-#pragma warning restore S3459 // Unassigned members should be removed
+  private static readonly InlineArray2<(IPickup?, uint)> _drop = new();
 
   private float _damage_timer = 0;
   private bool _touched = false;
@@ -51,7 +49,7 @@ public sealed partial class Fast : CharacterBody2D,
 
   static Fast() {
     _drop[0] = (Config.Pickup.Speed.Instance, 50);
-    _drop[1] = (Config.Pickup.Empty.Instance, 50);
+    _drop[1] = (null, 50);
   }
 
   public Fast() {
@@ -97,7 +95,7 @@ public sealed partial class Fast : CharacterBody2D,
     };
 
     area.AddChild(new CollisionShape2D {
-      Shape = new CircleShape2D { Radius = 6 }
+      Shape = new CircleShape2D { Radius = 7 }
     });
     this.AddChild(area);
   }
@@ -113,7 +111,7 @@ public sealed partial class Fast : CharacterBody2D,
       if (sprite.SpriteFrames.HasAnimation(name)) {
         if (sprite.Animation != name) sprite.Play(name);
       }
-      else Log(Level.Warning, "die animation not found");
+      else Warning("die animation not found");
 
       return;
     }
@@ -124,7 +122,7 @@ public sealed partial class Fast : CharacterBody2D,
     if (!IsInstanceValid(this.TargetPlayer)) {
       this._touched = false;
       this.Velocity = Vector2.Zero;
-      this.MoveAndSlide();
+      _ = this.MoveAndSlide();
       return;
     }
 
@@ -132,7 +130,7 @@ public sealed partial class Fast : CharacterBody2D,
       this.TargetPlayer.GlobalPosition);
     this.UpdateFacingDirection(move_direction);
     this.Velocity = move_direction * this.Speed;
-    this.MoveAndSlide();
+    _ = this.MoveAndSlide();
   }
 
   public void TakeDamage(uint damage) {

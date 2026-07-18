@@ -1,11 +1,10 @@
 
 using System.Runtime.CompilerServices;
 using static Core.Numeric;
-using static Core.Random.IRandom;
 
 namespace Core.Random;
 
-public sealed class Philox4x32 {
+public sealed class Philox4x32 : IRandom {
   public const uint Round0 = 0xD2511F53;
   public const uint Round1 = 0xCD9E8D57;
   public const uint Round2 = 0x9E3779B9;
@@ -14,16 +13,10 @@ public sealed class Philox4x32 {
   private uint _ctr0, _ctr1, _ctr2, _ctr3;
   private readonly uint _key0, _key1;
 
+#pragma warning disable S1144 // Unused private types or members should be removed
   [InlineArray(4)]
-#pragma warning disable S1144 // Unused private types or members should be
-  // removed
-#pragma warning disable RCS1169 // Make field read-only
-#pragma warning disable RCS1213 // Remove unused member declaration
-  private struct Buffer { uint v; }
-#pragma warning restore RCS1213 // Remove unused member declaration
-#pragma warning restore RCS1169 // Make field read-only
-#pragma warning restore S1144 // Unused private types or members should be
-  // removed
+  private struct Buffer { public uint V; }
+#pragma warning restore S1144 // Unused private types or members should be removed
 
   private Buffer _buffer = new();
 
@@ -56,12 +49,6 @@ public sealed class Philox4x32 {
     uint high = this.NextUInt32();
     return ((ulong)high << 32) | low;
   }
-
-  public double NextDouble()
-    => (this.NextUInt64() >> DoubleShift) * DoubleScale;
-
-  public double NextDoubleInclusive()
-    => this.NextUInt64() / (double)ulong.MaxValue;
 
   public void JumpTo(uint c0, uint c1, uint c2, uint c3) {
     (this._ctr0, this._ctr1, this._ctr2, this._ctr3) = (c0, c1, c2, c3);
@@ -111,7 +98,7 @@ public sealed class Philox4x32 {
   }
 }
 
-public sealed class Philox4x64 {
+public sealed class Philox4x64 : IRandom {
   public const ulong Round0 = 0xD2E7470EE14C6C93;
   public const ulong Round1 = 0xCA5A8263951AF3E3;
   public const ulong Round2 = 0x9E3779B97F4A7C15;
@@ -120,21 +107,13 @@ public sealed class Philox4x64 {
   private ulong _ctr0, _ctr1, _ctr2, _ctr3;
   private readonly ulong _key0, _key1;
 
+#pragma warning disable S1144 // Unused private types or members should be removed
   [InlineArray(4)]
-#pragma warning disable S1144 // Unused private types or members should be
-  // removed
-#pragma warning disable RCS1169 // Make field read-only
-#pragma warning disable RCS1213 // Remove unused member declaration
-  private struct Buffer { ulong v; }
-#pragma warning restore RCS1213 // Remove unused member declaration
-#pragma warning restore RCS1169 // Make field read-only
-#pragma warning restore S1144 // Unused private types or members should be
-  // removed
+  private struct Buffer { public ulong V; }
+#pragma warning restore S1144 // Unused private types or members should be removed
 
-  // constructor should be "readonly"
   private Buffer _buffer = new();
 
-  // constructor should be "readonly"
   private int _index = 4;
 
   public Philox4x64(ulong seed) {
@@ -158,12 +137,6 @@ public sealed class Philox4x64 {
     }
     return this._buffer[this._index++];
   }
-
-  public double NextDouble()
-    => (this.NextUInt64() >> DoubleShift) * DoubleScale;
-
-  public double NextDoubleInclusive()
-    => this.NextUInt64() / (double)ulong.MaxValue;
 
   public void JumpTo(ulong c0, ulong c1, ulong c2, ulong c3) {
     (this._ctr0, this._ctr1, this._ctr2, this._ctr3) = (c0, c1, c2, c3);

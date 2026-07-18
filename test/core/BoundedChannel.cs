@@ -61,7 +61,7 @@ public abstract class BoundedChannelTests<TChannel> where TChannel
     await Task.Delay(50);
     Assert.False(writeTask.IsCompleted);
 
-    await reader.ReadAsync();
+    _ = await reader.ReadAsync();
     await writeTask;
 
     bool found999 = false;
@@ -96,7 +96,7 @@ public abstract class BoundedChannelTests<TChannel> where TChannel
     await writer.WriteAsync(2);
     writer.Complete();
 
-    List<int> list = [];
+    List<int> list = new(2);
     while (reader.TryRead(out int item))
       list.Add(item);
 
@@ -112,6 +112,7 @@ public abstract class BoundedChannelTests<TChannel> where TChannel
 
     await writer.WriteAsync(1);
     writer.Complete();
+    Assert.NotEqual(Channel.Active, channel.State);
 
     Assert.False(writer.TryWrite(100));
 
@@ -123,33 +124,31 @@ public abstract class BoundedChannelTests<TChannel> where TChannel
   public async Task ConcurrentStressTest() {
     const int Producers = 4;
     const int ItemsPerProducer = 500;
-    var channel = this.CreateChannel(128);
+    var channel = this.CreateChannel(32);
     var writer = channel.Writer;
     var reader = channel.Reader;
 
-    var producerTasks = new List<Task>();
+    var producerTasks = new Task[Producers];
     for (int p = 0; p < Producers; p++) {
       int pid = p;
-      producerTasks.Add(Task.Run(async () => {
-        for (int i = 0; i < ItemsPerProducer; i++) {
+      producerTasks[p] = Task.Run(async () => {
+        for (int i = 0; i < ItemsPerProducer; i++)
           await writer.WriteAsync((pid * 10000) + i);
-        }
-      }));
+      });
     }
 
     var results = new System.Collections.Concurrent.ConcurrentBag<int>();
     var consumerTask = Task.Run(async () => {
       int count = 0;
       const int Total = Producers * ItemsPerProducer;
-      while (count < Total) {
+      while (count < Total)
         if (reader.TryRead(out int v)) {
           results.Add(v);
           count++;
         }
-        else {
+        else
           await Task.Delay(1);
-        }
-      }
+
       await reader.Completion;
     });
 

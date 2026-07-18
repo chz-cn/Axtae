@@ -55,14 +55,14 @@ public abstract class BoundedQueueTests<TQueue> where TQueue
     Assert.Equal(0u, queue.Count);
     Assert.True(queue.IsEmpty);
 
-    queue.TryEnqueue(5);
+    _ = queue.TryEnqueue(5);
     Assert.Equal(1u, queue.Count);
     Assert.False(queue.IsEmpty);
 
-    queue.TryEnqueue(6);
+    _ = queue.TryEnqueue(6);
     Assert.Equal(2u, queue.Count);
 
-    queue.TryDequeue(out _);
+    _ = queue.TryDequeue(out _);
     Assert.Equal(1u, queue.Count);
   }
 
@@ -86,28 +86,28 @@ public sealed class MpmcQueueTests : BoundedQueueTests<BoundedMpmcQueue<int>> {
 
   [Fact]
   public async Task Concurrent_MultiProducerMultiConsumer() {
-    const int producers = 4;
-    const int consumers = 4;
-    const int itemsPerProducer = 1000;
-    var queue = new BoundedMpmcQueue<int>(1024);
+    const int Producers = 4;
+    const int Consumers = 4;
+    const int ItemsPerProducer = 1000;
+    var queue = new BoundedMpmcQueue<int>(128);
 
     var producerTasks = new List<Task>();
-    for (int p = 0; p < producers; p++) {
+    for (int p = 0; p < Producers; p++) {
       int pid = p;
       producerTasks.Add(Task.Run(async () => {
-        for (int i = 0; i < itemsPerProducer; i++) {
+        for (int i = 0; i < ItemsPerProducer; i++) {
           while (!queue.TryEnqueue((pid * 10000) + i))
             await Task.Yield();
         }
       }));
     }
 
-    const int TotalExpected = producers * itemsPerProducer;
+    const int TotalExpected = Producers * ItemsPerProducer;
     var consumerTasks = new List<Task<List<int>>>();
-    for (int c = 0; c < consumers; c++) {
+    for (int c = 0; c < Consumers; c++) {
       consumerTasks.Add(Task.Run(async () => {
         var list = new List<int>();
-        while (list.Count < TotalExpected / consumers) {
+        while (list.Count < TotalExpected / Consumers) {
           if (queue.TryDequeue(out int v))
             list.Add(v);
           else
@@ -133,7 +133,7 @@ public sealed class MpscQueueTests : BoundedQueueTests<BoundedMpscQueue<int>> {
   public async Task Concurrent_MultiProducerSingleConsumer() {
     const int Producers = 4;
     const int ItemsPerProducer = 1000;
-    var queue = new BoundedMpscQueue<int>(1024);
+    var queue = new BoundedMpscQueue<int>(128);
 
     var producerTasks = new List<Task>();
     for (int p = 0; p < Producers; p++) {
@@ -146,10 +146,10 @@ public sealed class MpscQueueTests : BoundedQueueTests<BoundedMpscQueue<int>> {
       }));
     }
 
-    const int total = Producers * ItemsPerProducer;
+    const int Total = Producers * ItemsPerProducer;
     var results = new List<int>();
     var consumerTask = Task.Run(async () => {
-      while (results.Count < total) {
+      while (results.Count < Total) {
         if (queue.TryDequeue(out int v))
           results.Add(v);
         else
@@ -159,7 +159,7 @@ public sealed class MpscQueueTests : BoundedQueueTests<BoundedMpscQueue<int>> {
 
     await Task.WhenAll(producerTasks);
     await consumerTask;
-    Assert.Equal(total, results.Count);
+    Assert.Equal(Total, results.Count);
   }
 }
 
@@ -169,22 +169,22 @@ public sealed class SpmcQueueTests : BoundedQueueTests<BoundedSpmcQueue<int>> {
 
   [Fact]
   public async Task Concurrent_SingleProducerMultiConsumer() {
-    const int consumers = 4;
-    const int items = 4000;
-    var queue = new BoundedSpmcQueue<int>(1024);
+    const int Consumers = 4;
+    const int Items = 4000;
+    var queue = new BoundedSpmcQueue<int>(128);
 
     var producerTask = Task.Run(async () => {
-      for (int i = 0; i < items; i++) {
+      for (int i = 0; i < Items; i++) {
         while (!queue.TryEnqueue(i))
           await Task.Yield();
       }
     });
 
     var consumerTasks = new List<Task<List<int>>>();
-    for (int c = 0; c < consumers; c++) {
+    for (int c = 0; c < Consumers; c++) {
       consumerTasks.Add(Task.Run(async () => {
         var list = new List<int>();
-        while (list.Count < items / consumers) {
+        while (list.Count < Items / Consumers) {
           if (queue.TryDequeue(out int v))
             list.Add(v);
           else
@@ -198,7 +198,7 @@ public sealed class SpmcQueueTests : BoundedQueueTests<BoundedSpmcQueue<int>> {
     var results = await Task.WhenAll(consumerTasks);
     int total = 0;
     foreach (var list in results) total += list.Count;
-    Assert.Equal(items, total);
+    Assert.Equal(Items, total);
   }
 }
 
@@ -208,11 +208,11 @@ public sealed class SpscQueueTests : BoundedQueueTests<BoundedSpscQueue<int>> {
 
   [Fact]
   public async Task Concurrent_SingleProducerSingleConsumer() {
-    const int items = 5000;
-    var queue = new BoundedSpscQueue<int>(1024);
+    const int Items = 5000;
+    var queue = new BoundedSpscQueue<int>(128);
 
     var producerTask = Task.Run(async () => {
-      for (int i = 0; i < items; i++) {
+      for (int i = 0; i < Items; i++) {
         while (!queue.TryEnqueue(i))
           await Task.Yield();
       }
@@ -220,7 +220,7 @@ public sealed class SpscQueueTests : BoundedQueueTests<BoundedSpscQueue<int>> {
 
     var results = new List<int>();
     var consumerTask = Task.Run(async () => {
-      while (results.Count < items) {
+      while (results.Count < Items) {
         if (queue.TryDequeue(out int v))
           results.Add(v);
         else
@@ -229,6 +229,6 @@ public sealed class SpscQueueTests : BoundedQueueTests<BoundedSpscQueue<int>> {
     });
 
     await Task.WhenAll(producerTask, consumerTask);
-    Assert.Equal(items, results.Count);
+    Assert.Equal(Items, results.Count);
   }
 }

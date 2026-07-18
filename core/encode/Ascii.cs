@@ -110,6 +110,7 @@ public static class Ascii {
   public const byte Underscore = (byte)'_';
   public const byte Backtick = (byte)'`';
 
+#pragma warning disable IDE1006 // 命名样式
   // a-z
   public const byte a = (byte)'a';
   public const byte b = (byte)'b';
@@ -137,6 +138,7 @@ public static class Ascii {
   public const byte x = (byte)'x';
   public const byte y = (byte)'y';
   public const byte z = (byte)'z';
+#pragma warning restore IDE1006 // 命名样式
 
   public const byte OpenBrace = (byte)'{';
   public const byte Pipe = (byte)'|';
@@ -179,7 +181,7 @@ public static class Ascii {
   extension(int num) {
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
 #pragma warning disable S6640 // Unsafe code blocks should not be used
-    public unsafe byte ToAscii(scoped Span<byte> sp) {
+    public unsafe byte ToAscii(Span<byte> sp) {
       if (sp.IsEmpty) return 0;
 
       if (num < 0) {
@@ -199,7 +201,7 @@ public static class Ascii {
   extension(uint num) {
 #pragma warning disable S6640 // Unsafe code blocks should not be used
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public unsafe byte ToAscii(scoped Span<byte> sp) {
+    public unsafe byte ToAscii(Span<byte> sp) {
       if (sp.IsEmpty) return 0;
 
       if (num < 10) {

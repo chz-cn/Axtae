@@ -5,7 +5,7 @@ using Godot;
 namespace Game.Scene;
 
 public interface ICameraFollowable {
-  event Action OnExit;
+  event Action TreeExited;
   Vector2 GlobalPosition { get; }
 }
 
@@ -19,8 +19,8 @@ public sealed partial class Camera : Camera2D {
     set {
       if (value == this._target) return;
 
-      this._target?.OnExit -= this.FollowTarget;
-      value?.OnExit += this.FollowTarget;
+      this._target?.TreeExited -= this.FollowTarget;
+      value?.TreeExited += this.FollowTarget;
 
       this._target = value;
     }

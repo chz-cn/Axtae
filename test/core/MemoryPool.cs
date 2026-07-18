@@ -7,14 +7,32 @@ using Core;
 
 namespace Test;
 
+public sealed class IOwnerTests {
+  [Fact]
+  public void Dispose_WhenNull() {
+    var ex = Record.Exception(static () => {
+      IOwner owner = default;
+      owner.Dispose();
+    });
+    Assert.Null(ex);
+  }
+}
+
 #pragma warning disable S6640 // Unsafe code blocks should not be used
 
 public sealed class PagePoolTests : IDisposable {
   private readonly PagePool _pool;
 
-  public PagePoolTests() => this._pool = new PagePool(size: 1, block_size: 1);
+  public PagePoolTests() => this._pool = new(size: 1, block_size: 1);
 
   public void Dispose() => this._pool?.Dispose();
+
+  [Fact]
+  public void Finalize_WithoutDispose() {
+    var pool = new PagePool(1, 1);
+
+    Assert.NotNull(pool);
+  }
 
   [Fact]
   public void Constructor_ValidParameters_CreatesPool() {
@@ -130,11 +148,11 @@ public sealed class PagePoolTests : IDisposable {
 
   [Fact]
   public async Task PagePool_ThreadSafety_ConcurrentAllocFreeAsync() {
-    const int iterations = 100;
+    const int Iterations = 100;
     var tasks = new List<Task>();
     for (int t = 0; t < 8; t++) {
       tasks.Add(Task.Run(() => {
-        for (int i = 0; i < iterations; i++) {
+        for (int i = 0; i < Iterations; i++) {
           unsafe {
             byte* ptr = this._pool.Alloc();
             if (ptr is not null) {
@@ -190,7 +208,7 @@ public sealed class CachePoolTests : IDisposable {
       byte* dummy = (byte*)Marshal.AllocHGlobal(4096);
       try {
         if (size is 0 || blockSize is 0)
-          Assert.Throws<ArgumentOutOfRangeException>(
+          _ = Assert.Throws<ArgumentOutOfRangeException>(
             () => new CachePool(dummy, size, blockSize));
       }
       finally {
@@ -200,11 +218,9 @@ public sealed class CachePoolTests : IDisposable {
   }
 
   [Fact]
-  public void Constructor_NullPointer_ThrowsArgumentNull() {
-    unsafe {
-      Assert.Throws<ArgumentNullException>(
-        static () => new CachePool(null, 8, 1));
-    }
+  public unsafe void Constructor_NullPointer_ThrowsArgumentNull() {
+    _ = Assert.Throws<ArgumentNullException>(
+      static () => new CachePool(null, 8, 1));
   }
 
   [Fact]
@@ -225,6 +241,10 @@ public sealed class CachePoolTests : IDisposable {
 
     byte* last = this._pool.Alloc();
     Assert.True(last is null);
+
+    var owner = this._pool.Rent();
+    Assert.True(owner.IsEmpty);
+    Assert.Equal(0u, owner.Size);
 
     this._pool.Free((byte*)pointers[0]);
     byte* reused = this._pool.Alloc();
@@ -276,11 +296,11 @@ public sealed class CachePoolTests : IDisposable {
 
   [Fact]
   public async Task CachePool_ThreadSafety_ConcurrentAccessAsync() {
-    const int iterations = 50;
-    var tasks = new List<Task>();
+    const int Iterations = 50;
+    var tasks = new Task[8];
     for (int t = 0; t < 8; t++) {
-      tasks.Add(Task.Run(() => {
-        for (int i = 0; i < iterations; i++) {
+      tasks[t] = Task.Run(() => {
+        for (int i = 0; i < Iterations; i++) {
           unsafe {
             byte* ptr = this._pool.Alloc();
             if (ptr is not null) {
@@ -290,7 +310,7 @@ public sealed class CachePoolTests : IDisposable {
             else Task.Delay(1).Wait();
           }
         }
-      }));
+      });
     }
 
     var exception = await Record.ExceptionAsync(() => Task.WhenAll(tasks));

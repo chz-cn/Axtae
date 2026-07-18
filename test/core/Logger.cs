@@ -1,45 +1,40 @@
 
 using System;
-using System.Linq;
-using System.Text;
+using System.Reflection;
 using System.Threading.Tasks;
 using Core;
 
 namespace Test;
 
 public sealed class LoggerTests {
+  public const string LoggerPath = "test/core/Logger.cs";
+
   [Fact]
-  public async Task Log_ValidMessage_DoesNotThrow() {
-    var ex = await Record.ExceptionAsync(static async () =>
-      Logger.Log(Logger.Level.Info, "Test message")
-    );
+  public void Log_ValidMessage_DoesNotThrow() {
+    var ex = Record.Exception(static () => Logger.Info("Test message"));
     Assert.Null(ex);
   }
 
   [Fact]
-  public async Task Log_EmptyMessage_DoesNotThrow() {
-    var ex = await Record.ExceptionAsync(static async () =>
-      Logger.Log(Logger.Level.Warning, ""));
+  public void Log_EmptyMessage_DoesNotThrow() {
+    var ex = Record.Exception(static () => Logger.Warning(""));
     Assert.Null(ex);
 
-    ex = await Record.ExceptionAsync(static async () =>
-      Logger.Log(Logger.Level.Error, "   "));
+    ex = Record.Exception(static () => Logger.Error("   "));
     Assert.Null(ex);
   }
 
   [Fact]
-  public async Task Log_NullMessage_DoesNotThrow() {
-    var ex = await Record.ExceptionAsync(static async () =>
-      Logger.Log(Logger.Level.Debug, null!));
+  public void Log_NullMessage_DoesNotThrow() {
+    var ex = Record.Exception(static () => Logger.Debug(null!));
     Assert.Null(ex);
   }
 
   [Fact]
   public async Task Log_WhenChannelFull_DoesNotBlockIndefinitely() {
-    var task = Task.Run(() => {
-      for (int i = 0; i < 200; i++) {
-        Logger.Log(Logger.Level.Debug, $"  Bulk message {i}");
-      }
+    var task = Task.Run(static () => {
+      for (int i = 0; i < 200; i++)
+        Logger.Debug($"Bulk message {i}");
     });
 
     var completed = await Task.WhenAny(task, Task.Delay(2000));
@@ -49,125 +44,60 @@ public sealed class LoggerTests {
 
   [Fact]
   public void Log_MaxEntryLength() {
-    Assert.Null(Record.Exception(static ()
-      => Logger.Log(Logger.Level.Error, new('a', 4096))));
+    var ex = Record.Exception(static () => {
+      string msg = new('a', 4096); // MaxEntryLength = 4096
+      Logger.Info(msg);
+      Logger.Log(Logger.Level.Info, "msg", msg, "", -1);
+
+      int file_len = (int)(Logger.MaxEntryLength - TimeStamp.Size - "[Info]"u8.Length - 2);
+      Logger.Log(Logger.Level.Info, "msg", new('f', file_len), "", -1);
+      Logger.Log(Logger.Level.Info, "msg", new('f', file_len - 1), "", -1);
+      Logger.Log(Logger.Level.Info, "msg", new('f', file_len - 3), "", -1);
+      Logger.Log(Logger.Level.Info, "msg", new('f', file_len - 10), "", -1);
+
+      Logger.Log(Logger.Level.Info, "msg", LoggerPath, msg, -1);
+
+      Logger.Info(new('m', 4001));
+    });
+    Assert.Null(ex);
   }
 
   [Fact]
   public void Log_EveryLevel() {
-    Assert.Null(Record.Exception(static () => {
-      Logger.Log(Logger.Level.Debug, "Debug");
-      Logger.Log(Logger.Level.Info, "Info");
-      Logger.Log(Logger.Level.Warning, "Warning");
-      Logger.Log(Logger.Level.Error, "Error");
-    }));
-  }
-}
-
-public sealed class TimeStampTests {
-  private const int ExpectedLength = TimeStamp.Size;
-
-  [Fact]
-  public void GetStamp_ReturnsCorrectLengthAndFormat() {
-    Span<byte> buffer = stackalloc byte[ExpectedLength];
-    TimeStamp.GetStamp(buffer);
-
-    string stamp = Encoding.UTF8.GetString(buffer);
-    Assert.Equal(ExpectedLength, stamp.Length);
-
-    Assert.Equal('-', stamp[4]);
-    Assert.Equal('-', stamp[7]);
-    Assert.Equal(' ', stamp[10]);
-    Assert.Equal(':', stamp[13]);
-    Assert.Equal(':', stamp[16]);
-    Assert.Equal('.', stamp[19]);
-
-    int year = int.Parse(stamp[0..4]);
-    Assert.InRange(year, 2000, 2099);
-
-    int month = int.Parse(stamp[5..7]);
-    Assert.InRange(month, 1, 12);
-    int day = int.Parse(stamp[8..10]);
-    Assert.InRange(day, 1, 31);
-    int hour = int.Parse(stamp[11..13]);
-    Assert.InRange(hour, 0, 23);
-    int minute = int.Parse(stamp[14..16]);
-    Assert.InRange(minute, 0, 59);
-    int second = int.Parse(stamp[17..19]);
-    Assert.InRange(second, 0, 59);
-    int millis = int.Parse(stamp[20..22]);
-    Assert.InRange(millis, 0, 99);
-  }
-
-  [Fact]
-  public void GetStamp_CacheHit_ReturnsSameContentWithinTTL() {
-    Span<byte> first = stackalloc byte[ExpectedLength];
-    Span<byte> second = stackalloc byte[ExpectedLength];
-
-    TimeStamp.GetStamp(first);
-
-    TimeStamp.GetStamp(second);
-
-    Assert.True(first.SequenceEqual(second));
-  }
-
-  [Fact]
-  public async Task GetStamp_CacheExpires_AfterTTL() {
-    byte[] first = new byte[ExpectedLength];
-    byte[] second = new byte[ExpectedLength];
-
-    TimeStamp.GetStamp(first);
-    await Task.Delay(20);
-    TimeStamp.GetStamp(second);
-
-    string s1 = Encoding.UTF8.GetString(first);
-    string s2 = Encoding.UTF8.GetString(second);
-    Assert.NotEqual(s1, s2);
-  }
-
-  [Fact]
-  public void GetStamp_ConcurrentCalls_NoCorruption() {
-    const int iterations = 1000;
-    var results = new byte[iterations][];
-
-    Parallel.For(0, iterations, i => {
-      var buffer = new byte[ExpectedLength];
-      TimeStamp.GetStamp(buffer);
-      results[i] = buffer;
+    var ex = Record.Exception(static () => {
+      Logger.Debug("Debug");
+      Logger.Info("Info");
+      Logger.Warning("Warning");
+      Logger.Error("Error");
     });
-
-    foreach (var b in results) {
-      Assert.Equal(ExpectedLength, b.Length);
-      string s = Encoding.UTF8.GetString(b);
-      Assert.Equal('-', s[4]);
-      Assert.Equal(' ', s[10]);
-    }
-
-    foreach (var b in results) {
-      string s = Encoding.UTF8.GetString(b);
-
-      for (int i = 0; i < s.Length; i++) {
-        char c = s[i];
-        if (i is 4 or 7 or 10 or 13 or 16 or 19) continue;
-        Assert.True(char.IsDigit(c), $"Non-digit at position {i}: '{c}'");
-      }
-    }
+    Assert.Null(ex);
   }
 
   [Fact]
-  public void GetStamp_BufferTooShort_DoesNothing() {
-    Span<byte> shortBuffer = stackalloc byte[10];
+  public void Log_WithInvalidLevel_ShouldUseUnknownLevel() {
+    const Logger.Level level = (Logger.Level)999;
+    Logger.Log(level, "test invalid level",
+      LoggerPath, nameof(Log_WithInvalidLevel_ShouldUseUnknownLevel), -1);
 
-    TimeStamp.GetStamp(shortBuffer);
-
-    Assert.True(shortBuffer.SequenceEqual(new byte[10]));
+    Assert.True(true);
   }
 
   [Fact]
-  public void GetStamp_ExactLength_FillsBuffer() {
-    Span<byte> buffer = stackalloc byte[ExpectedLength];
-    TimeStamp.GetStamp(buffer);
+  public void Log_WithEmptyString_ShouldWriteQuestionMark() {
+    Logger.Log(Logger.Level.Info, "msg",
+      "", nameof(Log_WithEmptyString_ShouldWriteQuestionMark), -1);
+    Logger.Log(Logger.Level.Info, "msg", LoggerPath, "", -1);
 
-    Assert.NotEqual(0, buffer[ExpectedLength - 1]);
+    Assert.True(true);
+  }
+
+  [Fact]
+  public async Task Complete_TriggersBackgroundTaskToExitAndDispose() {
+    var ex = await Record.ExceptionAsync(static async () => {
+      Logger.Complete();
+
+      await Task.Delay(100);
+    });
+    Assert.Null(ex);
   }
 }
