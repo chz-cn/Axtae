@@ -1,0 +1,11 @@
+<Solution>
+
+  <Folder Name="/src/">
+    <Project Path="src/Axtae/x.csproj" />
+  </Folder>
+
+  <Folder Name="/test/">
+    <Project Path="test/Axtae/x.csproj" />
+  </Folder>
+
+</Solution>
