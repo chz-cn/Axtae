@@ -5,26 +5,82 @@ using System.Threading;
 
 namespace Axtae;
 
+/// <summary>
+/// Represents a bounded FIFO queue with non‑blocking operations.
+/// </summary>
+/// <typeparam name="T">The type of items stored in the queue.</typeparam>
 public interface IBoundedQueue<T> {
+  /// <summary>
+  /// Gets the maximum number of items the queue can hold.
+  /// </summary>
   uint Capacity { get; }
+
+  /// <summary>
+  /// Gets the current number of items in the queue.
+  /// </summary>
+  /// <remarks>
+  /// This value is an instantaneous snapshot of the number of items in the
+  /// queue at the moment of the call.
+  /// It may become stale immediately due to concurrent enqueue or dequeue
+  /// operations.
+  /// Do not use this value to determine whether the queue is empty or full.
+  /// </remarks>
   uint Count { get; }
+
+  /// <summary>
+  /// Gets a value indicating whether the queue is empty.
+  /// </summary>
+  /// <value>
+  /// <see langword="true"/> if the queue contains no items;
+  /// otherwise, <see langword="false"/>.
+  /// </value>
   bool IsEmpty { get; }
 
+  /// <summary>
+  /// Attempts to add an item to the queue.
+  /// </summary>
+  /// <param name="item">The item to enqueue.</param>
+  /// <returns>
+  /// <see langword="true"/> if the item was successfully enqueued;
+  /// <see langword="false"/> if the queue is full.
+  /// </returns>
   bool TryEnqueue(T item);
+
+  /// <summary>
+  /// Attempts to dequeue an item without blocking.
+  /// </summary>
+  /// <param name="item">
+  /// When successful, contains the dequeued item;
+  /// otherwise, the <see langword="default"/> value.
+  /// </param>
+  /// <returns>
+  /// <see langword="true"/> if an item was successfully dequeued;
+  /// <see langword="false"/> if the queue is empty.
+  /// </returns>
   bool TryDequeue(out T item);
 }
 
+/// <summary>
+/// Padding structure to avoid false sharing between head and tail positions.
+/// </summary>
 [StructLayout(LayoutKind.Explicit, Size = 72)]
-public struct Padded {
+internal struct Padded {
   [FieldOffset(0)]
   public ulong Head;
+
   [FieldOffset(64)]
   public ulong Tail;
 }
 
+/// <summary>
+/// A bounded multi-producer / multi-consumer (MPMC) queue.
+/// </summary>
+/// <typeparam name="T">The type of items.</typeparam>
+/// <remarks>
+/// This queue is thread-safe and lock-free.
+/// </remarks>
 public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
   private readonly Slot[] _arr;
-
   private Padded _pos = new();
 
   private struct Slot {
@@ -32,14 +88,24 @@ public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
     public T Item;
   }
 
+  /// <inheritdoc />
   public uint Capacity { get; }
 
+  /// <inheritdoc />
   public uint Count => (uint)(Volatile.Read(ref this._pos.Tail)
     - Volatile.Read(ref this._pos.Head));
 
-  public bool IsEmpty => (uint)(Volatile.Read(ref this._pos.Tail)
-    - Volatile.Read(ref this._pos.Head)) is 0;
+  /// <inheritdoc />
+  public bool IsEmpty => this.Count is 0;
 
+  /// <summary>
+  /// Initializes a new <see cref="BoundedMpmcQueue{T}"/> with the given
+  /// capacity.
+  /// </summary>
+  /// <param name="capacity">
+  /// The desired capacity  clamped to [4, 2^30] and rounded up to a power of
+  /// two.
+  /// </param>
   public BoundedMpmcQueue(uint capacity) {
     capacity = Math.Clamp(capacity, 4, 1 << 30);
     var cap = 1u;
@@ -53,6 +119,7 @@ public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
     this._arr = arr;
   }
 
+  /// <inheritdoc />
   public bool TryEnqueue(T item) {
     var arr = this._arr;
     var mask = this.Capacity - 1;
@@ -80,6 +147,7 @@ public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
     }
   }
 
+  /// <inheritdoc />
   public bool TryDequeue(out T item) {
     var arr = this._arr;
     var cap = this.Capacity;
@@ -113,9 +181,15 @@ public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
   }
 }
 
+/// <summary>
+/// A bounded multi-producer / single-consumer (MPSC) queue.
+/// </summary>
+/// <typeparam name="T">The type of items.</typeparam>
+/// <remarks>
+/// This queue is lock-free.
+/// </remarks>
 public sealed class BoundedMpscQueue<T> : IBoundedQueue<T> {
   private readonly Slot[] _arr;
-
   private Padded _pos = new();
 
   private struct Slot {
@@ -123,14 +197,24 @@ public sealed class BoundedMpscQueue<T> : IBoundedQueue<T> {
     public T Item;
   }
 
+  /// <inheritdoc />
   public uint Capacity { get; }
 
+  /// <inheritdoc />
   public uint Count => (uint)(Volatile.Read(ref this._pos.Tail)
     - Volatile.Read(ref this._pos.Head));
 
-  public bool IsEmpty => (uint)(Volatile.Read(ref this._pos.Tail)
-    - Volatile.Read(ref this._pos.Head)) is 0;
+  /// <inheritdoc />
+  public bool IsEmpty => this.Count is 0;
 
+  /// <summary>
+  /// Initializes a new <see cref="BoundedMpscQueue{T}"/> with the given
+  /// capacity.
+  /// </summary>
+  /// <param name="capacity">
+  /// The desired capacity  clamped to [4, 2^30] and rounded up to a power of
+  /// two.
+  /// </param>
   public BoundedMpscQueue(uint capacity) {
     capacity = Math.Clamp(capacity, 4, 1 << 30);
     var cap = 1u;
@@ -144,6 +228,7 @@ public sealed class BoundedMpscQueue<T> : IBoundedQueue<T> {
     this._arr = arr;
   }
 
+  /// <inheritdoc />
   public bool TryEnqueue(T item) {
     var arr = this._arr;
     var cap = this.Capacity;
@@ -172,6 +257,7 @@ public sealed class BoundedMpscQueue<T> : IBoundedQueue<T> {
     }
   }
 
+  /// <inheritdoc />
   public bool TryDequeue(out T item) {
     var arr = this._arr;
     var cap = this.Capacity;
@@ -194,9 +280,15 @@ public sealed class BoundedMpscQueue<T> : IBoundedQueue<T> {
   }
 }
 
+/// <summary>
+/// A bounded single-producer / multi-consumer (SPMC) queue.
+/// </summary>
+/// <typeparam name="T">The type of items.</typeparam>
+/// <remarks>
+/// This queue is lock-free.
+/// </remarks>
 public sealed class BoundedSpmcQueue<T> : IBoundedQueue<T> {
   private readonly Slot[] _arr;
-
   private Padded _pos = new();
 
   private struct Slot {
@@ -204,14 +296,24 @@ public sealed class BoundedSpmcQueue<T> : IBoundedQueue<T> {
     public T Item;
   }
 
+  /// <inheritdoc />
   public uint Capacity { get; }
 
+  /// <inheritdoc />
   public uint Count => (uint)(Volatile.Read(ref this._pos.Tail)
     - Volatile.Read(ref this._pos.Head));
 
-  public bool IsEmpty => (uint)(Volatile.Read(ref this._pos.Tail)
-    - Volatile.Read(ref this._pos.Head)) is 0;
+  /// <inheritdoc />
+  public bool IsEmpty => this.Count is 0;
 
+  /// <summary>
+  /// Initializes a new <see cref="BoundedSpmcQueue{T}"/> with the given
+  /// capacity.
+  /// </summary>
+  /// <param name="capacity">
+  /// The desired capacity  clamped to [4, 2^30] and rounded up to a power of
+  /// two.
+  /// </param>
   public BoundedSpmcQueue(uint capacity) {
     capacity = Math.Clamp(capacity, 4, 1 << 30);
     var cap = 1u;
@@ -225,6 +327,7 @@ public sealed class BoundedSpmcQueue<T> : IBoundedQueue<T> {
     this._arr = arr;
   }
 
+  /// <inheritdoc />
   public bool TryEnqueue(T item) {
     var arr = this._arr;
     var cap = this.Capacity;
@@ -243,6 +346,7 @@ public sealed class BoundedSpmcQueue<T> : IBoundedQueue<T> {
     return true;
   }
 
+  /// <inheritdoc />
   public bool TryDequeue(out T item) {
     var arr = this._arr;
     var cap = this.Capacity;
@@ -277,28 +381,42 @@ public sealed class BoundedSpmcQueue<T> : IBoundedQueue<T> {
   }
 }
 
+/// <summary>
+/// A bounded single-producer / single-consumer (SPSC) queue.
+/// </summary>
+/// <typeparam name="T">The type of items.</typeparam>
 public sealed class BoundedSpscQueue<T> : IBoundedQueue<T> {
   private readonly T[] _arr;
-
   private Padded _pos = new();
 
+  /// <inheritdoc />
+  public uint Capacity { get; }
+
+  /// <inheritdoc />
+  public uint Count => (uint)(Volatile.Read(ref this._pos.Tail)
+    - Volatile.Read(ref this._pos.Head));
+
+  /// <inheritdoc />
+  public bool IsEmpty => this.Count is 0;
+
+  /// <summary>
+  /// Initializes a new <see cref="BoundedSpscQueue{T}"/> with the given
+  /// capacity.
+  /// </summary>
+  /// <param name="capacity">
+  /// The desired capacity  clamped to [4, 2^30] and rounded up to a power of
+  /// two.
+  /// </param>
   public BoundedSpscQueue(uint capacity) {
     capacity = Math.Clamp(capacity, 4, 1 << 30);
     var cap = 1u;
     while (cap < capacity) cap <<= 1;
 
     this.Capacity = cap;
-    this._arr = (new T[cap]);
+    this._arr = new T[cap];
   }
 
-  public uint Capacity { get; }
-
-  public uint Count => (uint)(Volatile.Read(ref this._pos.Tail)
-    - Volatile.Read(ref this._pos.Head));
-
-  public bool IsEmpty => (uint)(Volatile.Read(ref this._pos.Tail)
-    - Volatile.Read(ref this._pos.Head)) is 0;
-
+  /// <inheritdoc />
   public bool TryEnqueue(T item) {
     var cap = this.Capacity;
     var mask = cap - 1;
@@ -314,6 +432,7 @@ public sealed class BoundedSpscQueue<T> : IBoundedQueue<T> {
     return true;
   }
 
+  /// <inheritdoc />
   public bool TryDequeue(out T item) {
     var arr = this._arr;
     var cap = this.Capacity;

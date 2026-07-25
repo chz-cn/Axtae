@@ -9,7 +9,24 @@ using static Axtae.Random.IRandom;
 
 namespace Axtae;
 
+/// <summary>
+/// A thread-safe random number generator based on the Xoshiro256** algorithm.
+/// </summary>
+/// <remarks>
+/// This class provides a convenient, thread-safe wrapper around the
+/// Xoshiro256** PRNG.
+/// Use the <see cref="Shared"/> instance for global access or create your own
+/// instances.
+/// All public methods are thread-safe via lock-based synchronization.
+/// </remarks>
 public sealed class Rng : IRandom {
+  /// <summary>
+  /// Gets a shared thread-safe instance of the <see cref="Rng"/> class.
+  /// </summary>
+  /// <remarks>
+  /// This instance is seeded with a GUID-based hash value and is suitable for
+  /// general-purpose use.
+  /// </remarks>
   public static readonly Rng Shared
     = new((ulong)Guid.NewGuid().GetHashCode());
 
@@ -25,6 +42,7 @@ public sealed class Rng : IRandom {
     this._s3 = mix.NextUInt64();
   }
 
+  /// <inheritdoc/>
   public ulong NextUInt64() {
     lock (this._lock)
       return this.Next();

@@ -1,6 +1,7 @@
 
 using System;
 using System.Linq;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
 using Axtae;
@@ -68,19 +69,17 @@ public sealed class TimeStampTests {
     Assert.NotEqual(s1, s2);
   }
 
+  [InlineArray(ExpectedLength)]
+  public struct Buf { public byte V; };
+
   [Fact]
   public static void GetStamp_ConcurrentCalls_NoCorruption() {
     const int Iterations = 1000;
-    var results = new byte[Iterations][];
+    var results = new Buf[Iterations];
 
-    _ = Parallel.For(0, Iterations, i => {
-      var buffer = new byte[ExpectedLength];
-      TimeStamp.GetStamp(buffer);
-      results[i] = buffer;
-    });
+    _ = Parallel.For(0, Iterations, i => TimeStamp.GetStamp(results[i]));
 
     foreach (var b in results) {
-      Assert.Equal(ExpectedLength, b.Length);
       string s = Encoding.UTF8.GetString(b);
       Assert.Equal('-', s[4]);
       Assert.Equal(' ', s[10]);
@@ -112,5 +111,23 @@ public sealed class TimeStampTests {
     TimeStamp.GetStamp(buffer);
 
     Assert.NotEqual(0, buffer[ExpectedLength - 1]);
+  }
+
+  [Fact]
+  public async Task GetStamp_Free_DoubleCheck_ConcurrentRace() {
+    const int Iterations = 1000;
+
+    var tasks = new InlineArray10<Task>();
+
+    var buffer = new Buf();
+
+    for (int attempt = 0; attempt < Iterations; attempt++) {
+      foreach (ref var task in tasks)
+        task = Task.Run(() => TimeStamp.GetStamp(buffer));
+
+      await Task.WhenAll(tasks);
+    }
+
+    Assert.True(true);
   }
 }

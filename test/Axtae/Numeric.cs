@@ -17,7 +17,7 @@ public sealed class NumericTests {
   public void ZeroIfLessThan_VectorizedPath_Works() {
     int vec_size = Vector<float>.Count;
     int length = (vec_size * 2) + 3;
-    Span<float> data = new float[length];
+    Span<float> data = stackalloc float[length];
 
     for (int i = 0; i < length; i++)
       data[i] = i % 3 is 0 ? 0.5f : 2.0f;
@@ -34,11 +34,11 @@ public sealed class NumericTests {
   public void ZeroIfLessThanAligned_LengthMultipleOfVectorSize_Works() {
     int vec_size = Vector<float>.Count;
     int len = vec_size * 3;
-    var data = new float[len];
+    Span<float> data = stackalloc float[len];
     for (int i = 0; i < len; i++)
       data[i] = (i % 2 is 0) ? 2.0f : -0.5f;
 
-    Numeric.ZeroIfLessThanAligned(data.AsSpan(), 0.0f);
+    Numeric.ZeroIfLessThanAligned(data, 0.0f);
 
     for (int i = 0; i < len; i++)
       if (i % 2 is 0) Assert.Equal(2.0f, data[i]);

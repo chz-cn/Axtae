@@ -20,9 +20,9 @@ public sealed class AsciiTests {
 
   [Theory]
   [MemberData(nameof(CountDigitsData))]
-  public void CountDigits_ReturnsCorrectDigitCount(uint value, int expectedDigits) {
-    Assert.Equal(expectedDigits, Ascii.CountDigits(value));
-  }
+  public void CountDigits_ReturnsCorrectDigitCount
+    (uint value, int expectedDigits)
+  => Assert.Equal(expectedDigits, Ascii.CountDigits(value));
 
   public static readonly TheoryData<uint, string> UInt32ToAsciiData = new() {
     { 0u, "0" },
@@ -39,7 +39,8 @@ public sealed class AsciiTests {
 
   [Theory]
   [MemberData(nameof(UInt32ToAsciiData))]
-  public void ToAscii_UInt_ReturnsCorrectBytes(uint value, string expectedString) {
+  public void ToAscii_UInt_ReturnsCorrectBytes
+    (uint value, string expectedString) {
     Span<byte> buffer = stackalloc byte[10];
     byte len = value.ToAscii(buffer);
 
@@ -51,16 +52,15 @@ public sealed class AsciiTests {
 
   [Fact]
   public void ToAscii_UInt_BufferTooShort_ReturnsZero() {
-    const uint Value = 12345;
     Span<byte> buffer = stackalloc byte[3];
-    byte len = Ascii.ToAscii(Value, buffer);
+    byte len = 12345u.ToAscii(buffer);
     Assert.Equal(0, len);
   }
 
   [Fact]
   public void ToAscii_UInt_EmptyBuffer_ReturnsZero() {
     Span<byte> buffer = [];
-    byte len = Ascii.ToAscii(123, buffer);
+    byte len = 123u.ToAscii(buffer);
     Assert.Equal(0, len);
   }
 

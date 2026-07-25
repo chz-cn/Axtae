@@ -7,11 +7,11 @@
 
     <_PathId>$(_RelativePath.Replace('\','.').Replace('/','.'))</_PathId>
 
-    <_BuildPath>$(_SolutionRoot)build/</_BuildPath>
+    <_BuildPath>$([System.IO.Path]::GetTempPath())build/</_BuildPath>
     <_Path>$(Configuration)/$(_PathId)/</_Path>
 
     <OutputPath>$(_BuildPath)/bin/$(_Path)</OutputPath>
-    <IntermediateOutputPath>$(_BuildPath)\obj\$(_Path)</IntermediateOutputPath>
-    <MSBuildProjectExtensionsPath>$(_BuildPath)/nuget/$(_Path)</MSBuildProjectExtensionsPath>
+    <IntermediateOutputPath>$(_BuildPath)/obj/$(_Path)</IntermediateOutputPath>
+    <MSBuildProjectExtensionsPath>$(_BuildPath)/nuget/$(_PathId)</MSBuildProjectExtensionsPath>
   </PropertyGroup>
 </Project>

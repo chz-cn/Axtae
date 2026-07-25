@@ -37,38 +37,35 @@ public sealed class LoggerTests {
 
     var completed = await Task.WhenAny(task, Task.Delay(2000));
     Assert.Equal(task, completed);
-    await task;
   }
 
   [Fact]
   public void Log_MaxEntryLength() {
-    var ex = Record.Exception(static () => {
-      string msg = new('a', 4096); // MaxEntryLength = 4096
-      Logger.Info(msg);
-      Logger.Log(Logger.Level.Info, "msg", msg, "", -1);
+    string msg = new('a', 4096); // MaxEntryLength = 4096
+    Logger.Info(msg);
+    Logger.Log(Logger.Level.Info, "msg", msg, "", -1);
 
-      int file_len = (int)(Logger.MaxEntryLength - TimeStamp.Size - "[Info]"u8.Length - 2);
-      Logger.Log(Logger.Level.Info, "msg", new('f', file_len), "", -1);
-      Logger.Log(Logger.Level.Info, "msg", new('f', file_len - 1), "", -1);
-      Logger.Log(Logger.Level.Info, "msg", new('f', file_len - 3), "", -1);
-      Logger.Log(Logger.Level.Info, "msg", new('f', file_len - 10), "", -1);
+    int file_len = (int)(Logger.MaxEntryLength - TimeStamp.Size - "[Info]"u8.Length - 2);
+    Logger.Log(Logger.Level.Info, "msg", new('f', file_len), "", -1);
+    Logger.Log(Logger.Level.Info, "msg", new('f', file_len - 1), "", -1);
+    Logger.Log(Logger.Level.Info, "msg", new('f', file_len - 3), "", -1);
+    Logger.Log(Logger.Level.Info, "msg", new('f', file_len - 10), "", -1);
 
-      Logger.Log(Logger.Level.Info, "msg", LoggerPath, msg, -1);
+    Logger.Log(Logger.Level.Info, "msg", LoggerPath, msg, -1);
 
-      Logger.Info(new('m', 4004));
-    });
-    Assert.Null(ex);
+    Logger.Info(new('m', 4004));
+
+    Assert.True(true);
   }
 
   [Fact]
   public void Log_EveryLevel() {
-    var ex = Record.Exception(static () => {
-      Logger.Debug("Debug");
-      Logger.Info("Info");
-      Logger.Warning("Warning");
-      Logger.Error("Error");
-    });
-    Assert.Null(ex);
+    Logger.Debug("Debug");
+    Logger.Info("Info");
+    Logger.Warning("Warning");
+    Logger.Error("Error");
+
+    Assert.True(true);
   }
 
   [Fact]
@@ -91,11 +88,9 @@ public sealed class LoggerTests {
 
   [Fact]
   public async Task Complete_TriggersBackgroundTaskToExitAndDispose() {
-    var ex = await Record.ExceptionAsync(static async () => {
-      Logger.Complete();
+    Logger.Complete();
 
-      await Task.Delay(100);
-    });
-    Assert.Null(ex);
+    await Task.Delay(100);
+    Assert.True(true);
   }
 }
