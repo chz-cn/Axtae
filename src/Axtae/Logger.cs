@@ -17,22 +17,21 @@ namespace Axtae;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Log entries are written asynchronously to a file in the temporary
-/// directory.
-/// The logger uses a bounded channel (<see cref="IChannel{T}"/>) to decouple
-/// producers (log calls) from the consumer (background writer).
+/// Each instance manages its own log file and internal channel. Log entries
+/// are written asynchronously by a background task, decoupling producers from
+/// I/O.
 /// </para>
 /// <para>
-/// The background task writes entries in batches, ensuring minimal impact on
-/// calling threads. Each log entry is formatted with a timestamp, level,
-/// source file, member name, line number, and the message.
+/// The logger supports four severity levels (<see cref="Level"/>), automatic
+/// caller information (file, member, line), and timestamping. Entries are
+/// formatted in a fixed human‑readable schema.
 /// </para>
 /// <para>
-/// All <see langword="static"/> methods are thread‑safe. The logger can be
-/// closed by calling <see cref="Complete"/>.
+/// All public instance methods are thread‑safe. Call <see cref="Complete"/>
+/// to close the logger and drain remaining entries.
 /// </para>
 /// </remarks>
-public static class Logger {
+public sealed class Logger {
   /// <summary>
   /// Defines the severity levels for log entries.
   /// </summary>
@@ -48,88 +47,105 @@ public static class Logger {
   }
 
   /// <summary>
-  /// The maximum length of a single formatted log entry, in bytes.
+  /// The maximum length (in bytes) of a formatted log entry.
   /// </summary>
-  /// <value>4 KiB.</value>
-  public const uint MaxEntryLength = 4 * Numeric.KiB;
+  /// <value>
+  /// A value between 1 and 100, clamped during construction.
+  /// </value>
+  public readonly ushort MaxEntryLength;
 
   /// <summary>
-  /// The capacity of the internal channel (number of buffered log entries).
+  /// The full path to the log file used by this instance.
   /// </summary>
-  /// <value>128 entries.</value>
-  public const uint Size = 128;
+  public readonly string LogFilePath;
 
   /// <summary>
+  /// The current capacity of the internal channel (number of buffered entries).
+  /// </summary>
+  public uint Size => this._channel.Capacity;
+
+  // Internal channel for buffering log entries.
+  private readonly IChannel<LogEntry> _channel;
+
+  // File writer instance responsible for I/O.
+  private readonly FileWriter _writer;
+
+  /// <summary>
+  /// Initializes a new <see cref="Logger"/>.
+  /// </summary>
+  /// <param name="log_file_path">
   /// The full path to the log file.
-  /// </summary>
+  /// The directory is created if it does not exist.
+  /// </param>
+  /// <param name="max_entry_length">
+  /// The maximum length in bytes for a single formatted entry.
+  /// If less than 100, it is raised to 100. Default is 4096 (4 KiB).
+  /// </param>
+  /// <param name="size">
+  /// The capacity of the internal bounded channel.
+  /// If less than 4, it is raised to 4. Default is 128 entries.
+  /// </param>
+  /// <exception cref="ArgumentException">
+  /// Thrown if <paramref name="log_file_path"/> is <see langword="null"/>,
+  /// empty, or whitespace.
+  /// </exception>
   /// <remarks>
-  /// Located in <c>%TEMP%/GO/x.log</c>. The directory is created
-  /// automatically.
+  /// <para>
+  /// The constructor creates the log file (appending a header with version
+  /// and environment information) and starts a background task that reads
+  /// entries from the channel and writes them to the file.
+  /// </para>
+  /// <para>
+  /// The background task continues until the channel is completed
+  /// (via <see cref="Complete"/>), then disposes the file writer.
+  /// </para>
   /// </remarks>
-  public static readonly string LogFilePath
-    = Path.Combine(Path.GetTempPath(), "Axtae", "x.log");
+  public Logger(string log_file_path,
+    ushort max_entry_length = 4096, ushort size = 128) {
+    ArgumentException.ThrowIfNullOrWhiteSpace(log_file_path);
 
-  // The bounded channel that holds pending log entries.
-  private static readonly IChannel<LogEntry> _channel
-    = Channel.CreateBounded<LogEntry>(Size);
+    this.MaxEntryLength = Math.Max(max_entry_length, (ushort)100u);
+    this.LogFilePath = log_file_path;
+    this._channel = Channel.CreateBounded<LogEntry>(size);
+    this._writer = new FileWriter(log_file_path);
 
-  /// <summary>
-  /// Initializes the logger and starts the background writing task.
-  /// </summary>
-  /// <remarks>
-  /// The background task continuously reads from the channel, formats each
-  /// entry, and writes it to the log file. It writes in batches when possible.
-  /// The task runs until the channel is completed.
-  /// </remarks>
-  static Logger() {
-    _ = Task.Run(static async () => {
-      try {
-        byte[] buffer = new byte[(int)MaxEntryLength];
-        var encoder = UTF8.GetEncoder();
-        var channel = _channel;
-        var reader = channel.Reader;
+    _ = Task.Run(async () => {
+      using var writer = this._writer;
+      byte[] buffer = new byte[this.MaxEntryLength];
+      var encoder = UTF8.GetEncoder();
+      var reader = this._channel.Reader;
 
-        while (true) {
-          var entry = await reader.ReadAsync()
-            .ConfigureAwait(false);
+      while (true) {
+        var entry = await reader.ReadAsync()
+          .ConfigureAwait(false);
 
-          var span = buffer.AsSpan();
-          Write(span, entry, encoder);
+        var span = buffer.AsSpan();
+        Write(span, ref entry, encoder);
 
-          // Drain any additional entries that may have arrived while
-          // we were formatting the first one.
-          while (reader.TryRead(out var item))
-            Write(span, item, encoder);
-        }
-      }
-      finally {
-        // Ensure the file writer is disposed when the background task ends.
-        FileWriter.Writer.Dispose();
+        // Drain any additional entries that may have arrived while
+        // we were formatting the first one.
+        while (reader.TryRead(out var item))
+          Write(span, ref item, encoder);
       }
 
-#pragma warning disable RCS1242 // Do not pass non-read-only struct by
-      // read-only reference
-      static void Write(Span<byte> span, in LogEntry entry, System.Text.Encoder encoder) {
-        uint len = Parse(entry, span, encoder);
+      void Write(Span<byte> span, ref LogEntry entry,
+        System.Text.Encoder encoder) {
+        uint len = Parse(ref entry, span, encoder);
 
-        FileWriter.Writer.Write(span[..(int)len]);
+        writer.Write(span[..(int)len]);
 
-        if (entry.Level is Level.Error) FileWriter.Writer.Flush();
+        if (entry.Level is Level.Error) writer.Flush();
       }
-#pragma warning restore RCS1242 // Do not pass non-read-only struct by
-      // read-only reference
     });
   }
 
   /// <summary>
-  /// Represents a single log entry containing the message, metadata, and
-  /// timestamp.
+  /// Represents a single log entry with all contextual information.
   /// </summary>
   /// <remarks>
   /// This struct is immutable after construction, except for the
-  /// <see cref="Timestamp"/> field which is mutated by the logger.
-  /// It is designed to be passed by <see langword="in"/> parameter to avoid
-  /// copying.
+  /// <see cref="Timestamp"/> field which is mutated by the logger before
+  /// enqueuing. It is passed by reference internally to avoid copying.
   /// </remarks>
   internal struct LogEntry {
     /// <summary>The log message.</summary>
@@ -175,11 +191,11 @@ public static class Logger {
   /// <see cref="System.Diagnostics.ConditionalAttribute"/>.
   /// </remarks>
   [System.Diagnostics.Conditional("DEBUG")]
-  public static void Debug(string msg,
+  public void Debug(string msg,
     [CallerFilePath] string file = "",
     [CallerMemberName] string member = "",
     [CallerLineNumber] int line = 0
-  ) => Log(Level.Debug, msg, file, member, line);
+  ) => this.Log(Level.Debug, msg, file, member, line);
 
   /// <summary>
   /// Logs an informational message.
@@ -197,7 +213,7 @@ public static class Logger {
   /// The line number, automatically filled by the compiler.
   /// In DEBUG builds it is the actual line; otherwise -1.
   /// </param>
-  public static void Info(string msg,
+  public void Info(string msg,
 #if DEBUG
     [CallerFilePath] string file = "",
     [CallerMemberName] string member = "",
@@ -207,7 +223,7 @@ public static class Logger {
     string member = "",
     int line = -1
 #endif
-  ) => Log(Level.Info, msg, file, member, line);
+  ) => this.Log(Level.Info, msg, file, member, line);
 
   /// <summary>
   /// Logs a warning message.
@@ -225,7 +241,7 @@ public static class Logger {
   /// The line number, automatically filled by the compiler.
   /// In DEBUG builds it is the actual line; otherwise -1.
   /// </param>
-  public static void Warning(string msg,
+  public void Warning(string msg,
 #if DEBUG
     [CallerFilePath] string file = "",
     [CallerMemberName] string member = "",
@@ -235,7 +251,7 @@ public static class Logger {
     string member = "",
     int line = -1
 #endif
-  ) => Log(Level.Warning, msg, file, member, line);
+  ) => this.Log(Level.Warning, msg, file, member, line);
 
   /// <summary>
   /// Logs an error message.
@@ -253,7 +269,7 @@ public static class Logger {
   /// The line number, automatically filled by the compiler.
   /// In DEBUG builds it is the actual line; otherwise -1.
   /// </param>
-  public static void Error(string msg,
+  public void Error(string msg,
     [CallerMemberName] string member = "",
 #if DEBUG
     [CallerFilePath] string file = "",
@@ -262,7 +278,7 @@ public static class Logger {
     string file = "?",
     int line = -1
 #endif
-  ) => Log(Level.Error, msg, file, member, line);
+  ) => this.Log(Level.Error, msg, file, member, line);
 
   /// <summary>
   /// Internal method that enqueues a log entry into the channel.
@@ -280,10 +296,10 @@ public static class Logger {
   /// The method attempts a synchronous write; if the channel is full,
   /// it falls back to an asynchronous write (fire‑and‑forget).
   /// </remarks>
-  public static void Log(Level level, string msg,
+  public void Log(Level level, string msg,
     string file, string member, int line) {
     if (string.IsNullOrWhiteSpace(msg)
-      || _channel.State is not Channel.Active) return;
+      || this._channel.State is not Channel.Active) return;
 
     var entry = new LogEntry {
       Msg = msg,
@@ -295,7 +311,7 @@ public static class Logger {
 
     TimeStamp.GetStamp(entry.Timestamp);
 
-    var writer = _channel.Writer;
+    var writer = this._channel.Writer;
     if (writer.TryWrite(entry)) return;
 
     _ = writer.WriteAsync(entry).AsTask();
@@ -309,10 +325,8 @@ public static class Logger {
   /// but new log calls will be ignored. The background task will complete
   /// once the channel is drained.
   /// </remarks>
-  public static void Complete() => _channel.Writer.Complete();
+  public void Complete() => this._channel.Writer.Complete();
 
-#pragma warning disable RCS1242 // Do not pass non-read-only struct by
-  // read-only reference
   /// <summary>
   /// Formats a log entry into a byte span according to a fixed schema.
   /// </summary>
@@ -330,7 +344,7 @@ public static class Logger {
   /// If the output buffer is too small, the line is truncated with an
   /// ellipsis.
   /// </remarks>
-  private static uint Parse(in LogEntry entry, Span<byte> span,
+  private static uint Parse(ref LogEntry entry, Span<byte> span,
     System.Text.Encoder encoder) {
     ArgumentNullException.ThrowIfNull(encoder);
 
@@ -352,9 +366,9 @@ public static class Logger {
 
     // enocde
 
-    if (!AddString(span, entry.File, ref len, encoder)) return (uint)len;
-
-    if (!AddByte(span, Ascii.OpenParenthesis, ref len)) return (uint)len;
+    if (!AddString(span, entry.File, ref len, encoder)
+      || !AddByte(span, Ascii.OpenParenthesis, ref len))
+      return (uint)len;
 
     byte l = entry.Line.ToAscii(span[len..]);
     if (l is not 0) len += l;
@@ -363,15 +377,12 @@ public static class Logger {
       return (uint)len;
     }
 
-    if (!AddBytes(span, ") --> "u8, ref len)) return (uint)len;
-
-    if (!AddString(span, entry.Member, ref len, encoder)) return (uint)len;
-
-    if (!AddByte(span, Ascii.LF, ref len)) return (uint)len;
-
-    if (!AddString(span, entry.Msg, ref len, encoder)) return (uint)len;
-
-    if (!AddByte(span, Ascii.LF, ref len)) return (uint)len;
+    if (AddBytes(span, ") --> "u8, ref len)
+      && AddString(span, entry.Member, ref len, encoder)
+      && AddByte(span, Ascii.LF, ref len)
+      && AddString(span, entry.Msg, ref len, encoder)
+      && AddByte(span, Ascii.LF, ref len))
+      return (uint)len;
 
     return (uint)len;
 
@@ -442,8 +453,6 @@ public static class Logger {
       return AddByte(span, Ascii.QuestionMark, ref used);
     }
   }
-#pragma warning restore RCS1242 // Do not pass non-read-only struct by
-  // read-only reference
 
   /// <summary>
   /// Wraps a <see cref="FileStream"/> to write log entries to the log file
@@ -451,14 +460,10 @@ public static class Logger {
   /// creation.
   /// </summary>
   /// <remarks>
-  /// This class is a singleton (<see cref="Writer"/>) and is disposed when
-  /// the background task completes. It is not thread‑safe; it is only used by
-  /// the single background writer.
+  /// This class is instantiated once per logger instance and is disposed
+  /// by the background task when the logger is completed.
   /// </remarks>
   private sealed class FileWriter : IDisposable {
-    /// <summary>The singleton instance of the file writer.</summary>
-    public static readonly FileWriter Writer = new(LogFilePath);
-
     private readonly FileStream _stream;
 
     /// <summary>
