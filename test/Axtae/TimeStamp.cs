@@ -70,7 +70,7 @@ public sealed class TimeStampTests {
   }
 
   [InlineArray(ExpectedLength)]
-  public struct Buf { public byte V; };
+  public struct Buf { public byte V; }
 
   [Fact]
   public static void GetStamp_ConcurrentCalls_NoCorruption() {
@@ -115,9 +115,9 @@ public sealed class TimeStampTests {
 
   [Fact]
   public async Task GetStamp_Free_DoubleCheck_ConcurrentRace() {
-    const int Iterations = 1000;
+    const int Iterations = 10000;
 
-    var tasks = new InlineArray10<Task>();
+    var tasks = new InlineArray8<Task>();
 
     var buffer = new Buf();
 

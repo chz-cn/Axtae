@@ -2,7 +2,7 @@
 using System;
 using System.Runtime.CompilerServices;
 
-namespace Axtae.Encode;
+namespace Axtae.Codecs;
 
 /// <summary>
 /// Provides constant values for ASCII control characters and printable

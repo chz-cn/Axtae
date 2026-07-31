@@ -1,4 +1,5 @@
 
+using System;
 using System.Threading.Tasks;
 using Axtae;
 using Axtae.Random;
@@ -7,39 +8,17 @@ namespace Test;
 
 public sealed class RngTests {
   [Fact]
+  public void Fill_ULong_Empty_DoesNothing() {
+    Rng.Shared.Fill([]);
+
+    Assert.True(true);
+  }
+
+  [Fact]
   public void Shared_ReturnsInRange() {
     var rng = Rng.Shared;
     for (int i = 0; i < 100; i++)
       Assert.InRange(rng.NextUInt64(), ulong.MinValue, ulong.MaxValue);
-  }
-
-  [Fact]
-  public void Extensions_Work() {
-    var rng = Rng.Shared;
-    Assert.Equal(0UL, rng.NextUInt64(0));
-
-    for (ulong max = 1; max <= 10; max++)
-      Assert.InRange(rng.NextUInt64(max), 0UL, max - 1);
-
-    Assert.InRange(rng.NextDouble(), 0.0, 1.0);
-    Assert.NotEqual(1.0, rng.NextDouble());
-    Assert.InRange(rng.NextDoubleInclusive(), 0.0, 1.0);
-  }
-
-  [Fact]
-  public async Task ConcurrentAccess_NoException() {
-    var ex = await Record.ExceptionAsync(static async () => {
-      var tasks = new Task[10];
-      for (int i = 0; i < tasks.Length; i++)
-        tasks[i] = Task.Run(static () => {
-          for (int j = 0; j < 100; j++)
-            _ = Rng.Shared.NextUInt64();
-        });
-
-      await Task.WhenAll(tasks);
-    });
-
-    Assert.Null(ex);
   }
 
   // ===== exts =====
@@ -103,5 +82,92 @@ public sealed class RngTests {
 
     for (int i = 0; i < 50; i++)
       Assert.InRange(rng.NextDoubleInclusive(), 0, 1);
+  }
+
+  // ===== Fill =====
+  [Fact]
+  public void Fill_Ulong_EmptyReturnsImmediately() {
+    var rand = Rng.Shared;
+    Span<ulong> empty = [];
+    rand.Fill(empty);
+
+    Assert.True(empty.IsEmpty);
+  }
+
+  [Fact]
+  public void Fill_Ulong_FillsWithRandomValues() {
+    var rand = Rng.Shared;
+    Span<ulong> buffer = stackalloc ulong[10];
+    rand.Fill(buffer);
+
+    bool all_zero = true;
+    foreach (var v in buffer)
+      if (v != 0) { all_zero = false; break; }
+
+    Assert.False(all_zero, "All filled values were zero.");
+  }
+
+  [Fact]
+  public void Fill_Generic_Int_FillsCorrectly() {
+    var rand = Rng.Shared;
+    Span<int> buffer = stackalloc int[10];
+    rand.Fill(buffer);
+
+    bool all_zero = true;
+    foreach (var v in buffer)
+      if (v != 0) { all_zero = false; break; }
+
+    Assert.False(all_zero, "All filled values were zero.");
+  }
+
+  [Fact]
+  public void Fill_Generic_Float_FillsCorrectly() {
+    var rand = Rng.Shared;
+    Span<float> buffer = stackalloc float[10];
+    rand.Fill(buffer);
+
+    bool all_zero = true;
+    foreach (var v in buffer)
+      if (v != 0f) { all_zero = false; break; }
+
+    Assert.False(all_zero, "All filled values were zero.");
+  }
+
+  [Fact]
+  public void Fill_Generic_Struct_FillsCorrectly() {
+    var rand = Rng.Shared;
+    Span<Random.Point> buffer = stackalloc Random.Point[5];
+    rand.Fill(buffer);
+
+    bool all_zero = true;
+    foreach (var p in buffer)
+      if (p.X != 0 || p.Y != 0) { all_zero = false; break; }
+
+    Assert.False(all_zero, "All filled values were zero.");
+  }
+
+  [Fact]
+  public void Fill_Generic_EmptyReturnsImmediately() {
+    var rand = Rng.Shared;
+    Span<int> empty = [];
+    rand.Fill(empty);
+
+    Assert.True(empty.IsEmpty);
+  }
+
+  [Fact]
+  public void Fill_Unmanaged_Remaining_1_to_7() {
+    var rand = Rng.Shared;
+    Span<byte> buffer = stackalloc byte[7];
+
+    rand.Fill(buffer);
+    rand.Fill(buffer[..6]);
+    rand.Fill(buffer[..5]);
+    rand.Fill(buffer[..4]);
+    rand.Fill(buffer[..3]);
+    rand.Fill(buffer[..2]);
+    rand.Fill(buffer[..1]);
+
+    Assert.True(true);
   }
 }

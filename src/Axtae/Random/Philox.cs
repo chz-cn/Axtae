@@ -1,5 +1,7 @@
 
+using System;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using static Axtae.Numeric;
 
 namespace Axtae.Random;
@@ -142,6 +144,68 @@ public sealed class Philox4x32 : IRandom {
           this._ctr3++;
       }
     }
+  }
+
+  /// <summary>
+  /// Fills the elements of a <see cref="Span{T}"/> with random
+  /// <see cref="ulong"/> values.
+  /// </summary>
+  /// <param name="buffer">
+  /// The span to fill. If empty, the method returns immediately.
+  /// </param>
+  public void Fill(scoped Span<ulong> buffer) {
+    if (buffer.IsEmpty) return;
+    this.Fill(MemoryMarshal.Cast<ulong, uint>(buffer));
+  }
+
+  /// <summary>
+  /// Fills the elements of a <see cref="Span{T}"/> with random
+  /// <see cref="uint"/> values.
+  /// </summary>
+  /// <param name="buffer">
+  /// The span to fill. If empty, the method returns immediately.
+  /// </param>
+  public void Fill(scoped Span<uint> buffer) {
+    if (buffer.IsEmpty) return;
+    foreach (ref var value in buffer)
+      value = this.NextUInt32();
+  }
+
+  /// <summary>
+  /// Fills the elements of a <see cref="Span{T}"/> with random values of
+  /// any <see langword="unmanaged"/> type.
+  /// </summary>
+  /// <typeparam name="U">The unmanaged element type.</typeparam>
+  /// <param name="buffer">
+  /// The span to fill. If empty, the method returns immediately.
+  /// </param>
+  /// <remarks>
+  /// The method converts the span to a byte sequence,
+  /// fills complete 4-byte chunks as <see cref="uint"/> values,
+  /// then copies any remaining bytes from an extra random value
+  /// using a <c>switch</c> with fallthrough <c>goto case</c> statements.
+  /// </remarks>
+  public void Fill<U>(scoped Span<U> buffer) where U : unmanaged {
+    if (buffer.IsEmpty) return;
+
+    var bytes = MemoryMarshal.AsBytes(buffer);
+    var sp = MemoryMarshal.Cast<byte, uint>(bytes);
+    this.Fill(sp);
+
+    int remaining = bytes.Length % 4;
+    if (remaining is 0) return;
+
+    uint last = this.NextUInt32();
+    ref byte src = ref Unsafe.As<uint, byte>(ref last);
+    ref byte dst = ref bytes[^remaining];
+
+#pragma warning disable S907 // "goto" statement should not be used
+    switch (remaining) {
+      case 3: Unsafe.Add(ref dst, 2) = Unsafe.Add(ref src, 2); goto case 2;
+      case 2: Unsafe.Add(ref dst, 1) = Unsafe.Add(ref src, 1); goto case 1;
+      case 1: dst = src; break;
+    }
+#pragma warning restore S907 // "goto" statement should not be used
   }
 }
 

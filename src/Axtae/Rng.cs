@@ -35,11 +35,11 @@ public sealed class Rng : IRandom {
   private ulong _s0, _s1, _s2, _s3;
 
   private Rng(ulong seed) {
-    SplitMix64 mix = new(seed);
-    this._s0 = mix.NextUInt64();
-    this._s1 = mix.NextUInt64();
-    this._s2 = mix.NextUInt64();
-    this._s3 = mix.NextUInt64();
+    SplitMix64 rand = new(seed);
+    this._s0 = rand.NextUInt64();
+    this._s1 = rand.NextUInt64();
+    this._s2 = rand.NextUInt64();
+    this._s3 = rand.NextUInt64();
   }
 
   /// <inheritdoc/>
@@ -64,5 +64,19 @@ public sealed class Rng : IRandom {
 
     (this._s0, this._s1, this._s2, this._s3) = (s0, s1, s2, s3);
     return result;
+  }
+
+  /// <summary>
+  /// Fills the elements of a <see cref="Span{T}"/> with random
+  /// <see cref="ulong"/> values.
+  /// </summary>
+  /// <param name="buffer">
+  /// The span to fill. If empty, the method returns immediately.
+  /// </param>
+  public void Fill(scoped Span<ulong> buffer) {
+    if (buffer.IsEmpty) return;
+    lock (this._lock)
+      foreach (ref var value in buffer)
+        value = this.Next();
   }
 }

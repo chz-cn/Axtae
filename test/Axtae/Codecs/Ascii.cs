@@ -1,8 +1,8 @@
 
 using System;
-using Axtae.Encode;
+using Axtae.Codecs;
 
-namespace Test.Encode;
+namespace Test.Codecs;
 
 public sealed class AsciiTests {
   public static readonly TheoryData<uint, int> CountDigitsData = new() {

@@ -1,99 +1,10 @@
 
+using System;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using static Axtae.Random.IRandom;
 
 namespace Axtae.Random;
-
-/// <summary>
-/// Defines the contract for a pseudo‑random number generator that produces
-/// 64‑bit unsigned integers.
-/// </summary>
-/// <remarks>
-/// <para>
-/// Implementations can be either structs (for deterministic, allocation‑free
-/// usage) or classes (for shared, thread‑safe usage).
-/// <b>To avoid boxing of <see langword="struct"/> implementations,
-/// always use a generic constraint with <see langword="ref"/> T
-/// <see langword="where"/> T : <see cref="IRandom"/></b>
-/// when passing <see langword="struct"/> instances as parameters.
-/// Extension methods in <see cref="IRandomExtensions"/> follow this pattern.
-/// </para>
-/// <para>
-/// Implementations should provide a deterministic sequence of pseudo‑random
-/// numbers based on an internal state.
-/// The constants defined in this interface (e.g., <see cref="GoldenRatio"/>,
-/// <see cref="MixConst1"/>, and various shift values) are intended for use in
-/// common mixing functions, such as the SplitMix64 algorithm, and can be
-/// reused by implementers.
-/// </para>
-/// </remarks>
-public interface IRandom {
-  /// <summary>
-  /// The golden ratio constant, often used as an additive constant in linear
-  /// congruential generators and mixing functions.
-  /// </summary>
-  const ulong GoldenRatio = 0x9E3779B97F4A7C15;
-
-  /// <summary>
-  /// First mixing constant for the SplitMix64 finalizer.
-  /// </summary>
-  const ulong MixConst1 = 0xBF58476D1CE4E5B9;
-
-  /// <summary>
-  /// Second mixing constant for the SplitMix64 finalizer.
-  /// </summary>
-  const ulong MixConst2 = 0x94D049BB133111EB;
-
-  /// <summary>
-  /// Rotate amount used in the first stage of the mixing function.
-  /// </summary>
-  const int RotateS0 = 24;
-
-  /// <summary>
-  /// Rotate amount for state element 0 in Xoshiro / Xoroshiro generators
-  /// (first stage of mixing).
-  /// </summary>
-  const int RotateS1 = 37;
-
-  /// <summary>
-  /// Rotate amount for state element 3 in Xoshiro256 generators
-  /// (third stage of mixing).
-  /// </summary>
-  const int RotateS3 = 45;
-
-  /// <summary>
-  /// Rotate amount for state element 7 in Xoshiro512 generators
-  /// (final stage of mixing).
-  /// </summary>
-  const int RotateS7 = 29;
-
-  /// <summary>
-  /// Left shift amount for state element 1 in Xoshiro/Xoroshiro generators.
-  /// </summary>
-  const int ShiftS1 = 16;
-
-  /// <summary>
-  /// Number of bits to shift right when converting a 64‑bit value to a
-  /// <see cref="double"/> in the range [0, 1).
-  /// </summary>
-  const int DoubleShift = 11;
-
-  /// <summary>
-  /// Number of bits of precision used for <see cref="double"/> conversion.
-  /// </summary>
-  const int DoublePrecision = 53;
-
-  /// <summary>
-  /// Scaling factor to convert a 53‑bit integer to a <see cref="double"/>
-  /// in [0, 1).
-  /// </summary>
-  const double DoubleScale = 1.0 / (1UL << DoublePrecision);
-
-  /// <summary>
-  /// Generates a uniformly distributed 64‑bit unsigned integer.
-  /// </summary>
-  /// <returns>A pseudo‑random <see cref="ulong"/> value.</returns>
-  ulong NextUInt64();
-}
 
 /// <summary>
 /// Provides extension methods for <see cref="IRandom"/> implementations.
@@ -105,7 +16,7 @@ public interface IRandom {
 /// The overloads are provided to avoid boxing of struct instances.
 /// </remarks>
 public static class IRandomExtensions {
-  extension<T>(ref T random) where T : struct, IRandom, allows ref struct {
+  extension<T>(ref T rand) where T : struct, IRandom, allows ref struct {
     /// <summary>
     /// Returns a random 64‑bit unsigned integer in the range
     /// [0, <paramref name="max"/>).
@@ -131,7 +42,7 @@ public static class IRandomExtensions {
       if (max is 0) return 0;
       ulong threshold = unchecked((0ul - max) % max);
       while (true) {
-        ulong r = random.NextUInt64();
+        ulong r = rand.NextUInt64();
         if (r >= threshold) return r % max;
       }
     }
@@ -152,7 +63,7 @@ public static class IRandomExtensions {
     public ulong NextUInt64(ulong min, ulong max) {
       if (min >= max) return 0;
       var range = max - min;
-      return min + random.NextUInt64(range);
+      return min + rand.NextUInt64(range);
     }
 
     /// <summary>
@@ -166,7 +77,7 @@ public static class IRandomExtensions {
     /// This yields a uniform distribution with 53 bits of precision.
     /// </remarks>
     public double NextDouble()
-      => (random.NextUInt64() >> DoubleShift) * DoubleScale;
+      => (rand.NextUInt64() >> DoubleShift) * DoubleScale;
 
     /// <summary>
     /// Returns a random <see cref="double"/> in the range [0, 1].
@@ -179,10 +90,64 @@ public static class IRandomExtensions {
     /// granularity is limited by the representation of <see cref="double"/>.
     /// </remarks>
     public double NextDoubleInclusive()
-      => random.NextUInt64() / (double)ulong.MaxValue;
+      => rand.NextUInt64() / (double)ulong.MaxValue;
+
+    /// <summary>
+    /// Fills the elements of a <see cref="Span{T}"/> with random
+    /// <see cref="ulong"/> values.
+    /// </summary>
+    /// <param name="buffer">
+    /// The span to fill. If empty, the method returns immediately.
+    /// </param>
+    public void Fill(scoped Span<ulong> buffer) {
+      if (buffer.IsEmpty) return;
+      foreach (ref var value in buffer)
+        value = rand.NextUInt64();
+    }
+
+    /// <summary>
+    /// Fills the elements of a <see cref="Span{T}"/> with random values of
+    /// any <see langword="unmanaged"/> type.
+    /// </summary>
+    /// <typeparam name="U">The unmanaged element type.</typeparam>
+    /// <param name="buffer">
+    /// The span to fill. If empty, the method returns immediately.
+    /// </param>
+    /// <remarks>
+    /// The method converts the span to a byte sequence,
+    /// fills complete 8-byte chunks as <see cref="ulong"/> values,
+    /// then copies any remaining bytes from an extra random value
+    /// using a <c>switch</c> with fallthrough <c>goto case</c> statements.
+    /// </remarks>
+    public void Fill<U>(scoped Span<U> buffer) where U : unmanaged {
+      if (buffer.IsEmpty) return;
+
+      var bytes = MemoryMarshal.AsBytes(buffer);
+      var sp = MemoryMarshal.Cast<byte, ulong>(bytes);
+      rand.Fill(sp);
+
+      int remaining = bytes.Length % 8;
+      if (remaining is 0) return;
+
+      ulong last = rand.NextUInt64();
+      ref byte src = ref Unsafe.As<ulong, byte>(ref last);
+      ref byte dst = ref bytes[^remaining];
+
+#pragma warning disable S907 // "goto" statement should not be used
+      switch (remaining) {
+        case 7: Unsafe.Add(ref dst, 6) = Unsafe.Add(ref src, 6); goto case 6;
+        case 6: Unsafe.Add(ref dst, 5) = Unsafe.Add(ref src, 5); goto case 5;
+        case 5: Unsafe.Add(ref dst, 4) = Unsafe.Add(ref src, 4); goto case 4;
+        case 4: Unsafe.Add(ref dst, 3) = Unsafe.Add(ref src, 3); goto case 3;
+        case 3: Unsafe.Add(ref dst, 2) = Unsafe.Add(ref src, 2); goto case 2;
+        case 2: Unsafe.Add(ref dst, 1) = Unsafe.Add(ref src, 1); goto case 1;
+        case 1: dst = src; break;
+      }
+#pragma warning restore S907 // "goto" statement should not be used
+    }
   }
 
-  extension<T>(T random) where T : class, IRandom {
+  extension<T>(T rand) where T : class, IRandom {
     /// <summary>
     /// Returns a random 64‑bit unsigned integer in the range
     /// [0, <paramref name="max"/>).
@@ -208,7 +173,7 @@ public static class IRandomExtensions {
       if (max is 0) return 0;
       ulong threshold = unchecked((0ul - max) % max);
       while (true) {
-        ulong r = random.NextUInt64();
+        ulong r = rand.NextUInt64();
         if (r >= threshold) return r % max;
       }
     }
@@ -229,7 +194,7 @@ public static class IRandomExtensions {
     public ulong NextUInt64(ulong min, ulong max) {
       if (min >= max) return 0;
       var range = max - min;
-      return min + random.NextUInt64(range);
+      return min + rand.NextUInt64(range);
     }
 
     /// <summary>
@@ -243,7 +208,7 @@ public static class IRandomExtensions {
     /// This yields a uniform distribution with 53 bits of precision.
     /// </remarks>
     public double NextDouble()
-      => (random.NextUInt64() >> DoubleShift) * DoubleScale;
+      => (rand.NextUInt64() >> DoubleShift) * DoubleScale;
 
     /// <summary>
     /// Returns a random <see cref="double"/> in the range [0, 1].
@@ -256,6 +221,61 @@ public static class IRandomExtensions {
     /// granularity is limited by the representation of <see cref="double"/>.
     /// </remarks>
     public double NextDoubleInclusive()
-      => random.NextUInt64() / (double)ulong.MaxValue;
+      => rand.NextUInt64() / (double)ulong.MaxValue;
+
+    /// <summary>
+    /// Fills the elements of a <see cref="Span{T}"/> with random
+    /// <see cref="ulong"/> values.
+    /// </summary>
+    /// <param name="buffer">
+    /// The span to fill. If empty, the method returns immediately.
+    /// </param>
+    public void Fill(scoped Span<ulong> buffer) {
+      if (buffer.IsEmpty) return;
+      foreach (ref var value in buffer)
+        value = rand.NextUInt64();
+    }
+
+    /// <summary>
+    /// Fills the elements of a <see cref="Span{T}"/> with random values of
+    /// any <see langword="unmanaged"/> type.
+    /// </summary>
+    /// <typeparam name="U">The unmanaged element type.</typeparam>
+    /// <param name="buffer">
+    /// The span to fill. If empty, the method returns immediately.
+    /// </param>
+    /// <remarks>
+    /// The method converts the span to a byte sequence,
+    /// fills complete 8-byte chunks as <see cref="ulong"/> values,
+    /// then copies any remaining bytes from an extra random value
+    /// using a <c>switch</c> with fallthrough <c>goto case</c> statements.
+    /// </remarks>
+    public void Fill<U>(scoped Span<U> buffer) where U : unmanaged {
+      if (buffer.IsEmpty) return;
+
+      var bytes = MemoryMarshal.AsBytes(buffer);
+      var sp = MemoryMarshal.Cast<byte, ulong>(bytes);
+      rand.Fill(sp);
+
+      int remaining = bytes.Length % 8;
+      if (remaining is 0) return;
+
+      ulong last = rand.NextUInt64();
+      ref byte src = ref Unsafe.As<ulong, byte>(ref last);
+      ref byte dst = ref bytes[^remaining];
+
+#pragma warning disable S907 // "goto" statement should not be used
+      switch (remaining) {
+        case 7: Unsafe.Add(ref dst, 6) = Unsafe.Add(ref src, 6); goto case 6;
+        case 6: Unsafe.Add(ref dst, 5) = Unsafe.Add(ref src, 5); goto case 5;
+        case 5: Unsafe.Add(ref dst, 4) = Unsafe.Add(ref src, 4); goto case 4;
+        case 4: Unsafe.Add(ref dst, 3) = Unsafe.Add(ref src, 3); goto case 3;
+        case 3: Unsafe.Add(ref dst, 2) = Unsafe.Add(ref src, 2); goto case 2;
+        case 2: Unsafe.Add(ref dst, 1) = Unsafe.Add(ref src, 1); goto case 1;
+        case 1: dst = src; break;
+      }
+#pragma warning restore S907 // "goto" statement should not be used
+    }
   }
 }
+

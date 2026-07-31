@@ -2,23 +2,25 @@
 using System;
 using System.Runtime.CompilerServices;
 using System.Threading;
-using Axtae.Encode;
+using Axtae.Codecs;
 
 namespace Axtae;
 
 /// <summary>
-/// Provides high-performance timestamp generation with caching for log entries.
+/// Provides high-performance timestamp generation with caching for log
+/// entries.
 /// </summary>
 /// <remarks>
-/// Timestamps are formatted as "YY-MM-DD HH:mm:ss.ff" (22 bytes) and cached for
-/// <see cref="TTL"/> milliseconds to avoid repeated formatting overhead.
+/// Timestamps are formatted as "YY-MM-DD HH:mm:ss.ff" (22 bytes) and cached
+/// for <see cref="TTL"/> milliseconds to avoid repeated formatting overhead.
 /// </remarks>
 public static class TimeStamp {
   /// <summary>
   /// The time-to-live in milliseconds for cached timestamp values.
   /// </summary>
   /// <remarks>
-  /// A cached timestamp is reused for up to 10 milliseconds before being refreshed.
+  /// A cached timestamp is reused for up to 10 milliseconds before being
+  /// refreshed.
   /// </remarks>
   public const uint TTL = 10;
 
@@ -34,8 +36,10 @@ public static class TimeStamp {
   /// Represents a fixed-size buffer for storing a formatted timestamp.
   /// </summary>
   /// <remarks>
-  /// This struct uses <see cref="InlineArrayAttribute"/> with <see cref="Size"/> elements.
-  /// It can be treated as a <see cref="Span{T}"/> of bytes for direct manipulation.
+  /// This struct uses <see cref="InlineArrayAttribute"/> with
+  /// <see cref="Size"/> elements.
+  /// It can be treated as a <see cref="Span{T}"/> of bytes for direct
+  /// manipulation.
   /// </remarks>
   [InlineArray(Size)]
 #pragma warning disable CS1591 // 缺少对公共可见类型或成员的 XML 注释
@@ -59,12 +63,17 @@ public static class TimeStamp {
   }
 
   /// <summary>
-  /// Writes the current timestamp (formatted as "YY-MM-DD HH:mm:ss.ff") into the provided span.
+  /// Writes the current timestamp (formatted as "YY-MM-DD HH:mm:ss.ff") into
+  /// the provided span.
   /// </summary>
-  /// <param name="span">The destination span that must be at least <see cref="Size"/> bytes in length.</param>
+  /// <param name="span">
+  /// The destination span that must be at least <see cref="Size"/> bytes in
+  /// length.
+  /// </param>
   /// <remarks>
-  /// If the timestamp has been recently generated (within <see cref="TTL"/> milliseconds),
-  /// the cached value is returned. Otherwise, the cache is refreshed with the current UTC time.
+  /// If the timestamp has been recently generated (within <see cref="TTL"/>
+  /// milliseconds),/ the cached value is returned. Otherwise, the cache is
+  /// refreshed with the current UTC time.
   /// This method is thread-safe.
   /// </remarks>
   public static void GetStamp(Span<byte> span) {

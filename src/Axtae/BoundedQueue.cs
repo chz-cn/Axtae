@@ -1,5 +1,6 @@
 
 using System;
+using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Threading;
 
@@ -108,14 +109,13 @@ public sealed class BoundedMpmcQueue<T> : IBoundedQueue<T> {
   /// </param>
   public BoundedMpmcQueue(uint capacity) {
     capacity = Math.Clamp(capacity, 4, 1 << 30);
-    var cap = 1u;
-    while (cap < capacity) cap <<= 1;
+    capacity = BitOperations.RoundUpToPowerOf2(capacity);
 
-    var arr = new Slot[cap];
+    var arr = new Slot[capacity];
     for (nuint i = 0; i < (uint)arr.Length; i++)
       arr[i].Stamp = i;
 
-    this.Capacity = cap;
+    this.Capacity = capacity;
     this._arr = arr;
   }
 
@@ -217,14 +217,13 @@ public sealed class BoundedMpscQueue<T> : IBoundedQueue<T> {
   /// </param>
   public BoundedMpscQueue(uint capacity) {
     capacity = Math.Clamp(capacity, 4, 1 << 30);
-    var cap = 1u;
-    while (cap < capacity) cap <<= 1;
+    capacity = BitOperations.RoundUpToPowerOf2(capacity);
 
-    var arr = new Slot[cap];
+    var arr = new Slot[capacity];
     for (nuint i = 0; i < (uint)arr.Length; i++)
       arr[i].Stamp = i;
 
-    this.Capacity = cap;
+    this.Capacity = capacity;
     this._arr = arr;
   }
 
@@ -316,14 +315,13 @@ public sealed class BoundedSpmcQueue<T> : IBoundedQueue<T> {
   /// </param>
   public BoundedSpmcQueue(uint capacity) {
     capacity = Math.Clamp(capacity, 4, 1 << 30);
-    var cap = 1u;
-    while (cap < capacity) cap <<= 1;
+    capacity = BitOperations.RoundUpToPowerOf2(capacity);
 
-    var arr = new Slot[cap];
+    var arr = new Slot[capacity];
     for (nuint i = 0; i < (uint)arr.Length; i++)
       arr[i].Stamp = i;
 
-    this.Capacity = cap;
+    this.Capacity = capacity;
     this._arr = arr;
   }
 
@@ -409,11 +407,10 @@ public sealed class BoundedSpscQueue<T> : IBoundedQueue<T> {
   /// </param>
   public BoundedSpscQueue(uint capacity) {
     capacity = Math.Clamp(capacity, 4, 1 << 30);
-    var cap = 1u;
-    while (cap < capacity) cap <<= 1;
+    capacity = BitOperations.RoundUpToPowerOf2(capacity);
 
-    this.Capacity = cap;
-    this._arr = new T[cap];
+    this.Capacity = capacity;
+    this._arr = new T[capacity];
   }
 
   /// <inheritdoc />

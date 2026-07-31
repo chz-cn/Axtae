@@ -87,12 +87,12 @@ public sealed class MpmcQueueTests : BoundedQueueTests<BoundedMpmcQueue<int>> {
 
   [Fact]
   public async Task Concurrent_MultiProducerMultiConsumer() {
-    const int Producers = 4;
-    const int Consumers = 4;
+    const int Producers = 8;
+    const int Consumers = 8;
     const int ItemsPerProducer = 1000;
     var queue = this.Create(128);
 
-    var producers = new InlineArray4<Task>();
+    var producers = new InlineArray8<Task>();
     foreach (ref var t in producers)
       t = Task.Run(async () => {
         for (int i = 0; i < ItemsPerProducer; i++)
@@ -102,7 +102,7 @@ public sealed class MpmcQueueTests : BoundedQueueTests<BoundedMpmcQueue<int>> {
 
     const int TotalExpected = Producers * ItemsPerProducer;
 
-    var consumers = new InlineArray4<Task<int>>();
+    var consumers = new InlineArray8<Task<int>>();
     foreach (ref var t in consumers)
       t = Task.Run(async () => {
         int count = 0;
@@ -129,19 +129,17 @@ public sealed class MpscQueueTests : BoundedQueueTests<BoundedMpscQueue<int>> {
 
   [Fact]
   public async Task Concurrent_MultiProducerSingleConsumer() {
-    const int Producers = 4;
+    const int Producers = 8;
     const int ItemsPerProducer = 1000;
     var queue = this.Create(128);
 
-    var producers = new List<Task>();
-    for (int p = 0; p < Producers; p++) {
-      int pid = p;
-      producers.Add(Task.Run(async () => {
+    var producers = new InlineArray8<Task>();
+    foreach (ref var t in producers)
+      t = Task.Run(async () => {
         for (int i = 0; i < ItemsPerProducer; i++)
-          while (!queue.TryEnqueue((pid * 10000) + i))
+          while (!queue.TryEnqueue(i))
             await Task.Yield();
-      }));
-    }
+      });
 
     const int Total = Producers * ItemsPerProducer;
     var count = new int();
@@ -165,7 +163,7 @@ public sealed class SpmcQueueTests : BoundedQueueTests<BoundedSpmcQueue<int>> {
 
   [Fact]
   public async Task Concurrent_SingleProducerMultiConsumer() {
-    const int Consumers = 4;
+    const int Consumers = 8;
     const int Items = 4000;
     var queue = this.Create(128);
 
@@ -175,7 +173,7 @@ public sealed class SpmcQueueTests : BoundedQueueTests<BoundedSpmcQueue<int>> {
           await Task.Yield();
     });
 
-    var consumers = new InlineArray4<Task<int>>();
+    var consumers = new InlineArray8<Task<int>>();
     foreach (ref var t in consumers)
       t = Task.Run(async () => {
         int count = 0;

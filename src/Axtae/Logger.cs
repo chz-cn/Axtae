@@ -5,7 +5,7 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
-using Axtae.Encode;
+using Axtae.Codecs;
 
 using static System.Text.Encoding;
 
