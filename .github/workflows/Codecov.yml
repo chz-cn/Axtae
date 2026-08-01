@@ -29,14 +29,14 @@ jobs:
       - name: Run tests with coverage
         run: >
           dotnet test --no-build
-            --collect:"XPlat Code Coverage"
-            --results-directory ./TestResults
+          --collect:"XPlat Code Coverage"
+          --results-directory ./TestResults
 
       - name: Run tests with coverage again
         run: >
           dotnet test --no-build
-            --collect:"XPlat Code Coverage"
-            --results-directory ./TestResults
+          --collect:"XPlat Code Coverage"
+          --results-directory ./TestResults
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v5
