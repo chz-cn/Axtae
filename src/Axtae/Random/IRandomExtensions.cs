@@ -1,7 +1,5 @@
 
 using System;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using static Axtae.Random.IRandom;
 
 namespace Axtae.Random;
@@ -38,14 +36,7 @@ public static class IRandomExtensions {
     /// generating any random numbers.
     /// </para>
     /// </remarks>
-    public ulong NextUInt64(ulong max) {
-      if (max is 0) return 0;
-      ulong threshold = unchecked((0ul - max) % max);
-      while (true) {
-        ulong r = rand.NextUInt64();
-        if (r >= threshold) return r % max;
-      }
-    }
+    public ulong NextUInt64(ulong max) => T.NextUInt64(ref rand, max);
 
     /// <summary>
     /// Returns a random 64‑bit unsigned integer in the range
@@ -60,11 +51,8 @@ public static class IRandomExtensions {
     /// If <paramref name="max"/> is less than <paramref name="min"/>,
     /// the method returns 0 without generating random  numbers.
     /// </remarks>
-    public ulong NextUInt64(ulong min, ulong max) {
-      if (min >= max) return 0;
-      var range = max - min;
-      return min + rand.NextUInt64(range);
-    }
+    public ulong NextUInt64(ulong min, ulong max)
+      => T.NextUInt64(ref rand, min, max);
 
     /// <summary>
     /// Returns a random <see cref="double"/> in the range [0, 1).
@@ -76,8 +64,7 @@ public static class IRandomExtensions {
     /// then multiplying by <see cref="DoubleScale"/>.
     /// This yields a uniform distribution with 53 bits of precision.
     /// </remarks>
-    public double NextDouble()
-      => (rand.NextUInt64() >> DoubleShift) * DoubleScale;
+    public double NextDouble() => T.NextDouble(ref rand);
 
     /// <summary>
     /// Returns a random <see cref="double"/> in the range [0, 1].
@@ -89,8 +76,7 @@ public static class IRandomExtensions {
     /// all possible <see cref="double"/> values in that range, though the
     /// granularity is limited by the representation of <see cref="double"/>.
     /// </remarks>
-    public double NextDoubleInclusive()
-      => rand.NextUInt64() / (double)ulong.MaxValue;
+    public double NextDoubleInclusive() => T.NextDoubleInclusive(ref rand);
 
     /// <summary>
     /// Fills the elements of a <see cref="Span{T}"/> with random
@@ -99,11 +85,7 @@ public static class IRandomExtensions {
     /// <param name="buffer">
     /// The span to fill. If empty, the method returns immediately.
     /// </param>
-    public void Fill(scoped Span<ulong> buffer) {
-      if (buffer.IsEmpty) return;
-      foreach (ref var value in buffer)
-        value = rand.NextUInt64();
-    }
+    public void Fill(scoped Span<ulong> buffer) => T.Fill(ref rand, buffer);
 
     /// <summary>
     /// Fills the elements of a <see cref="Span{T}"/> with random values of
@@ -119,32 +101,8 @@ public static class IRandomExtensions {
     /// then copies any remaining bytes from an extra random value
     /// using a <c>switch</c> with fallthrough <c>goto case</c> statements.
     /// </remarks>
-    public void Fill<U>(scoped Span<U> buffer) where U : unmanaged {
-      if (buffer.IsEmpty) return;
-
-      var bytes = MemoryMarshal.AsBytes(buffer);
-      var sp = MemoryMarshal.Cast<byte, ulong>(bytes);
-      rand.Fill(sp);
-
-      int remaining = bytes.Length % 8;
-      if (remaining is 0) return;
-
-      ulong last = rand.NextUInt64();
-      ref byte src = ref Unsafe.As<ulong, byte>(ref last);
-      ref byte dst = ref bytes[^remaining];
-
-#pragma warning disable S907 // "goto" statement should not be used
-      switch (remaining) {
-        case 7: Unsafe.Add(ref dst, 6) = Unsafe.Add(ref src, 6); goto case 6;
-        case 6: Unsafe.Add(ref dst, 5) = Unsafe.Add(ref src, 5); goto case 5;
-        case 5: Unsafe.Add(ref dst, 4) = Unsafe.Add(ref src, 4); goto case 4;
-        case 4: Unsafe.Add(ref dst, 3) = Unsafe.Add(ref src, 3); goto case 3;
-        case 3: Unsafe.Add(ref dst, 2) = Unsafe.Add(ref src, 2); goto case 2;
-        case 2: Unsafe.Add(ref dst, 1) = Unsafe.Add(ref src, 1); goto case 1;
-        case 1: dst = src; break;
-      }
-#pragma warning restore S907 // "goto" statement should not be used
-    }
+    public void Fill<U>(scoped Span<U> buffer) where U : unmanaged
+      => T.Fill(ref rand, buffer);
   }
 
   extension<T>(T rand) where T : class, IRandom {
@@ -169,14 +127,7 @@ public static class IRandomExtensions {
     /// generating any random numbers.
     /// </para>
     /// </remarks>
-    public ulong NextUInt64(ulong max) {
-      if (max is 0) return 0;
-      ulong threshold = unchecked((0ul - max) % max);
-      while (true) {
-        ulong r = rand.NextUInt64();
-        if (r >= threshold) return r % max;
-      }
-    }
+    public ulong NextUInt64(ulong max) => T.NextUInt64(rand, max);
 
     /// <summary>
     /// Returns a random 64‑bit unsigned integer in the range
@@ -191,11 +142,8 @@ public static class IRandomExtensions {
     /// If <paramref name="max"/> is less than <paramref name="min"/>,
     /// the method returns 0 without generating random  numbers.
     /// </remarks>
-    public ulong NextUInt64(ulong min, ulong max) {
-      if (min >= max) return 0;
-      var range = max - min;
-      return min + rand.NextUInt64(range);
-    }
+    public ulong NextUInt64(ulong min, ulong max)
+      => T.NextUInt64(rand, min, max);
 
     /// <summary>
     /// Returns a random <see cref="double"/> in the range [0, 1).
@@ -207,8 +155,7 @@ public static class IRandomExtensions {
     /// then multiplying by <see cref="DoubleScale"/>.
     /// This yields a uniform distribution with 53 bits of precision.
     /// </remarks>
-    public double NextDouble()
-      => (rand.NextUInt64() >> DoubleShift) * DoubleScale;
+    public double NextDouble() => T.NextDouble(rand);
 
     /// <summary>
     /// Returns a random <see cref="double"/> in the range [0, 1].
@@ -220,8 +167,7 @@ public static class IRandomExtensions {
     /// all possible <see cref="double"/> values in that range, though the
     /// granularity is limited by the representation of <see cref="double"/>.
     /// </remarks>
-    public double NextDoubleInclusive()
-      => rand.NextUInt64() / (double)ulong.MaxValue;
+    public double NextDoubleInclusive() => T.NextDoubleInclusive(rand);
 
     /// <summary>
     /// Fills the elements of a <see cref="Span{T}"/> with random
@@ -230,11 +176,7 @@ public static class IRandomExtensions {
     /// <param name="buffer">
     /// The span to fill. If empty, the method returns immediately.
     /// </param>
-    public void Fill(scoped Span<ulong> buffer) {
-      if (buffer.IsEmpty) return;
-      foreach (ref var value in buffer)
-        value = rand.NextUInt64();
-    }
+    public void Fill(scoped Span<ulong> buffer) => T.Fill(rand, buffer);
 
     /// <summary>
     /// Fills the elements of a <see cref="Span{T}"/> with random values of
@@ -250,32 +192,7 @@ public static class IRandomExtensions {
     /// then copies any remaining bytes from an extra random value
     /// using a <c>switch</c> with fallthrough <c>goto case</c> statements.
     /// </remarks>
-    public void Fill<U>(scoped Span<U> buffer) where U : unmanaged {
-      if (buffer.IsEmpty) return;
-
-      var bytes = MemoryMarshal.AsBytes(buffer);
-      var sp = MemoryMarshal.Cast<byte, ulong>(bytes);
-      rand.Fill(sp);
-
-      int remaining = bytes.Length % 8;
-      if (remaining is 0) return;
-
-      ulong last = rand.NextUInt64();
-      ref byte src = ref Unsafe.As<ulong, byte>(ref last);
-      ref byte dst = ref bytes[^remaining];
-
-#pragma warning disable S907 // "goto" statement should not be used
-      switch (remaining) {
-        case 7: Unsafe.Add(ref dst, 6) = Unsafe.Add(ref src, 6); goto case 6;
-        case 6: Unsafe.Add(ref dst, 5) = Unsafe.Add(ref src, 5); goto case 5;
-        case 5: Unsafe.Add(ref dst, 4) = Unsafe.Add(ref src, 4); goto case 4;
-        case 4: Unsafe.Add(ref dst, 3) = Unsafe.Add(ref src, 3); goto case 3;
-        case 3: Unsafe.Add(ref dst, 2) = Unsafe.Add(ref src, 2); goto case 2;
-        case 2: Unsafe.Add(ref dst, 1) = Unsafe.Add(ref src, 1); goto case 1;
-        case 1: dst = src; break;
-      }
-#pragma warning restore S907 // "goto" statement should not be used
-    }
+    public void Fill<U>(scoped Span<U> buffer) where U : unmanaged
+      => T.Fill(rand, buffer);
   }
 }
-

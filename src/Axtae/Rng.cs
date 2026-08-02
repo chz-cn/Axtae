@@ -66,17 +66,12 @@ public sealed class Rng : IRandom {
     return result;
   }
 
-  /// <summary>
-  /// Fills the elements of a <see cref="Span{T}"/> with random
-  /// <see cref="ulong"/> values.
-  /// </summary>
-  /// <param name="buffer">
-  /// The span to fill. If empty, the method returns immediately.
-  /// </param>
-  public void Fill(scoped Span<ulong> buffer) {
-    if (buffer.IsEmpty) return;
-    lock (this._lock)
+  /// <inheritdoc/>
+  public static void Fill<T>(T rand, scoped Span<ulong> buffer)
+    where T : class, IRandom {
+    if (buffer.IsEmpty || rand is not Rng r) return;
+    lock (r._lock)
       foreach (ref var value in buffer)
-        value = this.Next();
+        value = r.Next();
   }
 }

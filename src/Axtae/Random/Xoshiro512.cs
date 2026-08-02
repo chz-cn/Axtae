@@ -1,5 +1,6 @@
 
 using System.Numerics;
+using System.Runtime.CompilerServices;
 using static Axtae.Random.IRandom;
 
 namespace Axtae.Random;
@@ -74,6 +75,7 @@ public struct Xoshiro512Plus : IRandom {
   }
 
   /// <inheritdoc/>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public ulong NextUInt64() {
     var (s0, s1, s2, s3) = (this._s0, this._s1, this._s2, this._s3);
     var (s4, s5, s6, s7) = (this._s4, this._s5, this._s6, this._s7);
@@ -166,6 +168,7 @@ public struct Xoshiro512PlusPlus : IRandom {
   }
 
   /// <inheritdoc/>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public ulong NextUInt64() {
     var (s0, s1, s2, s3) = (this._s0, this._s1, this._s2, this._s3);
     var (s4, s5, s6, s7) = (this._s4, this._s5, this._s6, this._s7);
@@ -259,6 +262,7 @@ public struct Xoshiro512StarStar : IRandom {
   }
 
   /// <inheritdoc/>
+  [MethodImpl(MethodImplOptions.AggressiveInlining)]
   public ulong NextUInt64() {
     var (s0, s1, s2, s3) = (this._s0, this._s1, this._s2, this._s3);
     var (s4, s5, s6, s7) = (this._s4, this._s5, this._s6, this._s7);

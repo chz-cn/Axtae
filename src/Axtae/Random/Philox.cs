@@ -146,56 +146,43 @@ public sealed class Philox4x32 : IRandom {
     }
   }
 
-  /// <summary>
-  /// Fills the elements of a <see cref="Span{T}"/> with random
-  /// <see cref="ulong"/> values.
-  /// </summary>
-  /// <param name="buffer">
-  /// The span to fill. If empty, the method returns immediately.
-  /// </param>
-  public void Fill(scoped Span<ulong> buffer) {
-    if (buffer.IsEmpty) return;
-    this.Fill(MemoryMarshal.Cast<ulong, uint>(buffer));
+  /// <inheritdoc/>
+  public static void Fill<T>(T rand, scoped Span<ulong> buffer)
+    where T : class, IRandom {
+    if (buffer.IsEmpty || rand is not Philox4x32) return;
+    Fill(rand, MemoryMarshal.Cast<ulong, uint>(buffer));
   }
 
   /// <summary>
   /// Fills the elements of a <see cref="Span{T}"/> with random
   /// <see cref="uint"/> values.
   /// </summary>
+  /// <typeparam name="T">The random number generators type.</typeparam>
+  /// <param name="rand">The random number generator.</param>
   /// <param name="buffer">
   /// The span to fill. If empty, the method returns immediately.
   /// </param>
-  public void Fill(scoped Span<uint> buffer) {
-    if (buffer.IsEmpty) return;
+  public static void Fill<T>(T rand, scoped Span<uint> buffer)
+    where T : class, IRandom {
+    if (buffer.IsEmpty || rand is not Philox4x32 r) return;
     foreach (ref var value in buffer)
-      value = this.NextUInt32();
+      value = r.NextUInt32();
   }
 
-  /// <summary>
-  /// Fills the elements of a <see cref="Span{T}"/> with random values of
-  /// any <see langword="unmanaged"/> type.
-  /// </summary>
-  /// <typeparam name="U">The unmanaged element type.</typeparam>
-  /// <param name="buffer">
-  /// The span to fill. If empty, the method returns immediately.
-  /// </param>
-  /// <remarks>
-  /// The method converts the span to a byte sequence,
-  /// fills complete 4-byte chunks as <see cref="uint"/> values,
-  /// then copies any remaining bytes from an extra random value
-  /// using a <c>switch</c> with fallthrough <c>goto case</c> statements.
-  /// </remarks>
-  public void Fill<U>(scoped Span<U> buffer) where U : unmanaged {
-    if (buffer.IsEmpty) return;
+  /// <inheritdoc/>
+  public static void Fill<T, U>(T rand, scoped Span<U> buffer)
+    where T : class, IRandom
+    where U : unmanaged {
+    if (buffer.IsEmpty || rand is not Philox4x32 r) return;
 
     var bytes = MemoryMarshal.AsBytes(buffer);
     var sp = MemoryMarshal.Cast<byte, uint>(bytes);
-    this.Fill(sp);
+    Fill(rand, sp);
 
     int remaining = bytes.Length % 4;
     if (remaining is 0) return;
 
-    uint last = this.NextUInt32();
+    uint last = r.NextUInt32();
     ref byte src = ref Unsafe.As<uint, byte>(ref last);
     ref byte dst = ref bytes[^remaining];
 

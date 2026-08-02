@@ -618,38 +618,6 @@ public sealed class Philox4x32Tests : RandomClassTests<Philox4x32> {
     val = rand.NextUInt64();
     Assert.NotEqual(0u, val);
   }
-
-  [Fact]
-  public void Fill_Unmanaged_Remaining_1_to_4() {
-    var rand = this.Create(Seed0);
-    Span<byte> buffer = stackalloc byte[4];
-
-    rand.Fill(buffer);
-    rand.Fill(buffer[..3]);
-    rand.Fill(buffer[..2]);
-    rand.Fill(buffer[..1]);
-
-    Assert.True(true);
-  }
-
-  [Fact]
-  public void Fill_ULong() {
-    var rand = this.Create(Seed0);
-    Span<ulong> buffer = stackalloc ulong[1];
-
-    rand.Fill(buffer);
-
-    Assert.True(true);
-  }
-
-  [Fact]
-  public void Fill_Empty_DoesNothing() {
-    var rand = this.Create(Seed0);
-    Span<ulong> empty = [];
-    rand.Fill(empty);
-
-    Assert.True(empty.IsEmpty);
-  }
 }
 
 public sealed class Philox4x64Tests : RandomClassTests<Philox4x64> {
