@@ -72,7 +72,7 @@ public interface IRandom {
   /// <summary>
   /// Left shift amount for state element 1 in Xoshiro/Xoroshiro generators.
   /// </summary>
-  const int ShiftS1 = 16;
+  const int ShiftS1 = 17;
 
   /// <summary>
   /// Number of bits to shift right when converting a 64‑bit value to a

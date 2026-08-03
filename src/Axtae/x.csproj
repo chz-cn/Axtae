@@ -18,7 +18,7 @@
     <RootNamespace>Axtae</RootNamespace>
     <AssemblyName>Axtae</AssemblyName>
 
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
 
     <ImplicitUsings>disable</ImplicitUsings>
     <Nullable>enable</Nullable>

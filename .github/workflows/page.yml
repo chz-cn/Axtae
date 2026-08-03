@@ -20,6 +20,16 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v7
 
+      - name: Check version match
+        run: |
+          TAG=${GITHUB_REF#refs/tags/v}
+          VERSION=$(grep -oP '(?<=<Version>).*?(?=</Version>)' src/Axtae/x.csproj)
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "❌ Tag ($TAG) does not match project version ($VERSION)"
+            exit 1
+          fi
+          echo "✅ Version matched: $TAG"
+
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v6
         with:
