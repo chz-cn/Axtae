@@ -13,7 +13,13 @@ namespace Axtae.Random;
 /// two <see langword="extension"/> blocks.
 /// The overloads are provided to avoid boxing of struct instances.
 /// </remarks>
+#pragma warning disable RCS1263 // Invalid reference in a documentation comment
 public static class IRandomExtensions {
+  /// <summary>
+  /// Provides extension methods for <see langword="struct"/> implementations
+  /// </summary>
+  /// <typeparam name="T">The random number generators type.</typeparam>
+  /// <param name="rand">The random number generator.</param>
   extension<T>(ref T rand) where T : struct, IRandom, allows ref struct {
     /// <summary>
     /// Returns a random 64‑bit unsigned integer in the range
@@ -105,6 +111,11 @@ public static class IRandomExtensions {
       => T.Fill(ref rand, buffer);
   }
 
+  /// <summary>
+  /// Provides extension methods for <see langword="class"/> implementations
+  /// </summary>
+  /// <typeparam name="T">The random number generators type.</typeparam>
+  /// <param name="rand">The random number generator.</param>
   extension<T>(T rand) where T : class, IRandom {
     /// <summary>
     /// Returns a random 64‑bit unsigned integer in the range
@@ -196,3 +207,4 @@ public static class IRandomExtensions {
       => T.Fill(rand, buffer);
   }
 }
+#pragma warning restore RCS1263 // Invalid reference in a documentation comment

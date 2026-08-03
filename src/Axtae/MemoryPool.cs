@@ -168,9 +168,9 @@ public interface IPool {
 /// For safe bounds-checked access, use the <see cref="Span"/> property
 /// instead of the indexer <see cref="this[nuint]"/>.
 /// </para>
-/// <note>
+/// <para>
 /// Do not let <paramref name="size"/> larger than <see cref="int.MaxValue"/>.
-/// </note>
+/// </para>
 /// </remarks>
 #pragma warning disable S6640 // Unsafe code blocks should not be used
 public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size)
