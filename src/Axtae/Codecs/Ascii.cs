@@ -6,28 +6,28 @@ namespace Axtae.Codecs;
 
 /// <summary>
 /// Provides constant values for ASCII control characters and printable
-/// characters, along with high‑performance helper methods for converting
+/// characters, along with high-performance helper methods for converting
 /// integers to ASCII strings.
 /// </summary>
 /// <remarks>
 /// <para>
 /// All constants are of type <see cref="byte"/> and correspond to the ASCII
 /// table.
-/// Control characters (0–31) are named with their standard abbreviations
+/// Control characters (0-31) are named with their standard abbreviations
 /// (e.g., <see cref="NUL"/>),
-/// while printable characters (32–126) are named for the glyph they represent.
+/// while printable characters (32-126) are named for the glyph they represent.
 /// </para>
 /// <para>
-/// The class also provides allocation‑free conversion of <see cref="int"/>
+/// The class also provides allocation-free conversion of <see cref="int"/>
 /// and <see cref="uint"/> to ASCII byte spans via the extension methods,
-/// which use a precomputed lookup table for two‑digit groups.
+/// which use a precomputed lookup table for two-digit groups.
 /// </para>
 /// <para>
-/// All methods are thread‑safe and inline‑optimized for high performance.
+/// All methods are thread-safe and inline-optimized for high performance.
 /// </para>
 /// </remarks>
 public static class Ascii {
-  // Control characters (0–31)
+  // Control characters (0-31)
   /// <summary>Null (NUL), ASCII 0.</summary>
   public const byte NUL = 0;
   /// <summary>Start of Heading (SOH), ASCII 1.</summary>
@@ -93,7 +93,7 @@ public static class Ascii {
   /// <summary>Unit Separator (US), ASCII 31.</summary>
   public const byte US = 31;
 
-  // Printable characters (32–126)
+  // Printable characters (32-126)
   /// <summary>Space, ASCII 32.</summary>
   public const byte Space = 32;
   /// <summary>Exclamation mark '!', ASCII 33.</summary>
@@ -120,7 +120,7 @@ public static class Ascii {
   public const byte PlusSign = (byte)'+';
   /// <summary>Comma ',', ASCII 44.</summary>
   public const byte Comma = (byte)',';
-  /// <summary>Hyphen‑minus '-', ASCII 45.</summary>
+  /// <summary>Hyphen-minus '-', ASCII 45.</summary>
   public const byte HyphenMinus = (byte)'-';
   /// <summary>Period '.', ASCII 46.</summary>
   public const byte Period = (byte)'.';
@@ -154,11 +154,11 @@ public static class Ascii {
   public const byte Colon = (byte)':';
   /// <summary>Semicolon ';', ASCII 59.</summary>
   public const byte Semicolon = (byte)';';
-  /// <summary>Less‑than sign '&lt;', ASCII 60.</summary>
+  /// <summary>Less-than sign '&lt;', ASCII 60.</summary>
   public const byte LessThan = (byte)'<';
   /// <summary>Equal sign '=', ASCII 61.</summary>
   public const byte EqualSign = (byte)'=';
-  /// <summary>Greater‑than sign '&gt;', ASCII 62.</summary>
+  /// <summary>Greater-than sign '&gt;', ASCII 62.</summary>
   public const byte GreaterThan = (byte)'>';
   /// <summary>Question mark '?', ASCII 63.</summary>
   public const byte QuestionMark = (byte)'?';
@@ -300,7 +300,7 @@ public static class Ascii {
   public const byte DEL = 127;
 
   /// <summary>
-  /// Precomputed lookup table for two‑digit decimal numbers (00–99) as ASCII
+  /// Precomputed lookup table for two-digit decimal numbers (00-99) as ASCII
   /// bytes.
   /// </summary>
   public static ReadOnlySpan<byte> TwoDigit =>
@@ -322,12 +322,12 @@ public static class Ascii {
   /// The unsigned integer whose digit count is needed.
   /// </param>
   /// <returns>
-  /// The number of digits (1–10) required to represent
+  /// The number of digits (1-10) required to represent
   /// <paramref name="value"/>.
   /// </returns>
   /// <remarks>
   /// <para>
-  /// The implementation uses a lookup table and a fast integer division‑like
+  /// The implementation uses a lookup table and a fast integer division-like
   /// trick that avoids branching. The table is indexed by <c>Log2(value)</c>
   /// to obtain a threshold; the digit count is derived from
   /// <c>(value + threshold) &gt;&gt; 32</c>.
@@ -376,7 +376,7 @@ public static class Ascii {
     /// If the span is insufficient, 0 is returned and nothing is written.
     /// </para>
     /// <para>
-    /// This method is allocation‑free and inlined for performance.
+    /// This method is allocation-free and inlined for performance.
     /// </para>
     /// </remarks>
 #pragma warning disable S6640 // Unsafe code blocks should not be used
@@ -414,11 +414,11 @@ public static class Ascii {
     /// This method uses the fast <see cref="CountDigits"/> to determine the
     /// length, then fills the span from right to left using the
     /// <see cref="TwoDigit"/> lookup table for groups of two digits.
-    /// For values less than 100, it handles single‑digit or two‑digit cases
+    /// For values less than 100, it handles single-digit or two-digit cases
     /// directly.
     /// </para>
     /// <para>
-    /// The conversion is allocation‑free and inlined.
+    /// The conversion is allocation-free and inlined.
     /// If the span length is insufficient,
     /// 0 is returned and no data is written.
     /// </para>

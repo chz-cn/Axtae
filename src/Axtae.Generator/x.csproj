@@ -2,15 +2,6 @@
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
 
-    <PackageId>Axtae.Generator</PackageId>
-    <Authors>chz-cn</Authors>
-    <Copyright>Copyright © chz-cn 2026</Copyright>
-
-    <PackageLicenseExpression>Apache-2.0</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/chz-cn/Axtae</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/chz-cn/Axtae.git</RepositoryUrl>
-    <RepositoryType>git</RepositoryType>
-
     <NoWarn>$(NoWarn);RS1041</NoWarn>
 
     <IsPackable>false</IsPackable>

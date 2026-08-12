@@ -7,7 +7,7 @@ using System.Threading;
 namespace Axtae;
 
 /// <summary>
-/// Represents a bounded FIFO queue with non‑blocking operations.
+/// Represents a bounded FIFO queue with non-blocking operations.
 /// </summary>
 /// <typeparam name="T">The type of items stored in the queue.</typeparam>
 public interface IBoundedQueue<T> {

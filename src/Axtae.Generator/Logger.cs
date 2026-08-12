@@ -10,13 +10,10 @@ namespace Axtae.Generator;
 [Generator]
 public sealed class Logger : IIncrementalGenerator {
   /// <summary>
-  /// Registers the source generation callback that adds the logger extension
-  /// methods.
+  /// The generated source for the logger extension methods that are exposed to
+  /// consumers of the Axtae library.
   /// </summary>
-  /// <param name="context">The generator initialization context.</param>
-  public void Initialize(IncrementalGeneratorInitializationContext context) {
-    context.RegisterPostInitializationOutput(ctx => {
-      ctx.AddSource("LoggerExtensions.g.cs", """
+  public const string LoggerExtensionsSource = """
 
 using System.Runtime.CompilerServices;
 
@@ -25,7 +22,7 @@ namespace Axtae;
 public static class LoggerExtensions {
   extension(global::Axtae.Logger log) {
     /// <summary>
-    /// Logs an debug message (only compiled in DEBUG builds).
+    /// Logs a debug message (only compiled in DEBUG builds).
     /// </summary>
     /// <param name="msg">The message to log.</param>
     /// <param name="file">
@@ -38,7 +35,7 @@ public static class LoggerExtensions {
     /// The line number, automatically filled by the compiler.
     /// </param>
     /// <remarks>
-    /// This method is a no‑op in RELEASE builds due to the
+    /// This method is a no-op in RELEASE builds due to the
     /// <see cref="System.Diagnostics.ConditionalAttribute"/>.
     /// </remarks>
     [System.Diagnostics.Conditional("DEBUG")]
@@ -110,7 +107,7 @@ public static class LoggerExtensions {
     /// <param name="msg">The message to log.</param>
     /// <param name="member">
     /// The calling member name, automatically filled by the compiler.
-    /// It will not trim with out DEBUG.
+    /// It will not trim without DEBUG.
     /// </param>
     /// <param name="file">
     /// The source file path, automatically filled by the compiler.
@@ -133,7 +130,14 @@ public static class LoggerExtensions {
   }
 }
 
-""");
-    });
-  }
+""";
+
+  /// <summary>
+  /// Registers the source generation callback that adds the logger extension
+  /// methods.
+  /// </summary>
+  /// <param name="context">The generator initialization context.</param>
+  public void Initialize(IncrementalGeneratorInitializationContext context)
+    => context.RegisterPostInitializationOutput(
+      ctx => ctx.AddSource("LoggerExtensions.g.cs", LoggerExtensionsSource));
 }

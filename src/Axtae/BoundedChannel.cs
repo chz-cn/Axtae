@@ -109,7 +109,7 @@ public interface IChannelWriter<T> {
   /// After calling <see cref="Complete"/>,
   /// the channel transitions to <see cref="Channel.Completing"/>.
   /// No further writes are allowed via <see cref="TryWrite"/> or
-  /// <see cref="WriteAsync"/> – they will fail or be ignored.
+  /// <see cref="WriteAsync"/> - they will fail or be ignored.
   /// </para>
   /// <para>
   /// Readers may still drain pending items. When the queue becomes empty,

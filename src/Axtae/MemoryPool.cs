@@ -228,10 +228,10 @@ public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size)
   /// </para>
   /// </remarks>
   public Span<byte> Span => new(this.Ptr,
-    (int)this.Size); // we dont need add check int.MaxValuel is very big
+    (int)this.Size); // we don't need add check int.MaxValue is very big
 
   /// <summary>
-  /// Unchecked indexer – use <see cref="Span"/> for bounds‑checked safety.
+  /// Unchecked indexer - use <see cref="Span"/> for bounds-checked safety.
   /// </summary>
   /// <param name="index">The byte offset from the start of the block.</param>
   /// <value>The byte at the specified index.</value>
@@ -258,7 +258,7 @@ public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size)
   /// After disposal, the pointer and span are no longer valid for use.
   /// </para>
   /// <para>
-  /// This method is not thread‑safe. Do not call <see cref="Dispose"/>
+  /// This method is not thread-safe. Do not call <see cref="Dispose"/>
   /// concurrently on the same instance or its copies.
   /// </para>
   /// </remarks>
@@ -266,8 +266,8 @@ public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size)
 }
 
 /// <summary>
-/// A memory pool that allocates fixed‑size blocks from a single contiguous
-/// native memory buffer, using a stack‑based free list stored at the end of
+/// A memory pool that allocates fixed-size blocks from a single contiguous
+/// native memory buffer, using a stack-based free list stored at the end of
 /// the buffer.
 /// </summary>
 /// <remarks>
@@ -277,12 +277,12 @@ public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size)
 /// number of blocks is <see cref="BlockCount"/>.
 /// </para>
 /// <para>
-/// A free‑list stack (stored as an array of <see cref="ushort"/> indices) is
+/// A free-list stack (stored as an array of <see cref="ushort"/> indices) is
 /// placed immediately after the data blocks. The stack uses a simple LIFO
 /// policy, which provides fast allocation and deallocation.
 /// </para>
 /// <para>
-/// All public methods are thread‑safe and use an internal lock.
+/// All public methods are thread-safe and use an internal lock.
 /// </para>
 /// </remarks>
 #pragma warning disable S6640 // Unsafe code blocks should not be used
@@ -501,8 +501,8 @@ public sealed unsafe class PagePool : IDisposable, IPool {
   /// <see langword="null"/> or do nothing.
   /// </para>
   /// <para>
-  /// This method is thread‑safe and may be called multiple times; subsequent
-  /// calls are no‑ops.
+  /// This method is thread-safe and may be called multiple times; subsequent
+  /// calls are no-ops.
   /// </para>
   /// <para>
   /// Calling <see cref="Dispose"/> suppresses finalization, so the destructor
@@ -538,7 +538,7 @@ public sealed unsafe class PagePool : IDisposable, IPool {
 }
 
 /// <summary>
-/// Manages memory blocks from a pre‑allocated external buffer using a bitmap.
+/// Manages memory blocks from a pre-allocated external buffer using a bitmap.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -547,7 +547,7 @@ public sealed unsafe class PagePool : IDisposable, IPool {
 /// buffer tracks which blocks are free (0) or allocated (1).
 /// </para>
 /// <para>
-/// The total buffer size is specified in units of 4 KiB, and each block size
+/// The total buffer size is specified in units of 4 KiB, and each block size
 /// is given in units of 64 bytes. The block count is calculated such that the
 /// bitmap fits exactly in the remaining space after all blocks.
 /// The formula used is:
@@ -556,8 +556,8 @@ public sealed unsafe class PagePool : IDisposable, IPool {
 /// while still addressing every block.
 /// </para>
 /// <para>
-/// All public methods are thread‑safe and use an internal lock. The bitmap is
-/// zero‑initialized at construction, indicating all blocks are free.
+/// All public methods are thread-safe and use an internal lock. The bitmap is
+/// zero-initialized at construction, indicating all blocks are free.
 /// </para>
 /// <para>
 /// Because the buffer is owned externally, <see cref="Dispose"/> only marks
@@ -587,9 +587,9 @@ public sealed unsafe class CachePool : IDisposable, IPool {
   /// bytes.
   /// </summary>
   /// <param name="sp">
-  /// A span of bytes representing the pre‑allocated buffer. The buffer must
+  /// A span of bytes representing the pre-allocated buffer. The buffer must
   /// be large enough to hold both the data blocks and the bitmap.
-  /// Its length is converted to units of 4 KiB (i.e., <c>sp.Length / 4096</c>)
+  /// Its length is converted to units of 4 KiB (i.e., <c>sp.Length / 4096</c>)
   /// to derive the size parameter of the constructor.
   /// </param>
   /// <param name="block_size">
@@ -623,7 +623,7 @@ public sealed unsafe class CachePool : IDisposable, IPool {
   /// </para>
   /// <para>
   /// <b>IMPORTANT:</b> The caller must ensure the span remains alive and
-  /// unmodified for the lifetime of the<see cref="CachePool"/>.
+  /// unmodified for the lifetime of the <see cref="CachePool"/>.
   /// If the span wraps a managed array, it must be pinned
   /// (e.g., via<c>fixed</c>) before calling this method.
   /// </para>
@@ -636,11 +636,11 @@ public sealed unsafe class CachePool : IDisposable, IPool {
   /// Initializes a new instance of the <see cref="CachePool"/> class.
   /// </summary>
   /// <param name="ptr">
-  /// Pointer to the start of a pre‑allocated buffer. The buffer must be large
+  /// Pointer to the start of a pre-allocated buffer. The buffer must be large
   /// enough to hold both the data blocks and the bitmap.
   /// </param>
   /// <param name="size">
-  /// Total buffer size in units of 4 KiB (i.e., <c>size * 4096</c> bytes).
+  /// Total buffer size in units of 4 KiB (i.e., <c>size * 4096</c> bytes).
   /// Must be greater than 0.
   /// </param>
   /// <param name="block_size">
@@ -674,7 +674,7 @@ public sealed unsafe class CachePool : IDisposable, IPool {
   /// </para>
   /// <para>
   /// The bitmap is stored at the very end of the buffer and is cleared during
-  /// construction. The buffer itself is not zeroed—only the bitmap is
+  /// construction. The buffer itself is not zeroed-only the bitmap is
   /// initialized.
   /// </para>
   /// </remarks>
@@ -712,12 +712,12 @@ public sealed unsafe class CachePool : IDisposable, IPool {
   /// </returns>
   /// <remarks>
   /// <para>
-  /// This method is thread‑safe.
+  /// This method is thread-safe.
   /// It scans the bitmap for the first free block, sets its bit to 1, and
   /// returns the corresponding pointer.
   /// </para>
   /// <para>
-  /// The allocated block is <em>not</em> zero‑initialized; it may contain
+  /// The allocated block is <em>not</em> zero-initialized; it may contain
   /// residual data from previous usage. Callers must overwrite the entire
   /// block before relying on its content.
   /// </para>
@@ -762,7 +762,7 @@ public sealed unsafe class CachePool : IDisposable, IPool {
   /// bitmap is already 0 (i.e., already free), this method does nothing.
   /// </para>
   /// <para>
-  /// This method is thread‑safe. It acquires the internal lock only when the
+  /// This method is thread-safe. It acquires the internal lock only when the
   /// pointer is valid, so invalid calls are cheap.
   /// </para>
   /// <para>
@@ -826,7 +826,7 @@ public sealed unsafe class CachePool : IDisposable, IPool {
   /// </summary>
   /// <remarks>
   /// <para>
-  /// This method is thread‑safe and sets the disposed flag. It does
+  /// This method is thread-safe and sets the disposed flag. It does
   /// <em>not</em> free the external buffer because the pool does not own it.
   /// </para>
   /// <para>
