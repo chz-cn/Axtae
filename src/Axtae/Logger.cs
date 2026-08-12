@@ -3,7 +3,6 @@ using System;
 using System.Buffers;
 using System.IO;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Threading.Tasks;
 using Axtae.Codecs;
 
@@ -172,113 +171,6 @@ public sealed class Logger {
     /// <summary>The severity level of the log entry.</summary>
     public Level Level { readonly get; init; }
   }
-
-  /// <summary>
-  /// Logs an debug message (only compiled in DEBUG builds).
-  /// </summary>
-  /// <param name="msg">The message to log.</param>
-  /// <param name="file">
-  /// The source file path, automatically filled by the compiler.
-  /// </param>
-  /// <param name="member">
-  /// The calling member name, automatically filled by the compiler.
-  /// </param>
-  /// <param name="line">
-  /// The line number, automatically filled by the compiler.
-  /// </param>
-  /// <remarks>
-  /// This method is a no‑op in RELEASE builds due to the
-  /// <see cref="System.Diagnostics.ConditionalAttribute"/>.
-  /// </remarks>
-  [System.Diagnostics.Conditional("DEBUG")]
-  public void Debug(string msg,
-    [CallerFilePath] string file = "",
-    [CallerMemberName] string member = "",
-    [CallerLineNumber] int line = 0
-  ) => this.Log(Level.Debug, msg, file, member, line);
-
-  /// <summary>
-  /// Logs an informational message.
-  /// </summary>
-  /// <param name="msg">The message to log.</param>
-  /// <param name="file">
-  /// The source file path, automatically filled by the compiler.
-  /// In DEBUG builds it is the actual path; otherwise a placeholder.
-  /// </param>
-  /// <param name="member">
-  /// The calling member name, automatically filled by the compiler.
-  /// In DEBUG builds it is the actual path; otherwise a placeholder.
-  /// </param>
-  /// <param name="line">
-  /// The line number, automatically filled by the compiler.
-  /// In DEBUG builds it is the actual line; otherwise -1.
-  /// </param>
-  public void Info(string msg,
-#if DEBUG
-    [CallerFilePath] string file = "",
-    [CallerMemberName] string member = "",
-    [CallerLineNumber] int line = 0
-#else
-    string file = "",
-    string member = "",
-    int line = -1
-#endif
-  ) => this.Log(Level.Info, msg, file, member, line);
-
-  /// <summary>
-  /// Logs a warning message.
-  /// </summary>
-  /// <param name="msg">The message to log.</param>
-  /// <param name="file">
-  /// The source file path, automatically filled by the compiler.
-  /// In DEBUG builds it is the actual path; otherwise a placeholder.
-  /// </param>
-  /// <param name="member">
-  /// The calling member name, automatically filled by the compiler.
-  /// In DEBUG builds it is the actual path; otherwise a placeholder.
-  /// </param>
-  /// <param name="line">
-  /// The line number, automatically filled by the compiler.
-  /// In DEBUG builds it is the actual line; otherwise -1.
-  /// </param>
-  public void Warning(string msg,
-#if DEBUG
-    [CallerFilePath] string file = "",
-    [CallerMemberName] string member = "",
-    [CallerLineNumber] int line = 0
-#else
-    string file = "",
-    string member = "",
-    int line = -1
-#endif
-  ) => this.Log(Level.Warning, msg, file, member, line);
-
-  /// <summary>
-  /// Logs an error message.
-  /// </summary>
-  /// <param name="msg">The message to log.</param>
-  /// <param name="member">
-  /// The calling member name, automatically filled by the compiler.
-  /// It will not trim with out DUBUG.
-  /// </param>
-  /// <param name="file">
-  /// The source file path, automatically filled by the compiler.
-  /// In DEBUG builds it is the actual path; otherwise a placeholder.
-  /// </param>
-  /// <param name="line">
-  /// The line number, automatically filled by the compiler.
-  /// In DEBUG builds it is the actual line; otherwise -1.
-  /// </param>
-  public void Error(string msg,
-    [CallerMemberName] string member = "",
-#if DEBUG
-    [CallerFilePath] string file = "",
-    [CallerLineNumber] int line = 0
-#else
-    string file = "?",
-    int line = -1
-#endif
-  ) => this.Log(Level.Error, msg, file, member, line);
 
   /// <summary>
   /// Internal method that enqueues a log entry into the channel.

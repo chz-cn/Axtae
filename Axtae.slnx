@@ -1,7 +1,11 @@
 <Solution>
 
-  <Folder Name="/src/">
+  <Folder Name="/src/Axtae/">
     <Project Path="src/Axtae/x.csproj" />
+  </Folder>
+
+  <Folder Name="/src/Axtae.Generator/">
+    <Project Path="src/Axtae.Generator/x.csproj" />
   </Folder>
 
   <Folder Name="/test/">

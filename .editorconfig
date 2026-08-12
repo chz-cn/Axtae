@@ -88,3 +88,6 @@ dotnet_diagnostic.S101.severity = none
 
 # error for `= 0`/`= false`
 dotnet_diagnostic.RCS1129.severity = none
+
+# matching modifier
+dotnet_diagnostic.IDE0036.severity = warning
