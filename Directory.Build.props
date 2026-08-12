@@ -1,4 +1,7 @@
 <Project>
+
+  <Sdk Name="ViHo.PackAsAnalyzer" Version="1.0.1" />
+
   <PropertyGroup>
 
     <_SolutionRoot>$(MSBuildThisFileDirectory)</_SolutionRoot>
@@ -13,5 +16,7 @@
     <OutputPath>$(_BuildPath)/bin/$(_Path)</OutputPath>
     <IntermediateOutputPath>$(_BuildPath)/obj/$(_Path)</IntermediateOutputPath>
     <MSBuildProjectExtensionsPath>$(_BuildPath)/nuget/$(_PathId)</MSBuildProjectExtensionsPath>
+
   </PropertyGroup>
+
 </Project>
