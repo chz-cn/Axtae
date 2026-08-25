@@ -19,7 +19,7 @@ using System.Runtime.CompilerServices;
 
 namespace Axtae;
 
-public static class LoggerExtensions {
+internal static class LoggerExtensions {
   extension(global::Axtae.Logger log) {
     /// <summary>
     /// Logs a debug message (only compiled in DEBUG builds).

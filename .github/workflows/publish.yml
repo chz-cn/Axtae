@@ -1,0 +1,49 @@
+
+name: Publish Nuget
+
+on:
+  push:
+    tags:
+      - 'v*'
+      - '!v*.0.*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v7
+
+      - name: Check version match
+        run: |
+          TAG=${GITHUB_REF#refs/tags/v}
+          VERSION=$(grep -oP '(?<=<Version>).*?(?=</Version>)' src/Axtae/x.csproj)
+          if [ "$TAG" != "$VERSION" ]; then
+            echo "❌ Tag ($TAG) does not match project version ($VERSION)"
+            exit 1
+          fi
+          echo "✅ Version matched: $TAG"
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Pack
+        run: dotnet pack src/Axtae/x.csproj -c Release -o ./nupkg
+
+      - name: NuGet login
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ secrets.NUGET_USER }}
+
+      - name: Push to NuGet
+        run: |
+          dotnet nuget push ./nupkg/*.nupkg \
+            --api-key ${{ steps.login.outputs.NUGET_API_KEY }} \
+            --source https://api.nuget.org/v3/index.json
