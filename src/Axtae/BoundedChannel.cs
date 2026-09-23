@@ -1,11 +1,14 @@
+// Copyright (c) 2026 chz-cn
+// SPDX-License-Identifier: Apache-2.0
 
 using System;
-using System.Runtime.CompilerServices;
 using System.Threading;
 using System.Threading.Channels;
 using System.Threading.Tasks;
 
 namespace Axtae;
+
+#pragma warning disable CA1001 // 具有可释放字段的类型应该是可释放的
 
 /// <summary>
 /// Represents a bounded channel for exchanging messages of type
@@ -81,7 +84,7 @@ public interface IChannelWriter<T> {
   /// <see langword="false"/> if the channel is full, already completing,
   /// or completed.
   /// </returns>
-  bool TryWrite(T item);
+  bool TryWrite (T item);
 
   /// <summary>
   /// Asynchronously writes an item to the channel, waiting until space is
@@ -97,7 +100,7 @@ public interface IChannelWriter<T> {
   /// In <see cref="RejectBoundedChannel{T}"/>, pending writes are cancelled
   /// immediately when <see cref="Complete"/> is called.
   /// </remarks>
-  ValueTask WriteAsync(T item);
+  ValueTask WriteAsync (T item);
 
   /// <summary>
   /// Signals that no more items will be written to the channel.
@@ -116,7 +119,7 @@ public interface IChannelWriter<T> {
   /// the channel moves to <see cref="Channel.Completed"/>.
   /// </para>
   /// </remarks>
-  void Complete();
+  void Complete ();
 }
 
 /// <summary>
@@ -151,7 +154,7 @@ public interface IChannelReader<T> {
   /// <see langword="true"/> if an item was successfully retrieved;
   /// <see langword="false"/> if the channel is empty or already completed.
   /// </returns>
-  bool TryRead(out T item);
+  bool TryRead (out T item);
 
   /// <summary>
   /// Asynchronously reads an item from the channel, waiting until one is
@@ -168,7 +171,7 @@ public interface IChannelReader<T> {
   /// If the channel is empty but not yet completed, the task will wait until
   /// an item is written or the channel is completed.
   /// </remarks>
-  ValueTask<T> ReadAsync();
+  ValueTask<T> ReadAsync ();
 }
 
 /// <summary>
@@ -208,11 +211,11 @@ public static class Channel {
   /// that allows pending writes to finish before completion.
   /// </param>
   /// <returns>An <see cref="IChannel{T}"/> instance.</returns>
-  public static IChannel<T> CreateBounded<T>(
+  public static IChannel<T> CreateBounded<T> (
     uint capacity, bool reject_on_complete = false)
     => reject_on_complete
-      ? new RejectBoundedChannel<T>(capacity)
-      : new DrainBoundedChannel<T>(capacity);
+      ? new RejectBoundedChannel<T> (capacity)
+      : new DrainBoundedChannel<T> (capacity);
 }
 
 /// <summary>
@@ -237,13 +240,13 @@ public sealed class DrainBoundedChannel<T> : IChannel<T> {
   private readonly BoundedMpmcQueue<T> _queue;
   private readonly SemaphoreSlim _writer_slim;
   private readonly SemaphoreSlim _reader_slim;
-  private readonly TaskCompletionSource _completion = new();
-  private readonly CancellationTokenSource _cts = new();
+  private readonly TaskCompletionSource _completion = new ();
+  private readonly CancellationTokenSource _cts = new ();
 
   private byte _state = Channel.Active;
 
   /// <inheritdoc />
-  public byte State => Volatile.Read(ref this._state);
+  public byte State => Volatile.Read (ref this._state);
 
   /// <inheritdoc />
   public IChannelWriter<T> Writer { get; }
@@ -261,70 +264,77 @@ public sealed class DrainBoundedChannel<T> : IChannel<T> {
   /// <param name="capacity">
   /// The maximum number of items the channel can hold.
   /// </param>
-  public DrainBoundedChannel(uint capacity) {
-    this._queue = new(capacity);
+  public DrainBoundedChannel (uint capacity) {
+    this._queue = new (capacity);
     int cap = (int)this._queue.Capacity;
-    this._writer_slim = new(cap, cap);
-    this._reader_slim = new(0, cap);
-    this.Writer = new IWriter(this);
-    this.Reader = new IReader(this);
+    this._writer_slim = new (cap, cap);
+    this._reader_slim = new (0, cap);
+    this.Writer = new IWriter (this);
+    this.Reader = new IReader (this);
   }
 
-  [MethodImpl(MethodImplOptions.AggressiveInlining)]
-  private void CheckComplet() {
+  private void CheckComplet () {
     if (this._writer_slim.CurrentCount < this._queue.Capacity
-      || !this._queue.IsEmpty) return;
+      || !this._queue.IsEmpty) {
+      return;
+    }
 
-    byte prev = Interlocked.CompareExchange(
+    byte prev = Interlocked.CompareExchange (
       ref this._state, Channel.Completed, Channel.Completing);
-    if (prev is not Channel.Completing) return;
+    if (prev is not Channel.Completing) {
+      return;
+    }
 
-    this._cts.Cancel();
-    _ = this._completion.TrySetResult();
-    this._cts.Dispose();
+    this._cts.Cancel ();
+    _ = this._completion.TrySetResult ();
+    this._cts.Dispose ();
   }
 
   /// <summary>
   /// Internal implementation of <see cref="IChannelWriter{T}"/> for
   /// <see cref="DrainBoundedChannel{T}"/>.
   /// </summary>
-  private sealed class IWriter(DrainBoundedChannel<T> parent)
+  /// <param name="parent"><see langword="this"/></param>
+  private sealed class IWriter (DrainBoundedChannel<T> parent)
     : IChannelWriter<T> {
     private readonly DrainBoundedChannel<T> _parent = parent;
 
     /// <inheritdoc />
-    public bool TryWrite(T item) {
+    public bool TryWrite (T item) {
       var p = this._parent;
-      if (Volatile.Read(ref p._state) is not Channel.Active
-        || !p._writer_slim.Wait(0))
+      if (Volatile.Read (ref p._state) is not Channel.Active
+        || !p._writer_slim.Wait (0)) {
         return false;
+      }
 
-      _ = p._queue.TryEnqueue(item);
-      _ = p._reader_slim.Release();
+      _ = p._queue.TryEnqueue (item);
+      _ = p._reader_slim.Release ();
       return true;
     }
 
     /// <inheritdoc />
-    public async ValueTask WriteAsync(T item) {
+    public async ValueTask WriteAsync (T item) {
       var p = this._parent;
-      if (Volatile.Read(ref p._state) is not Channel.Active)
+      if (Volatile.Read (ref p._state) is not Channel.Active) {
         return;
+      }
 
-      await p._writer_slim.WaitAsync().ConfigureAwait(false);
+      await p._writer_slim.WaitAsync ().ConfigureAwait (false);
 
-      _ = p._queue.TryEnqueue(item);
-      _ = p._reader_slim.Release();
+      _ = p._queue.TryEnqueue (item);
+      _ = p._reader_slim.Release ();
     }
 
     /// <inheritdoc />
-    public void Complete() {
+    public void Complete () {
       var p = this._parent;
-      byte prev = Interlocked.CompareExchange(
+      byte prev = Interlocked.CompareExchange (
         ref p._state, Channel.Completing, Channel.Active);
-      if (prev is not Channel.Active)
+      if (prev is not Channel.Active) {
         return;
+      }
 
-      p.CheckComplet();
+      p.CheckComplet ();
     }
   }
 
@@ -332,7 +342,8 @@ public sealed class DrainBoundedChannel<T> : IChannel<T> {
   /// Internal implementation of <see cref="IChannelReader{T}"/> for
   /// <see cref="DrainBoundedChannel{T}"/>.
   /// </summary>
-  private sealed class IReader(DrainBoundedChannel<T> parent)
+  /// <param name="parent"><see langword="this"/></param>
+  private sealed class IReader (DrainBoundedChannel<T> parent)
     : IChannelReader<T> {
     private readonly DrainBoundedChannel<T> _parent = parent;
 
@@ -340,36 +351,38 @@ public sealed class DrainBoundedChannel<T> : IChannel<T> {
     public Task Completion => this._parent._completion.Task;
 
     /// <inheritdoc />
-    public bool TryRead(out T item) {
+    public bool TryRead (out T item) {
       item = default!;
       var p = this._parent;
-      if (Volatile.Read(ref p._state) is Channel.Completed
-        || !p._reader_slim.Wait(0))
+      if (Volatile.Read (ref p._state) is Channel.Completed
+        || !p._reader_slim.Wait (0)) {
         return false;
+      }
 
-      _ = p._queue.TryDequeue(out item);
-      _ = p._writer_slim.Release();
-      p.CheckComplet();
+      _ = p._queue.TryDequeue (out item);
+      _ = p._writer_slim.Release ();
+      p.CheckComplet ();
       return true;
     }
 
     /// <inheritdoc />
-    public async ValueTask<T> ReadAsync() {
+    public async ValueTask<T> ReadAsync () {
       var p = this._parent;
-      if (Volatile.Read(ref p._state) is Channel.Completed)
-        throw new ChannelClosedException();
+      if (Volatile.Read (ref p._state) is Channel.Completed) {
+        throw new ChannelClosedException ();
+      }
 
       try {
-        await p._reader_slim.WaitAsync(p._cts.Token)
-          .ConfigureAwait(false);
+        await p._reader_slim.WaitAsync (p._cts.Token)
+          .ConfigureAwait (false);
       }
       catch (OperationCanceledException) {
-        throw new ChannelClosedException();
+        throw new ChannelClosedException ();
       }
 
-      _ = p._queue.TryDequeue(out T item);
-      _ = p._writer_slim.Release();
-      p.CheckComplet();
+      _ = p._queue.TryDequeue (out var item);
+      _ = p._writer_slim.Release ();
+      p.CheckComplet ();
       return item;
     }
   }
@@ -401,14 +414,14 @@ public sealed class RejectBoundedChannel<T> : IChannel<T> {
   private readonly BoundedMpmcQueue<T> _queue;
   private readonly SemaphoreSlim _writer_slim;
   private readonly SemaphoreSlim _reader_slim;
-  private readonly TaskCompletionSource _completion = new();
-  private readonly CancellationTokenSource _writer_cts = new();
-  private readonly CancellationTokenSource _reader_cts = new();
+  private readonly TaskCompletionSource _completion = new ();
+  private readonly CancellationTokenSource _writer_cts = new ();
+  private readonly CancellationTokenSource _reader_cts = new ();
 
   private byte _state = Channel.Active;
 
   /// <inheritdoc />
-  public byte State => Volatile.Read(ref this._state);
+  public byte State => Volatile.Read (ref this._state);
 
   /// <inheritdoc />
   public IChannelWriter<T> Writer { get; }
@@ -426,67 +439,71 @@ public sealed class RejectBoundedChannel<T> : IChannel<T> {
   /// <param name="capacity">
   /// The maximum number of items the channel can hold.
   /// </param>
-  public RejectBoundedChannel(uint capacity) {
-    this._queue = new(capacity);
+  public RejectBoundedChannel (uint capacity) {
+    this._queue = new (capacity);
     int cap = (int)this._queue.Capacity;
-    this._writer_slim = new(cap, cap);
-    this._reader_slim = new(0, cap);
-    this.Writer = new IWriter(this);
-    this.Reader = new IReader(this);
+    this._writer_slim = new (cap, cap);
+    this._reader_slim = new (0, cap);
+    this.Writer = new IWriter (this);
+    this.Reader = new IReader (this);
   }
 
-  [MethodImpl(MethodImplOptions.AggressiveInlining)]
-  private void CheckComplet() {
+  private void CheckComplet () {
     if (this._writer_slim.CurrentCount < this._queue.Capacity
-      || !this._queue.IsEmpty)
+      || !this._queue.IsEmpty) {
       return;
+    }
 
-    byte prev = Interlocked.CompareExchange(
+    byte prev = Interlocked.CompareExchange (
       ref this._state, Channel.Completed, Channel.Completing);
-    if (prev is not Channel.Completing)
+    if (prev is not Channel.Completing) {
       return;
+    }
 
-    this._reader_cts.Cancel();
-    _ = this._completion.TrySetResult();
-    this._writer_cts.Dispose();
-    this._reader_cts.Dispose();
+    this._reader_cts.Cancel ();
+    _ = this._completion.TrySetResult ();
+    this._writer_cts.Dispose ();
+    this._reader_cts.Dispose ();
   }
 
   /// <summary>
   /// Internal implementation of <see cref="IChannelWriter{T}"/> for
   /// <see cref="RejectBoundedChannel{T}"/>.
   /// </summary>
-  private sealed class IWriter(RejectBoundedChannel<T> parent)
+  /// <param name="parent"><see langword="this"/></param>
+  private sealed class IWriter (RejectBoundedChannel<T> parent)
     : IChannelWriter<T> {
     private readonly RejectBoundedChannel<T> _parent = parent;
 
     /// <inheritdoc />
-    public bool TryWrite(T item) {
+    public bool TryWrite (T item) {
       var p = this._parent;
-      if (Volatile.Read(ref p._state) is not Channel.Active
-        || !p._writer_slim.Wait(0))
-        return false;
-
-      // Double-check state after acquiring the semaphore
-      if (Volatile.Read(ref p._state) is not Channel.Active) {
-        _ = p._writer_slim.Release();
+      if (Volatile.Read (ref p._state) is not Channel.Active
+        || !p._writer_slim.Wait (0)) {
         return false;
       }
 
-      _ = p._queue.TryEnqueue(item);
-      _ = p._reader_slim.Release();
+      // Double-check state after acquiring the semaphore
+      if (Volatile.Read (ref p._state) is not Channel.Active) {
+        _ = p._writer_slim.Release ();
+        return false;
+      }
+
+      _ = p._queue.TryEnqueue (item);
+      _ = p._reader_slim.Release ();
       return true;
     }
 
     /// <inheritdoc />
-    public async ValueTask WriteAsync(T item) {
+    public async ValueTask WriteAsync (T item) {
       var p = this._parent;
-      if (Volatile.Read(ref p._state) is not Channel.Active)
+      if (Volatile.Read (ref p._state) is not Channel.Active) {
         return;
+      }
 
       try {
-        await p._writer_slim.WaitAsync(p._writer_cts.Token)
-          .ConfigureAwait(false);
+        await p._writer_slim.WaitAsync (p._writer_cts.Token)
+          .ConfigureAwait (false);
       }
       catch (OperationCanceledException) {
         // Completion was called; write is cancelled.
@@ -494,25 +511,26 @@ public sealed class RejectBoundedChannel<T> : IChannel<T> {
       }
 
       // Double-check state after acquiring the semaphore
-      if (Volatile.Read(ref p._state) is not Channel.Active) {
-        _ = p._writer_slim.Release();
+      if (Volatile.Read (ref p._state) is not Channel.Active) {
+        _ = p._writer_slim.Release ();
         return;
       }
 
-      _ = p._queue.TryEnqueue(item);
-      _ = p._reader_slim.Release();
+      _ = p._queue.TryEnqueue (item);
+      _ = p._reader_slim.Release ();
     }
 
     /// <inheritdoc />
-    public void Complete() {
+    public void Complete () {
       var p = this._parent;
-      byte prev = Interlocked.CompareExchange(
+      byte prev = Interlocked.CompareExchange (
         ref p._state, Channel.Completing, Channel.Active);
-      if (prev is not Channel.Active)
+      if (prev is not Channel.Active) {
         return;
+      }
 
-      p._writer_cts.Cancel();
-      p.CheckComplet();
+      p._writer_cts.Cancel ();
+      p.CheckComplet ();
     }
   }
 
@@ -520,7 +538,8 @@ public sealed class RejectBoundedChannel<T> : IChannel<T> {
   /// Internal implementation of <see cref="IChannelReader{T}"/> for
   /// <see cref="RejectBoundedChannel{T}"/>.
   /// </summary>
-  private sealed class IReader(RejectBoundedChannel<T> parent)
+  /// <param name="parent"><see langword="this"/></param>
+  private sealed class IReader (RejectBoundedChannel<T> parent)
     : IChannelReader<T> {
     private readonly RejectBoundedChannel<T> _parent = parent;
 
@@ -528,37 +547,41 @@ public sealed class RejectBoundedChannel<T> : IChannel<T> {
     public Task Completion => this._parent._completion.Task;
 
     /// <inheritdoc />
-    public bool TryRead(out T item) {
+    public bool TryRead (out T item) {
       item = default!;
       var p = this._parent;
-      if (Volatile.Read(ref p._state) is Channel.Completed
-        || !p._reader_slim.Wait(0))
+      if (Volatile.Read (ref p._state) is Channel.Completed
+        || !p._reader_slim.Wait (0)) {
         return false;
+      }
 
-      _ = p._queue.TryDequeue(out item);
-      _ = p._writer_slim.Release();
-      p.CheckComplet();
+      _ = p._queue.TryDequeue (out item);
+      _ = p._writer_slim.Release ();
+      p.CheckComplet ();
       return true;
     }
 
     /// <inheritdoc />
-    public async ValueTask<T> ReadAsync() {
+    public async ValueTask<T> ReadAsync () {
       var p = this._parent;
-      if (Volatile.Read(ref p._state) is Channel.Completed)
-        throw new ChannelClosedException();
+      if (Volatile.Read (ref p._state) is Channel.Completed) {
+        throw new ChannelClosedException ();
+      }
 
       try {
-        await p._reader_slim.WaitAsync(p._reader_cts.Token)
-          .ConfigureAwait(false);
+        await p._reader_slim.WaitAsync (p._reader_cts.Token)
+          .ConfigureAwait (false);
       }
       catch (OperationCanceledException) {
-        throw new ChannelClosedException();
+        throw new ChannelClosedException ();
       }
 
-      _ = p._queue.TryDequeue(out T item);
-      _ = p._writer_slim.Release();
-      p.CheckComplet();
+      _ = p._queue.TryDequeue (out var item);
+      _ = p._writer_slim.Release ();
+      p.CheckComplet ();
       return item;
     }
   }
 }
+
+#pragma warning restore CA1001 // 具有可释放字段的类型应该是可释放的

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 chz-cn
+// SPDX-License-Identifier: Apache-2.0
 
 using System;
 using System.Runtime.CompilerServices;
@@ -7,6 +9,8 @@ using System.Threading;
 using static Axtae.Numeric;
 
 namespace Axtae;
+
+#pragma warning disable S6640 // Unsafe code blocks should not be used
 
 /// <summary>
 /// Defines a memory pool that manages fixed-size blocks of unmanaged memory.
@@ -32,21 +36,19 @@ public interface IPool {
   /// Gets the total size of the managed buffer in bytes.
   /// </summary>
   /// <value>The total number of bytes in the buffer.</value>
-  public uint TotalByte { get; }
+  uint TotalByte { get; }
 
   /// <summary>
   /// Gets the size of each memory block in bytes.
   /// </summary>
   /// <value>The block size, which is a multiple of 64 bytes.</value>
-  public uint BlockSize { get; }
+  uint BlockSize { get; }
 
   /// <summary>
   /// Gets the total number of blocks available in the pool.
   /// </summary>
   /// <value>The block count, which is at least 2.</value>
-  public uint BlockCount { get; }
-
-#pragma warning disable S6640 // Unsafe code blocks should not be used
+  uint BlockCount { get; }
 
   /// <summary>
   /// Allocates a single memory block from the pool.
@@ -71,12 +73,12 @@ public interface IPool {
   /// when no longer needed to avoid memory leaks.
   /// </para>
   /// </remarks>
-  unsafe byte* Alloc();
+  unsafe byte* Alloc ();
 
   /// <summary>
   /// Returns a previously allocated memory block to the pool.
   /// </summary>
-  /// <param name="ptr">A pointer to the block to free. Must have been
+  /// <param name="address">A pointer to the block to free. Must have been
   /// obtained from <see cref="Alloc"/> and not already freed.</param>
   /// <remarks>
   /// <para>
@@ -93,8 +95,7 @@ public interface IPool {
   /// that the pointer is not used concurrently after it is freed.
   /// </para>
   /// </remarks>
-  unsafe void Free(byte* ptr);
-#pragma warning restore S6640 // Unsafe code blocks should not be used
+  unsafe void Free (byte* address);
 
   /// <summary>
   /// Rents a memory block from the pool and returns an <see cref="IOwner"/>
@@ -134,12 +135,25 @@ public interface IPool {
   /// </code>
   /// </example>
   /// </remarks>
-  IOwner Rent();
+  IOwner Rent ();
 }
 
 /// <summary>
 /// Represents a rented block of memory from a Pool.
 /// </summary>
+/// <param name="parent">
+/// The pool that owns the block and receives it when <see cref="Dispose"/>
+/// is called.
+/// </param>
+/// <param name="address">
+/// A pointer to the beginning of the rented block, or <see langword="null"/>
+/// when the rental is empty.
+/// </param>
+/// <param name="size">
+/// The size of the rented block in bytes. It must not exceed
+/// <see cref="int.MaxValue"/> because the block is exposed as a
+/// <see cref="Span{Byte}"/>.
+/// </param>
 /// <remarks>
 /// <para>
 /// This is a <see langword="readonly"/> <see langword="struct"/> that holds a
@@ -157,7 +171,7 @@ public interface IPool {
 /// block.
 /// Calling <see cref="Dispose"/> on any copy returns the block to the pool,
 /// rendering the pointer in <b>all</b> copies invalid. Do not access
-/// <see cref="Span"/>, <see cref="Ptr"/>, or the indexer after disposal.
+/// <see cref="Span"/>, <see cref="PointerAddress"/>, or the indexer after disposal.
 /// </para>
 /// <para>
 /// <see cref="Dispose"/> must be called exactly once for each rented block.
@@ -172,10 +186,8 @@ public interface IPool {
 /// Do not let <paramref name="size"/> larger than <see cref="int.MaxValue"/>.
 /// </para>
 /// </remarks>
-#pragma warning disable S6640 // Unsafe code blocks should not be used
-public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size)
-  : IDisposable {
-#pragma warning restore S6640 // Unsafe code blocks should not be used
+public readonly unsafe struct IOwner (IPool parent, byte* address, uint size)
+  : IDisposable, IEquatable<IOwner> {
   private readonly IPool? _parent = parent;
 
   /// <summary>
@@ -189,7 +201,7 @@ public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size)
   /// <see cref="Dispose"/> is called, the pointer is no longer valid and
   /// should not be dereferenced.
   /// </remarks>
-  public readonly byte* Ptr = ptr;
+  public readonly byte* PointerAddress = address;
 
   /// <summary>
   /// Gets the size of the memory block in bytes.
@@ -212,7 +224,7 @@ public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size)
   /// After disposal, <see cref="IsEmpty"/> may remain <see langword="false"/>
   /// even though the pointer is no longer valid.
   /// </remarks>
-  public bool IsEmpty => this.Ptr is null || this.Size is 0;
+  public bool IsEmpty => this.PointerAddress is null || this.Size is 0;
 
   /// <summary>
   /// Gets a <see cref="Span{T}"/> over the rented memory block.
@@ -227,7 +239,7 @@ public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size)
   /// instance is not disposed before using the span.
   /// </para>
   /// </remarks>
-  public Span<byte> Span => new(this.Ptr,
+  public Span<byte> Span => new (this.PointerAddress,
     (int)this.Size); // we don't need add check int.MaxValue is very big
 
   /// <summary>
@@ -240,10 +252,12 @@ public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size)
   /// the allocated range, or using the indexer after disposal, results in
   /// undefined behavior. Prefer using <see cref="Span"/> for safe access.
   /// </remarks>
+#pragma warning disable CA1043 // 将整型或字符串参数用于索引器
   public byte this[nuint index] {
-    get => this.Ptr[index];
-    set => this.Ptr[index] = value;
+    get => this.PointerAddress[index];
+    set => this.PointerAddress[index] = value;
   }
+#pragma warning restore CA1043 // 将整型或字符串参数用于索引器
 
   /// <summary>
   /// Returns the rented memory block to the pool.
@@ -262,8 +276,68 @@ public readonly unsafe struct IOwner(IPool parent, byte* ptr, uint size)
   /// concurrently on the same instance or its copies.
   /// </para>
   /// </remarks>
-  public void Dispose() => this._parent?.Free(this.Ptr);
+  public void Dispose () => this._parent?.Free (this.PointerAddress);
+
+  /// <summary>
+  /// Serves as the default hash function.
+  /// </summary>
+  /// <returns>
+  /// A hash code for the current <see cref="IOwner"/>.
+  /// </returns>
+  /// <remarks>
+  /// The hash code is derived from the <see cref="PointerAddress"/>,
+  /// ensuring that equal instances produce the same hash code.
+  /// </remarks>
+  public override int GetHashCode () => (int)((nuint)this.PointerAddress >>> 12);
+
+  /// <summary>
+  /// Determines whether the specified object is equal to the current <see cref="IOwner"/>.
+  /// </summary>
+  /// <param name="obj">The object to compare with the current instance.</param>
+  /// <returns>
+  /// <see langword="true"/> if <paramref name="obj"/> is an <see cref="IOwner"/> and
+  /// points to the same memory address; otherwise, <see langword="false"/>.
+  /// </returns>
+  public override bool Equals (object? obj)
+    => obj is IOwner owner && this.Equals (owner);
+
+  /// <summary>
+  /// Determines whether the current <see cref="IOwner"/> is equal to another <see cref="IOwner"/>.
+  /// </summary>
+  /// <param name="other">The <see cref="IOwner"/> to compare with the current instance.</param>
+  /// <returns>
+  /// <see langword="true"/> if both instances point to the same memory address;
+  /// otherwise, <see langword="false"/>.
+  /// </returns>
+  public bool Equals (IOwner other)
+    => this.PointerAddress == other.PointerAddress;
+
+  /// <summary>
+  /// Indicates whether two <see cref="IOwner"/> instances are equal.
+  /// </summary>
+  /// <param name="left">The first instance to compare.</param>
+  /// <param name="right">The second instance to compare.</param>
+  /// <returns>
+  /// <see langword="true"/> if both instances point to the same memory address;
+  /// otherwise, <see langword="false"/>.
+  /// </returns>
+  public static bool operator == (IOwner left, IOwner right)
+    => left.Equals (right);
+
+  /// <summary>
+  /// Indicates whether two <see cref="IOwner"/> instances are not equal.
+  /// </summary>
+  /// <param name="left">The first instance to compare.</param>
+  /// <param name="right">The second instance to compare.</param>
+  /// <returns>
+  /// <see langword="true"/> if the instances point to different memory addresses;
+  /// otherwise, <see langword="false"/>.
+  /// </returns>
+  public static bool operator != (IOwner left, IOwner right)
+    => !left.Equals (right);
 }
+
+#pragma warning restore S6640 // Unsafe code blocks should not be used
 
 /// <summary>
 /// A memory pool that allocates fixed-size blocks from a single contiguous
@@ -296,12 +370,12 @@ public sealed unsafe class PagePool : IDisposable, IPool {
   /// <inheritdoc />
   public uint BlockCount { get; }
 
-  private uint _top = 0;
+  private uint _top;
   private readonly ushort* _items;
   private readonly byte* _pool;
 
-  private readonly Lock _lock = new();
-  private bool _disposed = false;
+  private readonly Lock _lock = new ();
+  private bool _disposed;
 
   /// <summary>
   /// Initializes a new instance of the <see cref="PagePool"/> class.
@@ -353,21 +427,21 @@ public sealed unsafe class PagePool : IDisposable, IPool {
   /// This is a one-time initialization step and is not expected to fail.
   /// </para>
   /// </remarks>
-  public PagePool(ushort size = 8, uint block_size = 1) {
-    ArgumentOutOfRangeException.ThrowIfZero(size);
-    ArgumentOutOfRangeException.ThrowIfGreaterThan(size, 2048);
+  public PagePool (ushort size = 8, uint block_size = 1) {
+    ArgumentOutOfRangeException.ThrowIfZero (size);
+    ArgumentOutOfRangeException.ThrowIfGreaterThan (size, 2048);
 
-    ArgumentOutOfRangeException.ThrowIfZero(block_size);
+    ArgumentOutOfRangeException.ThrowIfZero (block_size);
 
     uint total_byte = size * MiB;
     uint block_byte = block_size * 4 * KiB;
 
     uint theoretical = total_byte / (block_byte + 2);
-    ArgumentOutOfRangeException.ThrowIfLessThan(theoretical, 2u);
+    ArgumentOutOfRangeException.ThrowIfLessThan (theoretical, 2u);
 
-    ushort block_count = (ushort)Math.Min(theoretical, ushort.MaxValue);
+    ushort block_count = (ushort)Math.Min (theoretical, ushort.MaxValue);
 
-    byte* pool = (byte*)NativeMemory.AlignedAlloc(total_byte, 4 * KiB);
+    byte* pool = (byte*)NativeMemory.AlignedAlloc (total_byte, 4 * KiB);
 
     this.TotalByte = total_byte;
     this.BlockSize = block_byte;
@@ -377,9 +451,9 @@ public sealed unsafe class PagePool : IDisposable, IPool {
     this._items = (ushort*)(pool + offset);
     this._pool = pool;
 
-    NativeMemory.Clear(pool, total_byte);
+    NativeMemory.Clear (pool, total_byte);
     for (ushort i = 0; i < block_count; i++) {
-      this.TryPush(i);
+      this.TryPush (i);
     }
   }
 
@@ -392,13 +466,16 @@ public sealed unsafe class PagePool : IDisposable, IPool {
   /// not be relied upon for timely resource cleanup;
   /// call <see cref="Dispose"/> explicitly instead.
   /// </remarks>
-  ~PagePool() {
+  ~PagePool () {
     // Cover: This branch is deliberately unreachable in tests.
     //  SuppressFinalize is always called after setting _disposed = true.
     // Removing this line would risk silent process crash (double-free) on
     // finalizer thread.
-    if (this._disposed) return;
-    NativeMemory.AlignedFree(this._pool);
+    if (this._disposed) {
+      return;
+    }
+
+    NativeMemory.AlignedFree (this._pool);
   }
 
   /// <summary>
@@ -420,11 +497,16 @@ public sealed unsafe class PagePool : IDisposable, IPool {
   /// relying on its content.
   /// </para>
   /// </remarks>
-  public byte* Alloc() {
-    if (this._disposed) return null;
-    lock (this._lock)
-      if (!this._disposed && this.TryPop(out ushort index))
+  public byte* Alloc () {
+    if (this._disposed) {
+      return null;
+    }
+
+    lock (this._lock) {
+      if (!this._disposed && this.TryPop (out ushort index)) {
         return this._pool + (index * this.BlockSize);
+      }
+    }
 
     return null;
   }
@@ -432,12 +514,12 @@ public sealed unsafe class PagePool : IDisposable, IPool {
   /// <summary>
   /// Returns a previously allocated block to the pool.
   /// </summary>
-  /// <param name="ptr">
+  /// <param name="address">
   /// Pointer to the block, as returned by <see cref="Alloc"/>.
   /// </param>
   /// <remarks>
   /// <para>
-  /// If <paramref name="ptr"/> is <see langword="null"/>, out of range,
+  /// If <paramref name="address"/> is <see langword="null"/>, out of range,
   /// or not aligned to a block boundary, this method does nothing.
   /// </para>
   /// <para>
@@ -449,18 +531,24 @@ public sealed unsafe class PagePool : IDisposable, IPool {
   /// without freeing any memory.
   /// </para>
   /// </remarks>
-  public void Free(byte* ptr) {
+  public void Free (byte* address) {
     byte* pool = this._pool;
-    if (this._disposed || ptr < pool || ptr >= pool + this.TotalByte) return;
+    if (this._disposed || address < pool || address >= pool + this.TotalByte) {
+      return;
+    }
 
-    uint offset = (uint)(ptr - pool);
-    (uint index, uint r) = Math.DivRem(offset, this.BlockSize);
+    uint offset = (uint)(address - pool);
+    (uint index, uint r) = Math.DivRem (offset, this.BlockSize);
 
-    if (r is not 0 || index >= this.BlockCount) return;
+    if (r is not 0 || index >= this.BlockCount) {
+      return;
+    }
 
-    lock (this._lock)
-      if (!this._disposed)
-        this.TryPush((ushort)index);
+    lock (this._lock) {
+      if (!this._disposed) {
+        this.TryPush ((ushort)index);
+      }
+    }
   }
 
   /// <summary>
@@ -485,9 +573,9 @@ public sealed unsafe class PagePool : IDisposable, IPool {
   /// copied, but only one copy should be disposed.
   /// </para>
   /// </remarks>
-  public IOwner Rent() {
-    byte* ptr = this.Alloc();
-    return ptr is null ? default : new IOwner(this, ptr, this.BlockSize);
+  public IOwner Rent () {
+    byte* ptr = this.Alloc ();
+    return ptr is null ? default : new IOwner (this, ptr, this.BlockSize);
   }
 
   /// <summary>
@@ -509,28 +597,36 @@ public sealed unsafe class PagePool : IDisposable, IPool {
   /// will not be invoked.
   /// </para>
   /// </remarks>
-  public void Dispose() {
-    if (this._disposed) return;
+  public void Dispose () {
+    if (this._disposed) {
+      return;
+    }
 
     lock (this._lock) {
       this._disposed = true;
-      NativeMemory.AlignedFree(this._pool);
+      NativeMemory.AlignedFree (this._pool);
     }
-    GC.SuppressFinalize(this);
+
+    GC.SuppressFinalize (this);
   }
 
   // stack
-  private void TryPush(ushort item) {
-    if (this._top == this.BlockCount) return;
+
+  private void TryPush (ushort item) {
+    if (this._top == this.BlockCount) {
+      return;
+    }
+
     this._items[this._top] = item;
     this._top++;
   }
 
-  private bool TryPop(out ushort item) {
+  private bool TryPop (out ushort item) {
     if (this._top is 0) {
       item = default;
       return false;
     }
+
     this._top--;
     item = this._items[this._top];
     return true;
@@ -575,12 +671,12 @@ public sealed unsafe class CachePool : IDisposable, IPool {
   /// <inheritdoc />
   public uint BlockCount { get; }
 
-  private bool _disposed = false;
+  private bool _disposed;
 
   private readonly ulong* _map;
   private readonly byte* _ptr;
 
-  private readonly Lock _lock = new();
+  private readonly Lock _lock = new ();
 
   /// <summary>
   /// Creates a new <see cref="CachePool"/> instance from a managed span of
@@ -628,14 +724,14 @@ public sealed unsafe class CachePool : IDisposable, IPool {
   /// (e.g., via<c>fixed</c>) before calling this method.
   /// </para>
   /// </remarks>
-  public static CachePool Create(Span<byte> sp, ushort block_size = 1)
-    => new((byte*)Unsafe.AsPointer(ref MemoryMarshal.GetReference(sp)),
+  public static CachePool Create (Span<byte> sp, ushort block_size = 1)
+    => new ((byte*)Unsafe.AsPointer (ref MemoryMarshal.GetReference (sp)),
       (ushort)(sp.Length / (4 * KiB)), block_size);
 
   /// <summary>
   /// Initializes a new instance of the <see cref="CachePool"/> class.
   /// </summary>
-  /// <param name="ptr">
+  /// <param name="address">
   /// Pointer to the start of a pre-allocated buffer. The buffer must be large
   /// enough to hold both the data blocks and the bitmap.
   /// </param>
@@ -649,7 +745,7 @@ public sealed unsafe class CachePool : IDisposable, IPool {
   /// Must be greater than 0.
   /// </param>
   /// <exception cref="ArgumentNullException">
-  /// Thrown when <paramref name="ptr"/> is <see langword="null"/>.
+  /// Thrown when <paramref name="address"/> is <see langword="null"/>.
   /// </exception>
   /// <exception cref="ArgumentOutOfRangeException">
   /// Thrown when:
@@ -678,29 +774,29 @@ public sealed unsafe class CachePool : IDisposable, IPool {
   /// initialized.
   /// </para>
   /// </remarks>
-  public CachePool(byte* ptr, ushort size, ushort block_size = 1) {
-    ArgumentNullException.ThrowIfNull(ptr);
+  public CachePool (byte* address, ushort size, ushort block_size = 1) {
+    ArgumentNullException.ThrowIfNull (address);
 
-    ArgumentOutOfRangeException.ThrowIfZero(size);
-    ArgumentOutOfRangeException.ThrowIfZero(block_size);
+    ArgumentOutOfRangeException.ThrowIfZero (size);
+    ArgumentOutOfRangeException.ThrowIfZero (block_size);
 
     uint total_byte = size * 4u * KiB;
     uint block_byte = block_size * 64u;
 
     uint block_count = ((8 * total_byte) - 7) / ((8 * block_byte) + 1);
 
-    ArgumentOutOfRangeException.ThrowIfLessThan(block_count, 2u);
+    ArgumentOutOfRangeException.ThrowIfLessThan (block_count, 2u);
 
     this.TotalByte = total_byte;
     this.BlockSize = block_byte;
     this.BlockCount = block_count;
 
     nuint offset = block_count * block_byte;
-    this._map = (ulong*)(ptr + offset);
-    this._ptr = ptr;
+    this._map = (ulong*)(address + offset);
+    this._ptr = address;
 
     nuint byte_count = (block_count + 63) / 64 * 8;
-    NativeMemory.Clear(this._map, byte_count);
+    NativeMemory.Clear (this._map, byte_count);
   }
 
   /// <summary>
@@ -722,21 +818,28 @@ public sealed unsafe class CachePool : IDisposable, IPool {
   /// block before relying on its content.
   /// </para>
   /// </remarks>
-  public byte* Alloc() {
-    if (this._disposed) return null;
+  public byte* Alloc () {
+    if (this._disposed) {
+      return null;
+    }
+
     uint count = (this.BlockCount + 63) / 64;
-    var map = this._map;
+    ulong* map = this._map;
 
     lock (this._lock) {
-      if (this._disposed) return null;
+      if (this._disposed) {
+        return null;
+      }
 
       for (uint idx = 0; idx < count; idx++) {
         ulong word = map[idx];
 
-        if (word is ulong.MaxValue) continue;
+        if (word is ulong.MaxValue) {
+          continue;
+        }
 
         ulong inverted = ~word;
-        int bit = System.Numerics.BitOperations.TrailingZeroCount(inverted);
+        int bit = System.Numerics.BitOperations.TrailingZeroCount (inverted);
 
         uint block_idx = (idx * 64) + (uint)bit;
         if (block_idx < this.BlockCount) {
@@ -752,12 +855,12 @@ public sealed unsafe class CachePool : IDisposable, IPool {
   /// <summary>
   /// Returns a previously allocated block to the pool.
   /// </summary>
-  /// <param name="ptr">
+  /// <param name="address">
   /// Pointer to the block, as returned by <see cref="Alloc"/>.
   /// </param>
   /// <remarks>
   /// <para>
-  /// If <paramref name="ptr"/> is <see langword="null"/>, out of the buffer
+  /// If <paramref name="address"/> is <see langword="null"/>, out of the buffer
   /// range, not aligned to a block boundary, or its corresponding bit in the
   /// bitmap is already 0 (i.e., already free), this method does nothing.
   /// </para>
@@ -770,26 +873,35 @@ public sealed unsafe class CachePool : IDisposable, IPool {
   /// without modifying the bitmap.
   /// </para>
   /// </remarks>
-  public void Free(byte* ptr) {
-    if (this._disposed) return;
+  public void Free (byte* address) {
+    if (this._disposed) {
+      return;
+    }
 
     byte* pool = this._ptr;
-    if (ptr < pool || ptr >= pool + this.TotalByte) return;
+    if (address < pool || address >= pool + this.TotalByte) {
+      return;
+    }
 
-    uint offset = (uint)(ptr - pool);
+    uint offset = (uint)(address - pool);
     uint index = offset / this.BlockSize;
     uint remainder = offset % this.BlockSize;
 
-    if (remainder is not 0 || index >= this.BlockCount) return;
+    if (remainder is not 0 || index >= this.BlockCount) {
+      return;
+    }
 
     uint wordIdx = index / 64;
     uint bitOffset = index & 63;
     ulong mask = 1UL << (int)bitOffset;
 
-    var map = this._map;
+    ulong* map = this._map;
 
     lock (this._lock) {
-      if (this._disposed || (map[wordIdx] & mask) is 0) return;
+      if (this._disposed || (map[wordIdx] & mask) is 0) {
+        return;
+      }
+
       map[wordIdx] &= ~mask;
     }
   }
@@ -816,9 +928,9 @@ public sealed unsafe class CachePool : IDisposable, IPool {
   /// but only one copy should be disposed.
   /// </para>
   /// </remarks>
-  public IOwner Rent() {
-    byte* ptr = this.Alloc();
-    return ptr is null ? default : new IOwner(this, ptr, this.BlockSize);
+  public IOwner Rent () {
+    byte* ptr = this.Alloc ();
+    return ptr is null ? default : new IOwner (this, ptr, this.BlockSize);
   }
 
   /// <summary>
@@ -836,8 +948,10 @@ public sealed unsafe class CachePool : IDisposable, IPool {
   /// multiple times.
   /// </para>
   /// </remarks>
-  public void Dispose() {
-    if (this._disposed) return;
+  public void Dispose () {
+    if (this._disposed) {
+      return;
+    }
 
     lock (this._lock) {
       this._disposed = true;

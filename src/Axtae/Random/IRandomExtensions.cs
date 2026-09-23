@@ -1,5 +1,8 @@
+// Copyright (c) 2026 chz-cn
+// SPDX-License-Identifier: Apache-2.0
 
 using System;
+
 using static Axtae.Random.IRandom;
 
 namespace Axtae.Random;
@@ -13,14 +16,15 @@ namespace Axtae.Random;
 /// two <see langword="extension"/> blocks.
 /// The overloads are provided to avoid boxing of struct instances.
 /// </remarks>
-#pragma warning disable RCS1263 // Invalid reference in a documentation comment
+#pragma warning disable CA1034 // 嵌套类型应不可见
 public static class IRandomExtensions {
   /// <summary>
   /// Provides extension methods for <see langword="struct"/> implementations
   /// </summary>
-  /// <typeparam name="T">The random number generators type.</typeparam>
+  /// <typeparam name="TRandom">The random number generators type.</typeparam>
   /// <param name="rand">The random number generator.</param>
-  extension<T>(ref T rand) where T : struct, IRandom, allows ref struct {
+  extension<TRandom> (ref TRandom rand)
+    where TRandom : struct, IRandom, allows ref struct {
     /// <summary>
     /// Returns a random 64-bit unsigned integer in the range
     /// [0, <paramref name="max"/>).
@@ -42,7 +46,7 @@ public static class IRandomExtensions {
     /// generating any random numbers.
     /// </para>
     /// </remarks>
-    public ulong NextUInt64(ulong max) => T.NextUInt64(ref rand, max);
+    public ulong NextUInt64 (ulong max) => TRandom.NextUInt64 (ref rand, max);
 
     /// <summary>
     /// Returns a random 64-bit unsigned integer in the range
@@ -57,8 +61,8 @@ public static class IRandomExtensions {
     /// If <paramref name="max"/> is less than <paramref name="min"/>,
     /// the method returns 0 without generating random  numbers.
     /// </remarks>
-    public ulong NextUInt64(ulong min, ulong max)
-      => T.NextUInt64(ref rand, min, max);
+    public ulong NextUInt64 (ulong min, ulong max)
+      => TRandom.NextUInt64 (ref rand, min, max);
 
     /// <summary>
     /// Returns a random <see cref="double"/> in the range [0, 1).
@@ -70,7 +74,7 @@ public static class IRandomExtensions {
     /// then multiplying by <see cref="DoubleScale"/>.
     /// This yields a uniform distribution with 53 bits of precision.
     /// </remarks>
-    public double NextDouble() => T.NextDouble(ref rand);
+    public double NextDouble () => TRandom.NextDouble (ref rand);
 
     /// <summary>
     /// Returns a random <see cref="double"/> in the range [0, 1].
@@ -82,7 +86,7 @@ public static class IRandomExtensions {
     /// all possible <see cref="double"/> values in that range, though the
     /// granularity is limited by the representation of <see cref="double"/>.
     /// </remarks>
-    public double NextDoubleInclusive() => T.NextDoubleInclusive(ref rand);
+    public double NextDoubleInclusive () => TRandom.NextDoubleInclusive (ref rand);
 
     /// <summary>
     /// Fills the elements of a <see cref="Span{T}"/> with random
@@ -91,13 +95,13 @@ public static class IRandomExtensions {
     /// <param name="buffer">
     /// The span to fill. If empty, the method returns immediately.
     /// </param>
-    public void Fill(scoped Span<ulong> buffer) => T.Fill(ref rand, buffer);
+    public void Fill (scoped Span<ulong> buffer) => TRandom.Fill (ref rand, buffer);
 
     /// <summary>
     /// Fills the elements of a <see cref="Span{T}"/> with random values of
     /// any <see langword="unmanaged"/> type.
     /// </summary>
-    /// <typeparam name="U">The unmanaged element type.</typeparam>
+    /// <typeparam name="TElement">The unmanaged element type.</typeparam>
     /// <param name="buffer">
     /// The span to fill. If empty, the method returns immediately.
     /// </param>
@@ -107,16 +111,22 @@ public static class IRandomExtensions {
     /// then copies any remaining bytes from an extra random value
     /// using a <c>switch</c> with fallthrough <c>goto case</c> statements.
     /// </remarks>
-    public void Fill<U>(scoped Span<U> buffer) where U : unmanaged
-      => T.Fill(ref rand, buffer);
+    public void Fill<TElement> (scoped Span<TElement> buffer) where TElement : unmanaged
+      => TRandom.Fill (ref rand, buffer);
   }
 
   /// <summary>
   /// Provides extension methods for <see langword="class"/> implementations
   /// </summary>
-  /// <typeparam name="T">The random number generators type.</typeparam>
-  /// <param name="rand">The random number generator.</param>
-  extension<T>(T rand) where T : class, IRandom {
+  /// <typeparam name="TRandom">The random number generators type.</typeparam>
+  /// <param name="rand">
+  /// The random number generator.
+  /// <para>
+  /// Performance-sensitive, no validation.
+  /// null causes <see cref="NullReferenceException"/>.
+  /// </para>
+  /// </param>
+  extension<TRandom> (TRandom rand) where TRandom : class, IRandom {
     /// <summary>
     /// Returns a random 64-bit unsigned integer in the range
     /// [0, <paramref name="max"/>).
@@ -138,7 +148,7 @@ public static class IRandomExtensions {
     /// generating any random numbers.
     /// </para>
     /// </remarks>
-    public ulong NextUInt64(ulong max) => T.NextUInt64(rand, max);
+    public ulong NextUInt64 (ulong max) => TRandom.NextUInt64 (rand, max);
 
     /// <summary>
     /// Returns a random 64-bit unsigned integer in the range
@@ -153,8 +163,8 @@ public static class IRandomExtensions {
     /// If <paramref name="max"/> is less than <paramref name="min"/>,
     /// the method returns 0 without generating random  numbers.
     /// </remarks>
-    public ulong NextUInt64(ulong min, ulong max)
-      => T.NextUInt64(rand, min, max);
+    public ulong NextUInt64 (ulong min, ulong max)
+      => TRandom.NextUInt64 (rand, min, max);
 
     /// <summary>
     /// Returns a random <see cref="double"/> in the range [0, 1).
@@ -166,7 +176,7 @@ public static class IRandomExtensions {
     /// then multiplying by <see cref="DoubleScale"/>.
     /// This yields a uniform distribution with 53 bits of precision.
     /// </remarks>
-    public double NextDouble() => T.NextDouble(rand);
+    public double NextDouble () => TRandom.NextDouble (rand);
 
     /// <summary>
     /// Returns a random <see cref="double"/> in the range [0, 1].
@@ -178,7 +188,7 @@ public static class IRandomExtensions {
     /// all possible <see cref="double"/> values in that range, though the
     /// granularity is limited by the representation of <see cref="double"/>.
     /// </remarks>
-    public double NextDoubleInclusive() => T.NextDoubleInclusive(rand);
+    public double NextDoubleInclusive () => TRandom.NextDoubleInclusive (rand);
 
     /// <summary>
     /// Fills the elements of a <see cref="Span{T}"/> with random
@@ -187,13 +197,13 @@ public static class IRandomExtensions {
     /// <param name="buffer">
     /// The span to fill. If empty, the method returns immediately.
     /// </param>
-    public void Fill(scoped Span<ulong> buffer) => T.Fill(rand, buffer);
+    public void Fill (scoped Span<ulong> buffer) => TRandom.Fill (rand, buffer);
 
     /// <summary>
     /// Fills the elements of a <see cref="Span{T}"/> with random values of
     /// any <see langword="unmanaged"/> type.
     /// </summary>
-    /// <typeparam name="U">The unmanaged element type.</typeparam>
+    /// <typeparam name="TElement">The unmanaged element type.</typeparam>
     /// <param name="buffer">
     /// The span to fill. If empty, the method returns immediately.
     /// </param>
@@ -203,8 +213,8 @@ public static class IRandomExtensions {
     /// then copies any remaining bytes from an extra random value
     /// using a <c>switch</c> with fallthrough <c>goto case</c> statements.
     /// </remarks>
-    public void Fill<U>(scoped Span<U> buffer) where U : unmanaged
-      => T.Fill(rand, buffer);
+    public void Fill<TElement> (scoped Span<TElement> buffer) where TElement : unmanaged
+      => TRandom.Fill (rand, buffer);
   }
 }
-#pragma warning restore RCS1263 // Invalid reference in a documentation comment
+#pragma warning restore CA1034 // 嵌套类型应不可见

@@ -1,3 +1,5 @@
+// Copyright (c) 2026 chz-cn
+// SPDX-License-Identifier: Apache-2.0
 
 using Microsoft.CodeAnalysis;
 
@@ -13,14 +15,14 @@ public sealed class Logger : IIncrementalGenerator {
   /// The generated source for the logger extension methods that are exposed to
   /// consumers of the Axtae library.
   /// </summary>
-  public const string LoggerExtensionsSource = """
+  public const string LoggerExtensionsSource = /*lang=C#*/"""
 
 using System.Runtime.CompilerServices;
 
 namespace Axtae;
 
 internal static class LoggerExtensions {
-  extension(global::Axtae.Logger log) {
+  extension (global::Axtae.Logger log) {
     /// <summary>
     /// Logs a debug message (only compiled in DEBUG builds).
     /// </summary>
@@ -38,12 +40,12 @@ internal static class LoggerExtensions {
     /// This method is a no-op in RELEASE builds due to the
     /// <see cref="System.Diagnostics.ConditionalAttribute"/>.
     /// </remarks>
-    [System.Diagnostics.Conditional("DEBUG")]
-    public void Debug(string msg,
+    [System.Diagnostics.Conditional ("DEBUG")]
+    public void Debug (string msg,
       [CallerFilePath] string file = "",
       [CallerMemberName] string member = "",
       [CallerLineNumber] int line = 0
-    ) => log.Log(Logger.Level.Debug, msg, file, member, line);
+    ) => log.Log (Logger.Level.Debug, msg, file, member, line);
 
     /// <summary>
     /// Logs an informational message.
@@ -61,7 +63,7 @@ internal static class LoggerExtensions {
     /// The line number, automatically filled by the compiler.
     /// In DEBUG builds it is the actual line; otherwise -1.
     /// </param>
-    public void Info(string msg,
+    public void Info (string msg,
 #if DEBUG
       [CallerFilePath] string file = "",
       [CallerMemberName] string member = "",
@@ -71,7 +73,7 @@ internal static class LoggerExtensions {
       string member = "",
       int line = -1
 #endif
-    ) => log.Log(Logger.Level.Info, msg, file, member, line);
+    ) => log.Log (Logger.Level.Info, msg, file, member, line);
 
     /// <summary>
     /// Logs a warning message.
@@ -89,7 +91,7 @@ internal static class LoggerExtensions {
     /// The line number, automatically filled by the compiler.
     /// In DEBUG builds it is the actual line; otherwise -1.
     /// </param>
-    public void Warning(string msg,
+    public void Warning (string msg,
 #if DEBUG
       [CallerFilePath] string file = "",
       [CallerMemberName] string member = "",
@@ -99,7 +101,7 @@ internal static class LoggerExtensions {
       string member = "",
       int line = -1
 #endif
-    ) => log.Log(Logger.Level.Warning, msg, file, member, line);
+    ) => log.Log (Logger.Level.Warning, msg, file, member, line);
 
     /// <summary>
     /// Logs an error message.
@@ -117,7 +119,7 @@ internal static class LoggerExtensions {
     /// The line number, automatically filled by the compiler.
     /// In DEBUG builds it is the actual line; otherwise -1.
     /// </param>
-    public void Error(string msg,
+    public void Error (string msg,
 #if DEBUG
       [CallerFilePath] string file = "",
       [CallerLineNumber] int line = 0,
@@ -126,7 +128,7 @@ internal static class LoggerExtensions {
       int line = -1,
 #endif
       [CallerMemberName] string member = ""
-    ) => log.Log(Logger.Level.Error, msg, file, member, line);
+    ) => log.Log (Logger.Level.Error, msg, file, member, line);
   }
 }
 
@@ -137,7 +139,7 @@ internal static class LoggerExtensions {
   /// methods.
   /// </summary>
   /// <param name="context">The generator initialization context.</param>
-  public void Initialize(IncrementalGeneratorInitializationContext context)
-    => context.RegisterPostInitializationOutput(
-      ctx => ctx.AddSource("LoggerExtensions.g.cs", LoggerExtensionsSource));
+  public void Initialize (IncrementalGeneratorInitializationContext context)
+    => context.RegisterPostInitializationOutput (
+      ctx => ctx.AddSource ("LoggerExtensions.g.cs", LoggerExtensionsSource));
 }

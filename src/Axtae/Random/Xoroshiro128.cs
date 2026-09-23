@@ -1,6 +1,9 @@
+// Copyright (c) 2026 chz-cn
+// SPDX-License-Identifier: Apache-2.0
 
 using System.Numerics;
 using System.Runtime.CompilerServices;
+
 using static Axtae.Random.IRandom;
 
 namespace Axtae.Random;
@@ -28,10 +31,10 @@ public struct Xoroshiro128Plus : IRandom {
   /// <param name="seed">
   /// The seed value used to derive the initial state via SplitMix64.
   /// </param>
-  public Xoroshiro128Plus(ulong seed) {
-    SplitMix64 rand = new(seed);
-    this._s0 = rand.NextUInt64();
-    this._s1 = rand.NextUInt64();
+  public Xoroshiro128Plus (ulong seed) {
+    SplitMix64 rand = new (seed);
+    this._s0 = rand.NextUInt64 ();
+    this._s1 = rand.NextUInt64 ();
   }
 
   /// <summary>
@@ -44,21 +47,22 @@ public struct Xoroshiro128Plus : IRandom {
   /// If both state values are zero, they are replaced with non-zero default
   /// values.
   /// </remarks>
-  public Xoroshiro128Plus(ulong s0, ulong s1)
-    => (this._s0, this._s1) = (s0 | s1) is 0
+  public Xoroshiro128Plus (ulong s0, ulong s1) {
+    (this._s0, this._s1) = (s0 | s1) is 0
       ? (GoldenRatio, MixConst1)
       : (s0, s1);
+  }
 
   /// <inheritdoc/>
-  [MethodImpl(MethodImplOptions.AggressiveInlining)]
-  public ulong NextUInt64() {
+  [MethodImpl (MethodImplOptions.AggressiveInlining)]
+  public ulong NextUInt64 () {
     var (s0, s1) = (this._s0, this._s1);
 
     ulong result = s0 + s1;
     s1 ^= s0;
 
-    this._s0 = BitOperations.RotateLeft(s0, RotateS0) ^ s1 ^ (s1 << ShiftS1);
-    this._s1 = BitOperations.RotateLeft(s1, RotateS1);
+    this._s0 = BitOperations.RotateLeft (s0, RotateS0) ^ s1 ^ (s1 << ShiftS1);
+    this._s1 = BitOperations.RotateLeft (s1, RotateS1);
 
     return result;
   }
@@ -86,10 +90,10 @@ public struct Xoroshiro128PlusPlus : IRandom {
   /// <param name="seed">
   /// The seed value used to derive the initial state via SplitMix64.
   /// </param>
-  public Xoroshiro128PlusPlus(ulong seed) {
-    SplitMix64 rand = new(seed);
-    this._s0 = rand.NextUInt64();
-    this._s1 = rand.NextUInt64();
+  public Xoroshiro128PlusPlus (ulong seed) {
+    SplitMix64 rand = new (seed);
+    this._s0 = rand.NextUInt64 ();
+    this._s1 = rand.NextUInt64 ();
   }
 
   /// <summary>
@@ -102,21 +106,22 @@ public struct Xoroshiro128PlusPlus : IRandom {
   /// If both state values are zero, they are replaced with non-zero default
   /// values.
   /// </remarks>
-  public Xoroshiro128PlusPlus(ulong s0, ulong s1)
-    => (this._s0, this._s1) = (s0 | s1) is 0
+  public Xoroshiro128PlusPlus (ulong s0, ulong s1) {
+    (this._s0, this._s1) = (s0 | s1) is 0
       ? (GoldenRatio, MixConst1)
       : (s0, s1);
+  }
 
   /// <inheritdoc/>
-  [MethodImpl(MethodImplOptions.AggressiveInlining)]
-  public ulong NextUInt64() {
+  [MethodImpl (MethodImplOptions.AggressiveInlining)]
+  public ulong NextUInt64 () {
     var (s0, s1) = (this._s0, this._s1);
 
-    ulong result = BitOperations.RotateLeft(s0 + s1, 17) + s0;
+    ulong result = BitOperations.RotateLeft (s0 + s1, 17) + s0;
     s1 ^= s0;
 
-    this._s0 = BitOperations.RotateLeft(s0, RotateS0) ^ s1 ^ (s1 << ShiftS1);
-    this._s1 = BitOperations.RotateLeft(s1, RotateS1);
+    this._s0 = BitOperations.RotateLeft (s0, RotateS0) ^ s1 ^ (s1 << ShiftS1);
+    this._s1 = BitOperations.RotateLeft (s1, RotateS1);
 
     return result;
   }
@@ -144,10 +149,10 @@ public struct Xoroshiro128StarStar : IRandom {
   /// <param name="seed">
   /// The seed value used to derive the initial state via SplitMix64.
   /// </param>
-  public Xoroshiro128StarStar(ulong seed) {
-    SplitMix64 rand = new(seed);
-    this._s0 = rand.NextUInt64();
-    this._s1 = rand.NextUInt64();
+  public Xoroshiro128StarStar (ulong seed) {
+    SplitMix64 rand = new (seed);
+    this._s0 = rand.NextUInt64 ();
+    this._s1 = rand.NextUInt64 ();
   }
 
   /// <summary>
@@ -160,21 +165,22 @@ public struct Xoroshiro128StarStar : IRandom {
   /// If both state values are zero, they are replaced with non-zero default
   /// values.
   /// </remarks>
-  public Xoroshiro128StarStar(ulong s0, ulong s1)
-    => (this._s0, this._s1) = (s0 | s1) is 0
+  public Xoroshiro128StarStar (ulong s0, ulong s1) {
+    (this._s0, this._s1) = (s0 | s1) is 0
       ? (GoldenRatio, MixConst1)
       : (s0, s1);
+  }
 
   /// <inheritdoc/>
-  [MethodImpl(MethodImplOptions.AggressiveInlining)]
-  public ulong NextUInt64() {
+  [MethodImpl (MethodImplOptions.AggressiveInlining)]
+  public ulong NextUInt64 () {
     var (s0, s1) = (this._s0, this._s1);
 
-    ulong result = BitOperations.RotateLeft(s0 * 5, 7) * 9;
+    ulong result = BitOperations.RotateLeft (s0 * 5, 7) * 9;
     s1 ^= s0;
 
-    this._s0 = BitOperations.RotateLeft(s0, RotateS0) ^ s1 ^ (s1 << ShiftS1);
-    this._s1 = BitOperations.RotateLeft(s1, RotateS1);
+    this._s0 = BitOperations.RotateLeft (s0, RotateS0) ^ s1 ^ (s1 << ShiftS1);
+    this._s1 = BitOperations.RotateLeft (s1, RotateS1);
 
     return result;
   }

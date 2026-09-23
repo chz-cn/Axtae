@@ -1,9 +1,12 @@
+// Copyright (c) 2026 chz-cn
+// SPDX-License-Identifier: Apache-2.0
 
 using System;
 using System.Buffers;
 using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
+
 using Axtae.Codecs;
 
 using static System.Text.Encoding;
@@ -30,10 +33,13 @@ namespace Axtae;
 /// to close the logger and drain remaining entries.
 /// </para>
 /// </remarks>
+#pragma warning disable CA1001 // 具有可释放字段的类型应该是可释放的
 public sealed class Logger {
+#pragma warning restore CA1001 // 具有可释放字段的类型应该是可释放的
   /// <summary>
   /// Defines the severity levels for log entries.
   /// </summary>
+#pragma warning disable CA1008 // 枚举应具有零值
   public enum Level {
     /// <summary>Debugging information, used only in DEBUG builds.</summary>
     Debug = 1,
@@ -44,6 +50,7 @@ public sealed class Logger {
     /// <summary>Error conditions that require attention.</summary>
     Error = 4
   }
+#pragma warning restore CA1008 // 枚举应具有零值
 
   /// <summary>
   /// The maximum length (in bytes) of a formatted log entry.
@@ -51,22 +58,22 @@ public sealed class Logger {
   /// <value>
   /// A value between 1 and 100, clamped during construction.
   /// </value>
-  public readonly ushort MaxEntryLength;
+  public ushort MaxEntryLength { get; }
 
   /// <summary>
   /// The full path to the log file used by this instance.
   /// </summary>
-  public readonly string LogFilePath;
+  public string LogFilePath { get; }
 
   /// <summary>
   /// The current capacity of the internal channel (number of buffered entries).
   /// </summary>
   public uint Size => this._channel.Capacity;
 
-  // Internal channel for buffering log entries.
+  /// <summary>Internal channel for buffering log entries.</summary>
   private readonly IChannel<LogEntry> _channel;
 
-  // File writer instance responsible for I/O.
+  /// <summary> File writer instance responsible for I/O.</summary>
   private readonly FileWriter _writer;
 
   /// <summary>
@@ -99,41 +106,44 @@ public sealed class Logger {
   /// (via <see cref="Complete"/>), then disposes the file writer.
   /// </para>
   /// </remarks>
-  public Logger(string log_file_path,
+  public Logger (string log_file_path,
     ushort max_entry_length = 4096, ushort size = 128) {
-    ArgumentException.ThrowIfNullOrWhiteSpace(log_file_path);
+    ArgumentException.ThrowIfNullOrWhiteSpace (log_file_path);
 
-    this.MaxEntryLength = Math.Max(max_entry_length, (ushort)100u);
+    this.MaxEntryLength = Math.Max (max_entry_length, (ushort)100u);
     this.LogFilePath = log_file_path;
-    this._channel = Channel.CreateBounded<LogEntry>(size);
-    this._writer = new FileWriter(log_file_path);
+    this._channel = Channel.CreateBounded<LogEntry> (size);
+    this._writer = new FileWriter (log_file_path);
 
-    _ = Task.Run(async () => {
+    _ = Task.Run (async () => {
       using var writer = this._writer;
       byte[] buffer = new byte[this.MaxEntryLength];
-      var encoder = UTF8.GetEncoder();
+      var encoder = UTF8.GetEncoder ();
       var reader = this._channel.Reader;
 
       while (true) {
-        var entry = await reader.ReadAsync()
-          .ConfigureAwait(false);
+        var entry = await reader.ReadAsync ()
+          .ConfigureAwait (false);
 
-        var span = buffer.AsSpan();
-        Write(span, ref entry, encoder);
+        var span = buffer.AsSpan ();
+        Write (span, ref entry, encoder);
 
         // Drain any additional entries that may have arrived while
         // we were formatting the first one.
-        while (reader.TryRead(out var item))
-          Write(span, ref item, encoder);
+        while (reader.TryRead (out var item)) {
+          Write (span, ref item, encoder);
+        }
       }
 
-      void Write(Span<byte> span, ref LogEntry entry,
+      void Write (Span<byte> span, ref LogEntry entry,
         System.Text.Encoder encoder) {
-        uint len = Parse(ref entry, span, encoder);
+        uint len = Parse (ref entry, span, encoder);
 
-        writer.Write(span[..(int)len]);
+        writer.Write (span[..(int)len]);
 
-        if (entry.Level is Level.Error) writer.Flush();
+        if (entry.Level is Level.Error) {
+          writer.Flush ();
+        }
       }
     });
   }
@@ -148,15 +158,15 @@ public sealed class Logger {
   /// </remarks>
   internal struct LogEntry {
     /// <summary>The log message.</summary>
-    public string Msg { readonly get; init; }
+    public readonly string Msg { get; init; }
 
     /// <summary>The source file path from which the log was called.</summary>
-    public string File { readonly get; init; }
+    public readonly string File { get; init; }
 
     /// <summary>
     /// The member name (method/property) from which the log was called.
     /// </summary>
-    public string Member { readonly get; init; }
+    public readonly string Member { get; init; }
 
     /// <summary>The timestamp when the log entry was created.</summary>
     /// <remarks>
@@ -166,10 +176,10 @@ public sealed class Logger {
     public TimeStamp.Buffer Timestamp;
 
     /// <summary>The source line number.</summary>
-    public int Line { readonly get; init; }
+    public readonly int Line { get; init; }
 
     /// <summary>The severity level of the log entry.</summary>
-    public Level Level { readonly get; init; }
+    public readonly Level Level { get; init; }
   }
 
   /// <summary>
@@ -188,10 +198,12 @@ public sealed class Logger {
   /// The method attempts a synchronous write; if the channel is full,
   /// it falls back to an asynchronous write (fire-and-forget).
   /// </remarks>
-  public void Log(Level level, string msg,
+  public void Log (Level level, string msg,
     string file, string member, int line) {
-    if (string.IsNullOrWhiteSpace(msg)
-      || this._channel.State is not Channel.Active) return;
+    if (string.IsNullOrWhiteSpace (msg)
+      || this._channel.State is not Channel.Active) {
+      return;
+    }
 
     var entry = new LogEntry {
       Msg = msg,
@@ -201,12 +213,14 @@ public sealed class Logger {
       Line = line
     };
 
-    TimeStamp.GetStamp(entry.Timestamp);
+    TimeStamp.GetStamp (entry.Timestamp);
 
     var writer = this._channel.Writer;
-    if (writer.TryWrite(entry)) return;
+    if (writer.TryWrite (entry)) {
+      return;
+    }
 
-    _ = writer.WriteAsync(entry).AsTask();
+    _ = writer.WriteAsync (entry).AsTask ();
   }
 
   /// <summary>
@@ -217,7 +231,7 @@ public sealed class Logger {
   /// but new log calls will be ignored. The background task will complete
   /// once the channel is drained.
   /// </remarks>
-  public void Complete() => this._channel.Writer.Complete();
+  public void Complete () => this._channel.Writer.Complete ();
 
   /// <summary>
   /// Formats a log entry into a byte span according to a fixed schema.
@@ -236,15 +250,15 @@ public sealed class Logger {
   /// If the output buffer is too small, the line is truncated with an
   /// ellipsis.
   /// </remarks>
-  private static uint Parse(ref LogEntry entry, Span<byte> span,
+  private static uint Parse (ref LogEntry entry, Span<byte> span,
     System.Text.Encoder encoder) {
-    ArgumentNullException.ThrowIfNull(encoder);
+    ArgumentNullException.ThrowIfNull (encoder);
 
-    ((ReadOnlySpan<byte>)entry.Timestamp).CopyTo(span);
+    ((ReadOnlySpan<byte>)entry.Timestamp).CopyTo (span);
     int len = TimeStamp.Size;
     span[len++] = Ascii.Space;
 
-    ReadOnlySpan<byte> level = entry.Level switch {
+    var level = entry.Level switch {
       Level.Debug => "[Debug]"u8,
       Level.Info => "[Info]"u8,
       Level.Warning => "[Warn]"u8,
@@ -252,57 +266,59 @@ public sealed class Logger {
       _ => "[Unknown]"u8
     };
 
-    level.CopyTo(span[len..]);
+    level.CopyTo (span[len..]);
     len += level.Length;
     span[len++] = Ascii.Space;
 
     // enocde
 
-    if (!AddString(span, entry.File, ref len, encoder)
-      || !AddByte(span, Ascii.OpenParenthesis, ref len))
-      return (uint)len;
-
-    byte l = entry.Line.ToAscii(span[len..]);
-    if (l is not 0) len += l;
-    else {
-      AddDots(span, ref len);
+    if (!AddString (span, entry.File, ref len, encoder)
+      || !AddByte (span, Ascii.OpenParenthesis, ref len)) {
       return (uint)len;
     }
 
-    if (AddBytes(span, ") --> "u8, ref len)
-      && AddString(span, entry.Member, ref len, encoder)
-      && AddByte(span, Ascii.LF, ref len)
-      && AddString(span, entry.Msg, ref len, encoder)
-      && AddByte(span, Ascii.LF, ref len))
+    byte l = entry.Line.ToAscii (span[len..]);
+    if (l is not 0) {
+      len += l;
+    }
+    else {
+      AddDots (span, ref len);
       return (uint)len;
+    }
+
+    _ = AddBytes (span, ") --> "u8, ref len)
+      && AddString (span, entry.Member, ref len, encoder)
+      && AddByte (span, Ascii.LF, ref len)
+      && AddString (span, entry.Msg, ref len, encoder)
+      && AddByte (span, Ascii.LF, ref len);
 
     return (uint)len;
 
-    static void AddDots(Span<byte> span, ref int used) {
-      ReadOnlySpan<byte> End = "...\n"u8;
+    static void AddDots (Span<byte> span, ref int used) {
+      var End = "...\n"u8;
       while (span.Length - used < End.Length) {
-        var status = System.Text.Rune.DecodeLastFromUtf8(
+        var status = System.Text.Rune.DecodeLastFromUtf8 (
           span[..used], out _, out int count);
 
-        System.Diagnostics.Debug.Assert(status == OperationStatus.Done);
+        System.Diagnostics.Debug.Assert (status == OperationStatus.Done);
         used -= count;
       }
 
-      End.CopyTo(span[used..]);
+      End.CopyTo (span[used..]);
       used += End.Length;
     }
 
-    static bool AddByte(Span<byte> span, byte str, ref int used) {
+    static bool AddByte (Span<byte> span, byte str, ref int used) {
       if (span.Length > used) {
         span[used++] = str;
         return true;
       }
 
-      AddDots(span, ref used);
+      AddDots (span, ref used);
       return false;
     }
 
-    static bool AddBytes(
+    static bool AddBytes (
       Span<byte> span,
       ReadOnlySpan<byte> str,
       ref int used) {
@@ -310,22 +326,22 @@ public sealed class Logger {
       int len = str.Length;
 
       if (has >= len) {
-        str.CopyTo(span[used..]);
+        str.CopyTo (span[used..]);
         used += len;
         return true;
       }
 
-      int write = Math.Min(has, len);
-      str[..write].CopyTo(span[used..]);
+      int write = Math.Min (has, len);
+      str[..write].CopyTo (span[used..]);
       used += write;
-      AddDots(span, ref used);
+      AddDots (span, ref used);
       return false;
     }
 
-    static bool AddString(Span<byte> span, string str, ref int used,
+    static bool AddString (Span<byte> span, string str, ref int used,
       System.Text.Encoder encoder) {
       if (str is { Length: > 0 } msg) {
-        encoder.Convert(
+        encoder.Convert (
           msg,
           span[used..],
           true,
@@ -336,13 +352,14 @@ public sealed class Logger {
 
         used += bytes_used;
         if (!completed) {
-          AddDots(span, ref used);
+          AddDots (span, ref used);
           return false;
         }
-        else return true;
+
+        return true;
       }
 
-      return AddByte(span, Ascii.QuestionMark, ref used);
+      return AddByte (span, Ascii.QuestionMark, ref used);
     }
   }
 
@@ -364,54 +381,55 @@ public sealed class Logger {
     /// information.
     /// </summary>
     /// <param name="file_path">The full path to the log file.</param>
-    public FileWriter(string file_path) {
-      string? dir = Path.GetDirectoryName(file_path);
+    public FileWriter (string file_path) {
+      string? dir = Path.GetDirectoryName (file_path);
 
-      System.Diagnostics.Debug.Assert(!string.IsNullOrEmpty(file_path));
-      _ = Directory.CreateDirectory(dir!);
+      System.Diagnostics.Debug.Assert (!string.IsNullOrEmpty (file_path));
+      _ = Directory.CreateDirectory (dir!);
 
-      var stream = new FileStream(file_path,
+      var stream = new FileStream (file_path,
         FileMode.Append,
         FileAccess.Write,
         FileShare.Read,
         8 * 1024,
         FileOptions.None);
 
-      stream.WriteByte(Ascii.LF);
+      stream.WriteByte (Ascii.LF);
 
       // write Logger version
       // Cover: null branch - never happens in practice
       // (the attribute is always generated by the SDK).
-      var version = typeof(Logger).Assembly
-        .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+      string? version = typeof (Logger).Assembly
+        .GetCustomAttribute<AssemblyInformationalVersionAttribute> ()?
         .InformationalVersion;
 
-      stream.Write("Version:\n"u8);
-      stream.Write("  Logger: "u8);
+      stream.Write ("Version:\n"u8);
+      stream.Write ("  Logger: "u8);
       // Cover: See local init
-      stream.Write(version is null ? "Unknown"u8 : UTF8.GetBytes(version));
-      stream.WriteByte(Ascii.LF);
+      stream.Write (version is null ? "Unknown"u8 : UTF8.GetBytes (version));
+      stream.WriteByte (Ascii.LF);
 
       // OS version
-      stream.Write("  OS    : "u8);
-      stream.Write(UTF8.GetBytes(Environment.OSVersion.VersionString));
-      stream.WriteByte(Ascii.LF);
+      stream.Write ("  OS    : "u8);
+      stream.Write (UTF8.GetBytes (Environment.OSVersion.VersionString));
+      stream.WriteByte (Ascii.LF);
 
       // .NET version
-      stream.Write("  .NET  : "u8);
-      stream.Write(UTF8.GetBytes(Environment.Version.ToString()));
-      stream.WriteByte(Ascii.LF);
+      stream.Write ("  .NET  : "u8);
+      stream.Write (UTF8.GetBytes (Environment.Version.ToString ()));
+      stream.WriteByte (Ascii.LF);
 
       this._stream = stream;
     }
 
     /// <summary>Writes a byte span to the underlying file stream.</summary>
-    public void Write(ReadOnlySpan<byte> what) => this._stream.Write(what);
+    /// <param name="what">The bytes to write</param>
+    public void Write (ReadOnlySpan<byte> what) => this._stream.Write (what);
 
     /// <summary>Flushes the underlying file stream.</summary>
-    public void Flush() => this._stream.Flush();
+    public void Flush () => this._stream.Flush ();
 
     /// <summary>Disposes the underlying file stream.</summary>
-    public void Dispose() => this._stream.Dispose();
+    public void Dispose () => this._stream.Dispose ();
   }
 }

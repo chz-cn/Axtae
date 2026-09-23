@@ -1,11 +1,16 @@
+// Copyright (c) 2026 chz-cn
+// SPDX-License-Identifier: Apache-2.0
 
 using System;
+
 using Axtae.Codecs;
+
+using Xunit;
 
 namespace Test.Codecs;
 
-public sealed class AsciiTests {
-  public static readonly TheoryData<uint, int> CountDigitsData = new() {
+public static class AsciiTests {
+  public static readonly TheoryData<uint, int> CountDigitsData = new () {
     { 1u, 1}, {uint.MaxValue, 10 },
     { 10u, 2}, {999999999u, 9 },
     { 100u, 3}, {99999999u, 8 },
@@ -19,12 +24,12 @@ public sealed class AsciiTests {
   };
 
   [Theory]
-  [MemberData(nameof(CountDigitsData))]
-  public void CountDigits_ReturnsCorrectDigitCount
+  [MemberData (nameof (CountDigitsData))]
+  public static void CountDigits_ReturnsCorrectDigitCount
     (uint value, int expectedDigits)
-  => Assert.Equal(expectedDigits, Ascii.CountDigits(value));
+    => Assert.Equal (expectedDigits, Ascii.CountDigits (value));
 
-  public static readonly TheoryData<uint, string> UInt32ToAsciiData = new() {
+  public static readonly TheoryData<uint, string> UInt32ToAsciiData = new () {
     { 0u, "0" },
     { 1u, "1" },
     { 10u, "10" },
@@ -38,69 +43,75 @@ public sealed class AsciiTests {
   };
 
   [Theory]
-  [MemberData(nameof(UInt32ToAsciiData))]
-  public void ToAscii_UInt_ReturnsCorrectBytes
-    (uint value, string expectedString) {
+  [MemberData (nameof (UInt32ToAsciiData))]
+  public static void ToAscii_UInt_ReturnsCorrectBytes
+    (uint value, string expected_string) {
+    ArgumentNullException.ThrowIfNull (expected_string);
+
     Span<byte> buffer = stackalloc byte[10];
-    byte len = value.ToAscii(buffer);
+    byte len = value.ToAscii (buffer);
 
-    string actual = System.Text.Encoding.UTF8.GetString(buffer[..len]);
+    string actual = System.Text.Encoding.UTF8.GetString (buffer[..len]);
 
-    Assert.Equal(expectedString.Length, len);
-    Assert.Equal(expectedString, actual);
+    Assert.Equal (expected_string.Length, len);
+    Assert.Equal (expected_string, actual);
   }
 
   [Fact]
-  public void ToAscii_UInt_BufferTooShort_ReturnsZero() {
+  public static void ToAscii_UInt_BufferTooShort_ReturnsZero () {
     Span<byte> buffer = stackalloc byte[3];
-    byte len = 12345u.ToAscii(buffer);
-    Assert.Equal(0, len);
+    byte len = 12345u.ToAscii (buffer);
+    Assert.Equal (0, len);
   }
 
   [Fact]
-  public void ToAscii_UInt_EmptyBuffer_ReturnsZero() {
+  public static void ToAscii_UInt_EmptyBuffer_ReturnsZero () {
     Span<byte> buffer = [];
-    byte len = 123u.ToAscii(buffer);
-    Assert.Equal(0, len);
+    byte len = 123u.ToAscii (buffer);
+    Assert.Equal (0, len);
   }
 
   [Theory]
-  [InlineData(0, "0")]
-  [InlineData(5, "5")]
-  [InlineData(-5, "-5")]
-  [InlineData(123, "123")]
-  [InlineData(-123, "-123")]
-  [InlineData(int.MaxValue, "2147483647")]
-  [InlineData(int.MinValue, "-2147483648")]
-  public void ToAscii_Int_ReturnsCorrectBytes(int value, string expectedString) {
+  [InlineData (0, "0")]
+  [InlineData (5, "5")]
+  [InlineData (-5, "-5")]
+  [InlineData (123, "123")]
+  [InlineData (-123, "-123")]
+  [InlineData (int.MaxValue, "2147483647")]
+  [InlineData (int.MinValue, "-2147483648")]
+  public static void ToAscii_Int_ReturnsCorrectBytes
+    (int value, string expected_string) {
+    ArgumentNullException.ThrowIfNull (expected_string);
+
     Span<byte> buffer = stackalloc byte[16];
-    byte len = Ascii.ToAscii(value, buffer);
-    Assert.Equal(expectedString.Length, len);
-    string actual = System.Text.Encoding.UTF8.GetString(buffer[..len]);
-    Assert.Equal(expectedString, actual);
+    byte len = Ascii.ToAscii (value, buffer);
+    Assert.Equal (expected_string.Length, len);
+
+    string actual = System.Text.Encoding.UTF8.GetString (buffer[..len]);
+    Assert.Equal (expected_string, actual);
   }
 
   [Fact]
-  public void ToAscii_Int_Negative_WithBufferJustEnough() {
+  public static void ToAscii_Int_Negative_WithBufferJustEnough () {
     const int Value = -123;
     Span<byte> buffer = stackalloc byte[4];
-    byte len = Ascii.ToAscii(Value, buffer);
-    Assert.Equal(4, len);
-    Assert.Equal("-123", System.Text.Encoding.UTF8.GetString(buffer));
+    byte len = Ascii.ToAscii (Value, buffer);
+    Assert.Equal (4, len);
+    Assert.Equal ("-123", System.Text.Encoding.UTF8.GetString (buffer));
   }
 
   [Fact]
-  public void ToAscii_Int_BufferTooShort_ReturnsZero() {
+  public static void ToAscii_Int_BufferTooShort_ReturnsZero () {
     const int Value = -12345;
     Span<byte> buffer = stackalloc byte[4];
-    byte len = Ascii.ToAscii(Value, buffer);
-    Assert.Equal(0, len);
+    byte len = Ascii.ToAscii (Value, buffer);
+    Assert.Equal (0, len);
   }
 
   [Fact]
-  public void ToAscii_Int_EmptyBuffer_ReturnsZero() {
+  public static void ToAscii_Int_EmptyBuffer_ReturnsZero () {
     Span<byte> buffer = [];
-    byte len = Ascii.ToAscii(42, buffer);
-    Assert.Equal(0, len);
+    byte len = Ascii.ToAscii (42, buffer);
+    Assert.Equal (0, len);
   }
 }

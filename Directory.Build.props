@@ -5,17 +5,23 @@
   <PropertyGroup>
 
     <_SolutionRoot>$(MSBuildThisFileDirectory)</_SolutionRoot>
-
     <_RelativePath>$([MSBuild]::MakeRelative($(_SolutionRoot), $(MSBuildProjectDirectory)))</_RelativePath>
 
-    <_PathId>$(_RelativePath.Replace('\','.').Replace('/','.'))</_PathId>
+    <UseArtifactsOutput>true</UseArtifactsOutput>
+    <ArtifactsProjectName>$(_RelativePath.Replace('\','.').Replace('/','.'))</ArtifactsProjectName>
+    <ArtifactsPath>$([System.IO.Path]::GetTempPath())build</ArtifactsPath>
 
-    <_BuildPath>$([System.IO.Path]::GetTempPath())build/</_BuildPath>
-    <_Path>$(Configuration)/$(_PathId)/</_Path>
+    <TargetFramework>net10.0</TargetFramework>
 
-    <OutputPath>$(_BuildPath)/bin/$(_Path)</OutputPath>
-    <IntermediateOutputPath>$(_BuildPath)/obj/$(_Path)</IntermediateOutputPath>
-    <MSBuildProjectExtensionsPath>$(_BuildPath)/nuget/$(_PathId)</MSBuildProjectExtensionsPath>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+
+    <AnalysisMode>All</AnalysisMode>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <RunAnalyzersDuringBuild>true</RunAnalyzersDuringBuild>
+    <RunAnalyzersDuringLiveAnalysis>true</RunAnalyzersDuringLiveAnalysis>
+
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
 
   </PropertyGroup>
 

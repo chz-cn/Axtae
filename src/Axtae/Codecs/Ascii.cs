@@ -1,6 +1,9 @@
+// Copyright (c) 2026 chz-cn
+// SPDX-License-Identifier: Apache-2.0
 
 using System;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Axtae.Codecs;
 
@@ -26,6 +29,7 @@ namespace Axtae.Codecs;
 /// All methods are thread-safe and inline-optimized for high performance.
 /// </para>
 /// </remarks>
+#pragma warning disable CA1708 // 标识符应以大小写之外的差别进行区分
 public static class Ascii {
   // Control characters (0-31)
   /// <summary>Null (NUL), ASCII 0.</summary>
@@ -303,8 +307,8 @@ public static class Ascii {
   /// Precomputed lookup table for two-digit decimal numbers (00-99) as ASCII
   /// bytes.
   /// </summary>
-  public static ReadOnlySpan<byte> TwoDigit =>
-    "00010203040506070809"u8 +
+  public static ReadOnlySpan<byte> TwoDigit
+    => "00010203040506070809"u8 +
     "10111213141516171819"u8 +
     "20212223242526272829"u8 +
     "30313233343536373839"u8 +
@@ -337,8 +341,8 @@ public static class Ascii {
   /// for zero, it returns 1 (since zero has one digit).
   /// </para>
   /// </remarks>
-  [MethodImpl(MethodImplOptions.AggressiveInlining)]
-  public static int CountDigits(uint value) {
+  [MethodImpl (MethodImplOptions.AggressiveInlining)]
+  public static int CountDigits (uint value) {
     ReadOnlySpan<long> table = [
       4294967296,
       8589934582,  8589934582,  8589934582,
@@ -353,10 +357,11 @@ public static class Ascii {
       42949672960, 42949672960
     ];
 
-    long tableValue = table[(int)uint.Log2(value)];
-    return (int)((value + tableValue) >> 32);
+    long tableValue = table[(int)uint.Log2 (value)];
+    return (int)((value + tableValue) >>> 32);
   }
 
+#pragma warning disable CA1034 // 嵌套类型应不可见
   extension(int num) {
     /// <summary>
     /// Writes the decimal representation of the <see cref="int"/> value
@@ -379,23 +384,29 @@ public static class Ascii {
     /// This method is allocation-free and inlined for performance.
     /// </para>
     /// </remarks>
-#pragma warning disable S6640 // Unsafe code blocks should not be used
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public unsafe byte ToAscii(Span<byte> sp) {
-      if (sp.IsEmpty) return 0;
+#pragma warning disable IDE0057 // 使用范围运算符
+    [MethodImpl (MethodImplOptions.AggressiveInlining)]
+    public byte ToAscii (Span<byte> sp) {
+      if (sp.IsEmpty) {
+        return 0;
+      }
 
       if (num < 0) {
-        fixed (byte* ptr = sp)
-          ptr[0] = Ascii.HyphenMinus;
+        if (sp.Length < 2) {
+          return 0;
+        }
+
+        sp[0] = HyphenMinus;
 
         uint ne = unchecked((uint)-num);
-        byte res = ne.ToAscii(sp[1..]);
+        // if we use [1..], it will call Slice (int,int)
+        byte res = ne.ToAscii (sp.Slice (1));
         return res is 0 ? (byte)0 : (byte)(res + 1);
       }
 
-      return ((uint)num).ToAscii(sp);
+      return ((uint)num).ToAscii (sp);
     }
-#pragma warning restore S6640 // Unsafe code blocks should not be used
+#pragma warning restore IDE0057 // 使用范围运算符
   }
 
   extension(uint num) {
@@ -423,43 +434,45 @@ public static class Ascii {
     /// 0 is returned and no data is written.
     /// </para>
     /// </remarks>
-#pragma warning disable S6640 // Unsafe code blocks should not be used
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public unsafe byte ToAscii(Span<byte> sp) {
-      if (sp.IsEmpty) return 0;
+    [MethodImpl (MethodImplOptions.AggressiveInlining)]
+    public byte ToAscii (Span<byte> sp) {
+      if (sp.IsEmpty) {
+        return 0;
+      }
 
       if (num < 10) {
-        sp[0] = (byte)(Ascii.Zero + num);
+        sp[0] = (byte)(Zero + num);
         return 1;
       }
 
-      int len = CountDigits(num);
-      if (len > sp.Length) return 0;
+      int len = CountDigits (num);
+      if (len > sp.Length) {
+        return 0;
+      }
 
-      var LUT = TwoDigit;
+      ref byte LUT = ref MemoryMarshal.GetReference (TwoDigit);
+      ref byte ptr = ref Unsafe.Add (ref sp.GetPinnableReference (), len);
 
-      fixed (byte* pdest = sp) {
-        var ptr = pdest + len;
+      while (num >= 100) {
+        ptr = ref Unsafe.Subtract (ref ptr, 2);
+        (num, uint idx) = Math.DivRem (num, 100);
+        idx += idx;
+        Unsafe.Add (ref ptr, 0) = Unsafe.Add (ref LUT, idx);
+        Unsafe.Add (ref ptr, 1) = Unsafe.Add (ref LUT, idx + 1);
+      }
 
-        while (num >= 100) {
-          ptr -= 2;
-          (num, uint idx) = Math.DivRem(num, 100);
-          idx *= 2;
-          ptr[0] = LUT[(int)idx];
-          ptr[1] = LUT[(int)idx + 1];
-        }
-
-        if (num < 10)
-          ptr[-1] = (byte)(Ascii.Zero + num);
-        else {
-          int idx = (int)(num * 2);
-          ptr[-2] = LUT[idx];
-          ptr[-1] = LUT[idx + 1];
-        }
+      if (num < 10) {
+        Unsafe.Add (ref ptr, -1) = (byte)(Zero + num);
+      }
+      else {
+        int idx = (int)(num * 2);
+        Unsafe.Add (ref ptr, -2) = Unsafe.Add (ref LUT, idx);
+        Unsafe.Add (ref ptr, -1) = Unsafe.Add (ref LUT, idx + 1);
       }
 
       return (byte)len;
     }
-#pragma warning restore S6640 // Unsafe code blocks should not be used
   }
+#pragma warning restore CA1034 // 嵌套类型应不可见
 }
+#pragma warning restore CA1708 // 标识符应以大小写之外的差别进行区分

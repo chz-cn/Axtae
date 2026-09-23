@@ -1,7 +1,10 @@
+// Copyright (c) 2026 chz-cn
+// SPDX-License-Identifier: Apache-2.0
 
 using System;
 using System.Runtime.CompilerServices;
 using System.Threading;
+
 using Axtae.Codecs;
 
 namespace Axtae;
@@ -30,7 +33,7 @@ public static class TimeStamp {
   /// </summary>
   public const byte Size = 22;
 
-  private static readonly Lock _lock = new();
+  private static readonly Lock _lock = new ();
 
   /// <summary>
   /// Represents a fixed-size buffer for storing a formatted timestamp.
@@ -41,17 +44,17 @@ public static class TimeStamp {
   /// It can be treated as a <see cref="Span{T}"/> of bytes for direct
   /// manipulation.
   /// </remarks>
-  [InlineArray(Size)]
-#pragma warning disable CS1591 // 缺少对公共可见类型或成员的 XML 注释
-#pragma warning disable S1104 // Fields should not have public accessibility
-  public struct Buffer { public byte V; }
-#pragma warning restore S1104 // Fields should not have public accessibility
-#pragma warning restore CS1591 // 缺少对公共可见类型或成员的 XML 注释
+  [InlineArray (Size)]
+#pragma warning disable S1144 // Unused private types or members should be removed
+  internal struct Buffer { public byte V; }
+#pragma warning restore S1144 // Unused private types or members should be removed
 
-  private static Buffer _cache = new();
-  private static long _stamp = 0;
+#pragma warning disable S3459 // Unassigned members should be removed
+  private static Buffer _cache;
+#pragma warning restore S3459 // Unassigned members should be removed
+  private static long _stamp;
 
-  static TimeStamp() {
+  static TimeStamp () {
     _cache[0] = Ascii.Two;
     _cache[1] = Ascii.Zero;
     _cache[4] = Ascii.HyphenMinus;
@@ -76,30 +79,32 @@ public static class TimeStamp {
   /// refreshed with the current UTC time.
   /// This method is thread-safe.
   /// </remarks>
-  public static void GetStamp(Span<byte> span) {
-    if (span.Length < 22) return;
+  public static void GetStamp (Span<byte> span) {
+    if (span.Length < 22) {
+      return;
+    }
 
     long now = Environment.TickCount64;
-    if (now - Volatile.Read(ref _stamp) < TTL) {
-      ((Span<byte>)_cache).CopyTo(span);
+    if (now - Volatile.Read (ref _stamp) < TTL) {
+      ((Span<byte>)_cache).CopyTo (span);
       return;
     }
 
     lock (_lock) {
-      if (now - Volatile.Read(ref _stamp) < TTL) {
-        ((Span<byte>)_cache).CopyTo(span);
+      if (now - Volatile.Read (ref _stamp) < TTL) {
+        ((Span<byte>)_cache).CopyTo (span);
         return;
       }
 
-      UpdateCache();
+      UpdateCache ();
 
       _stamp = Environment.TickCount64;
-      ((Span<byte>)_cache).CopyTo(span);
+      ((Span<byte>)_cache).CopyTo (span);
     }
   }
 
-  private static void UpdateCache() {
-    DateTime now = DateTime.UtcNow;
+  private static void UpdateCache () {
+    var now = DateTime.UtcNow;
     var LUT = Ascii.TwoDigit;
 
     int year = (now.Year - 2000) * 2;

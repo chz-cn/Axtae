@@ -1,7 +1,10 @@
+// Copyright (c) 2026 chz-cn
+// SPDX-License-Identifier: Apache-2.0
 
 using System;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+
 using static Axtae.Numeric;
 
 namespace Axtae.Random;
@@ -35,7 +38,9 @@ public sealed class Philox4x32 : IRandom {
   private uint _ctr0, _ctr1, _ctr2, _ctr3;
   private readonly uint _key0, _key1;
 
-  private InlineArray4<uint> _buffer = new();
+#pragma warning disable S3459 // Unassigned members should be removed
+  private InlineArray4<uint> _buffer;
+#pragma warning restore S3459 // Unassigned members should be removed
 
   private int _index = 4;
 
@@ -45,11 +50,11 @@ public sealed class Philox4x32 : IRandom {
   /// <param name="seed">
   /// The seed value used to derive the key via SplitMix64.
   /// </param>
-  public Philox4x32(ulong seed) {
-    ulong key64 = SplitMix64.Mix(seed);
+  public Philox4x32 (ulong seed) {
+    ulong key64 = SplitMix64.Mix (seed);
 
     this._key0 = (uint)key64;
-    this._key1 = (uint)(key64 >> 32);
+    this._key1 = (uint)(key64 >>> 32);
 
     this._ctr0 = this._ctr1 = this._ctr2 = this._ctr3 = 0;
   }
@@ -64,7 +69,7 @@ public sealed class Philox4x32 : IRandom {
   /// <param name="c3">Counter value 3.</param>
   /// <param name="k0">Key value 0.</param>
   /// <param name="k1">Key value 1.</param>
-  public Philox4x32(uint c0, uint c1, uint c2, uint c3, uint k0, uint k1) {
+  public Philox4x32 (uint c0, uint c1, uint c2, uint c3, uint k0, uint k1) {
     (this._ctr0, this._ctr1, this._ctr2, this._ctr3) = (c0, c1, c2, c3);
     (this._key0, this._key1) = (k0, k1);
   }
@@ -73,18 +78,19 @@ public sealed class Philox4x32 : IRandom {
   /// Generates the next 32-bit unsigned integer from the generator.
   /// </summary>
   /// <returns>A 32-bit unsigned random integer.</returns>
-  public uint NextUInt32() {
+  public uint NextUInt32 () {
     if (this._index >= 4) {
-      this.FillBuffer();
+      this.FillBuffer ();
       this._index = 0;
     }
+
     return this._buffer[this._index++];
   }
 
   /// <inheritdoc/>
-  public ulong NextUInt64() {
-    uint low = this.NextUInt32();
-    uint high = this.NextUInt32();
+  public ulong NextUInt64 () {
+    uint low = this.NextUInt32 ();
+    uint high = this.NextUInt32 ();
     return ((ulong)high << 32) | low;
   }
 
@@ -99,12 +105,12 @@ public sealed class Philox4x32 : IRandom {
   /// This allows deterministic positioning within the Philox stream.
   /// The internal buffer is invalidated and will be refilled on the next read.
   /// </remarks>
-  public void JumpTo(uint c0, uint c1, uint c2, uint c3) {
+  public void JumpTo (uint c0, uint c1, uint c2, uint c3) {
     (this._ctr0, this._ctr1, this._ctr2, this._ctr3) = (c0, c1, c2, c3);
     this._index = 4;
   }
 
-  private void FillBuffer() {
+  private void FillBuffer () {
     var (c0, c1, c2, c3) = (this._ctr0, this._ctr1, this._ctr2, this._ctr3);
     var (k0, k1) = (this._key0, this._key1);
 
@@ -114,10 +120,10 @@ public sealed class Philox4x32 : IRandom {
       uint r2 = Round2 + k0;
       uint r3 = Round3 + k1;
 
-      uint x0 = MulHi(c0, Round0) + c1;
-      uint x1 = MulHi(c1, Round1) + c2;
-      uint x2 = MulHi(c2, Round2) + c3;
-      uint x3 = MulHi(c3, Round3) + c0;
+      uint x0 = MulHi (c0, Round0) + c1;
+      uint x1 = MulHi (c1, Round1) + c2;
+      uint x2 = MulHi (c2, Round2) + c3;
+      uint x3 = MulHi (c3, Round3) + c0;
 
       x0 ^= r0;
       x1 ^= r1;
@@ -140,59 +146,77 @@ public sealed class Philox4x32 : IRandom {
       this._ctr1++;
       if (this._ctr1 is 0) {
         this._ctr2++;
-        if (this._ctr2 is 0)
+        if (this._ctr2 is 0) {
           this._ctr3++;
+        }
       }
     }
   }
 
   /// <inheritdoc/>
-  public static void Fill<T>(T rand, scoped Span<ulong> buffer)
-    where T : class, IRandom {
-    if (buffer.IsEmpty || rand is not Philox4x32) return;
-    Fill(rand, MemoryMarshal.Cast<ulong, uint>(buffer));
+  public static void Fill<TRandom> (TRandom rand, scoped Span<ulong> buffer)
+    where TRandom : class, IRandom {
+    if (buffer.IsEmpty || rand is not Philox4x32) {
+      return;
+    }
+
+    Fill (rand, MemoryMarshal.Cast<ulong, uint> (buffer));
   }
 
   /// <summary>
   /// Fills the elements of a <see cref="Span{T}"/> with random
   /// <see cref="uint"/> values.
   /// </summary>
-  /// <typeparam name="T">The random number generators type.</typeparam>
-  /// <param name="rand">The random number generator.</param>
+  /// <typeparam name="TRandom">The random number generators type.</typeparam>
+  /// <param name="rand">
+  /// The random number generator.
+  /// <para>
+  /// Performance-sensitive, no validation.
+  /// null causes <see cref="NullReferenceException"/>.
+  /// </para>
+  /// </param>
   /// <param name="buffer">
   /// The span to fill. If empty, the method returns immediately.
   /// </param>
-  public static void Fill<T>(T rand, scoped Span<uint> buffer)
-    where T : class, IRandom {
-    if (buffer.IsEmpty || rand is not Philox4x32 r) return;
-    foreach (ref var value in buffer)
-      value = r.NextUInt32();
+  public static void Fill<TRandom> (TRandom rand, scoped Span<uint> buffer)
+    where TRandom : class, IRandom {
+    if (buffer.IsEmpty || rand is not Philox4x32 r) {
+      return;
+    }
+
+    foreach (ref uint value in buffer) {
+      value = r.NextUInt32 ();
+    }
   }
 
   /// <inheritdoc/>
-  public static void Fill<T, U>(T rand, scoped Span<U> buffer)
-    where T : class, IRandom
-    where U : unmanaged {
-    if (buffer.IsEmpty || rand is not Philox4x32 r) return;
+  public static void Fill<TRandom, TElement> (TRandom rand, scoped Span<TElement> buffer)
+    where TRandom : class, IRandom
+    where TElement : unmanaged {
+    if (buffer.IsEmpty || rand is not Philox4x32 r) {
+      return;
+    }
 
-    var bytes = MemoryMarshal.AsBytes(buffer);
-    var sp = MemoryMarshal.Cast<byte, uint>(bytes);
-    Fill(rand, sp);
+    var bytes = MemoryMarshal.AsBytes (buffer);
+    var sp = MemoryMarshal.Cast<byte, uint> (bytes);
+    Fill (rand, sp);
 
     int remaining = bytes.Length % 4;
-    if (remaining is 0) return;
+    if (remaining is 0) {
+      return;
+    }
 
-    uint last = r.NextUInt32();
-    ref byte src = ref Unsafe.As<uint, byte>(ref last);
+    uint last = r.NextUInt32 ();
+    ref byte src = ref Unsafe.As<uint, byte> (ref last);
     ref byte dst = ref bytes[^remaining];
 
-#pragma warning disable S907 // "goto" statement should not be used
+#pragma warning disable format, S907 // "goto" statement should not be used
     switch (remaining) {
-      case 3: Unsafe.Add(ref dst, 2) = Unsafe.Add(ref src, 2); goto case 2;
-      case 2: Unsafe.Add(ref dst, 1) = Unsafe.Add(ref src, 1); goto case 1;
-      case 1: dst = src; break;
+      case 3: Unsafe.Add (ref dst, 2) = Unsafe.Add (ref src, 2); goto case 2;
+      case 2: Unsafe.Add (ref dst, 1) = Unsafe.Add (ref src, 1); goto default;
+      default: dst = src; break;
     }
-#pragma warning restore S907 // "goto" statement should not be used
+#pragma warning restore format, S907 // "goto" statement should not be used
   }
 }
 
@@ -222,7 +246,9 @@ public sealed class Philox4x64 : IRandom {
   private ulong _ctr0, _ctr1, _ctr2, _ctr3;
   private readonly ulong _key0, _key1;
 
-  private InlineArray4<ulong> _buffer = new();
+#pragma warning disable S3459 // Unassigned members should be removed
+  private InlineArray4<ulong> _buffer;
+#pragma warning restore S3459 // Unassigned members should be removed
 
   private int _index = 4;
 
@@ -230,10 +256,10 @@ public sealed class Philox4x64 : IRandom {
   /// Initializes a new <see cref="Philox4x64"/> instance with the specified seed.
   /// </summary>
   /// <param name="seed">The seed value used to derive the keys via SplitMix64.</param>
-  public Philox4x64(ulong seed) {
-    SplitMix64 mix = new(seed);
-    this._key0 = mix.NextUInt64();
-    this._key1 = mix.NextUInt64();
+  public Philox4x64 (ulong seed) {
+    SplitMix64 mix = new (seed);
+    this._key0 = mix.NextUInt64 ();
+    this._key1 = mix.NextUInt64 ();
 
     this._ctr0 = this._ctr1 = this._ctr2 = this._ctr3 = 0;
   }
@@ -247,18 +273,19 @@ public sealed class Philox4x64 : IRandom {
   /// <param name="c3">Counter value 3.</param>
   /// <param name="k0">Key value 0.</param>
   /// <param name="k1">Key value 1.</param>
-  public Philox4x64(ulong c0, ulong c1, ulong c2, ulong c3,
+  public Philox4x64 (ulong c0, ulong c1, ulong c2, ulong c3,
     ulong k0, ulong k1) {
     (this._ctr0, this._ctr1, this._ctr2, this._ctr3) = (c0, c1, c2, c3);
     (this._key0, this._key1) = (k0, k1);
   }
 
   /// <inheritdoc/>
-  public ulong NextUInt64() {
+  public ulong NextUInt64 () {
     if (this._index >= 4) {
-      this.FillBuffer();
+      this.FillBuffer ();
       this._index = 0;
     }
+
     return this._buffer[this._index++];
   }
 
@@ -273,12 +300,12 @@ public sealed class Philox4x64 : IRandom {
   /// This allows deterministic positioning within the Philox stream.
   /// The internal buffer is invalidated and will be refilled on the next read.
   /// </remarks>
-  public void JumpTo(ulong c0, ulong c1, ulong c2, ulong c3) {
+  public void JumpTo (ulong c0, ulong c1, ulong c2, ulong c3) {
     (this._ctr0, this._ctr1, this._ctr2, this._ctr3) = (c0, c1, c2, c3);
     this._index = 4;
   }
 
-  private void FillBuffer() {
+  private void FillBuffer () {
     var (c0, c1, c2, c3) = (this._ctr0, this._ctr1, this._ctr2, this._ctr3);
     var (k0, k1) = (this._key0, this._key1);
 
@@ -288,10 +315,10 @@ public sealed class Philox4x64 : IRandom {
       ulong r2 = Round2 + k0;
       ulong r3 = Round3 + k1;
 
-      ulong x0 = MulHi(c0, Round0) + c1;
-      ulong x1 = MulHi(c1, Round1) + c2;
-      ulong x2 = MulHi(c2, Round2) + c3;
-      ulong x3 = MulHi(c3, Round3) + c0;
+      ulong x0 = MulHi (c0, Round0) + c1;
+      ulong x1 = MulHi (c1, Round1) + c2;
+      ulong x2 = MulHi (c2, Round2) + c3;
+      ulong x3 = MulHi (c3, Round3) + c0;
 
       x0 ^= r0;
       x1 ^= r1;
@@ -314,8 +341,9 @@ public sealed class Philox4x64 : IRandom {
       this._ctr1++;
       if (this._ctr1 is 0) {
         this._ctr2++;
-        if (this._ctr2 is 0)
+        if (this._ctr2 is 0) {
           this._ctr3++;
+        }
       }
     }
   }

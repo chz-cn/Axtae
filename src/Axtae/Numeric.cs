@@ -1,3 +1,5 @@
+// Copyright (c) 2026 chz-cn
+// SPDX-License-Identifier: Apache-2.0
 
 using System;
 using System.Numerics;
@@ -34,31 +36,35 @@ public static class Numeric {
   /// Uses vectorized SIMD operations for performance when possible,
   /// and falls back to a scalar loop for remaining elements.
   /// </remarks>
-  public static void ZeroIfLessThan(Span<float> data, float threshold) {
-    if (data.IsEmpty) return;
+  public static void ZeroIfLessThan (Span<float> data, float threshold) {
+    if (data.IsEmpty) {
+      return;
+    }
 
     int vec_size = Vector<float>.Count;
 
-    Vector<float> right = new(threshold);
-    Vector<float> zero = Vector<float>.Zero;
+    Vector<float> right = new (threshold);
+    var zero = Vector<float>.Zero;
 
     ref float start = ref data[0];
     int i = 0;
     int last_vec_start = data.Length - vec_size;
 
     while (i <= last_vec_start) {
-      Vector<float> vec = Vector.LoadUnsafe(ref start, (nuint)i);
-      Vector<int> mask = Vector.LessThan(vec, right);
+      var vec = Vector.LoadUnsafe (ref start, (nuint)i);
+      var mask = Vector.LessThan (vec, right);
 
-      Vector.ConditionalSelect(mask, zero, vec)
-        .StoreUnsafe(ref start, (nuint)i);
+      Vector.ConditionalSelect (mask, zero, vec)
+        .StoreUnsafe (ref start, (nuint)i);
       i += vec_size;
     }
 
     int len = data.Length;
     while (i < len) {
-      if (data[i] < threshold)
+      if (data[i] < threshold) {
         data[i] = 0;
+      }
+
       i++;
     }
   }
@@ -73,18 +79,18 @@ public static class Numeric {
   /// This method uses only vectorized SIMD operations and does not include a scalar fallback loop.
   /// The caller should ensure the data length is suitable for vectorized processing.
   /// </remarks>
-  public static void ZeroIfLessThanAligned(Span<float> data, float threshold) {
+  public static void ZeroIfLessThanAligned (Span<float> data, float threshold) {
     int vec_size = Vector<float>.Count;
-    Vector<float> right = new(threshold);
-    Vector<float> zero = Vector<float>.Zero;
+    Vector<float> right = new (threshold);
+    var zero = Vector<float>.Zero;
 
     ref float start = ref data[0];
     int len = data.Length;
     for (int i = 0; i < len; i += vec_size) {
-      Vector<float> vec = Vector.LoadUnsafe(ref start, (nuint)i);
-      Vector<int> mask = Vector.LessThan(vec, right);
-      Vector.ConditionalSelect(mask, zero, vec)
-        .StoreUnsafe(ref start, (nuint)i);
+      var vec = Vector.LoadUnsafe (ref start, (nuint)i);
+      var mask = Vector.LessThan (vec, right);
+      Vector.ConditionalSelect (mask, zero, vec)
+        .StoreUnsafe (ref start, (nuint)i);
     }
   }
 
@@ -94,8 +100,8 @@ public static class Numeric {
   /// <param name="a">The first 32-bit unsigned integer.</param>
   /// <param name="b">The second 32-bit unsigned integer.</param>
   /// <returns>The high 32 bits of the 64-bit product.</returns>
-  [MethodImpl(MethodImplOptions.AggressiveInlining)]
-  public static uint MulHi(uint a, uint b) => (uint)(Math.BigMul(a, b) >> 32);
+  [MethodImpl (MethodImplOptions.AggressiveInlining)]
+  public static uint MulHi (uint a, uint b) => (uint)(Math.BigMul (a, b) >>> 32);
 
   /// <summary>
   /// Computes the high 64 bits of the 128-bit product of two 64-bit unsigned integers.
@@ -103,6 +109,6 @@ public static class Numeric {
   /// <param name="a">The first 64-bit unsigned integer.</param>
   /// <param name="b">The second 64-bit unsigned integer.</param>
   /// <returns>The high 64 bits of the 128-bit product.</returns>
-  [MethodImpl(MethodImplOptions.AggressiveInlining)]
-  public static ulong MulHi(ulong a, ulong b) => Math.BigMul(a, b, out _);
+  [MethodImpl (MethodImplOptions.AggressiveInlining)]
+  public static ulong MulHi (ulong a, ulong b) => Math.BigMul (a, b, out _);
 }

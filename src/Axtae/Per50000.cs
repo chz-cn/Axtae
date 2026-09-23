@@ -1,3 +1,5 @@
+// Copyright (c) 2026 chz-cn
+// SPDX-License-Identifier: Apache-2.0
 
 namespace Axtae;
 
@@ -29,7 +31,7 @@ public static class Per50000 {
   /// The damage immunity factor in 1/50000 fixed-point format.
   /// </param>
   /// <returns>The reduced damage value.</returns>
-  public static uint CalcDI(uint damage, ushort DI) {
+  public static uint CalcDI (uint damage, ushort DI) {
     ulong tmp = (ulong)damage
       * (uint)(One - DI) / One;
     return (uint)tmp;
@@ -50,7 +52,7 @@ public static class Per50000 {
   /// The calculated damage value after reduction and vulnerability
   /// adjustments.
   /// </returns>
-  public static uint CalcDIV(uint damage, ushort DR, ushort Vul) {
+  public static uint CalcDIV (uint damage, ushort DR, ushort Vul) {
     ulong tmp = (ulong)damage
       * (uint)(One - DR) / One
       * (uint)(One + Vul) / One;
@@ -66,7 +68,7 @@ public static class Per50000 {
   /// <param name="DR">The damage reduction factor in 1/50000 fixed-point format.</param>
   /// <param name="Vul">The vulnerability factor in 1/50000 fixed-point format.</param>
   /// <returns>The final calculated damage value.</returns>
-  public static uint CalcDamage(uint damage, ushort DI, ushort DR, ushort Vul) {
+  public static uint CalcDamage (uint damage, ushort DI, ushort DR, ushort Vul) {
     ulong tmp = (ulong)damage
       * (uint)(One - DI) / One
       * (uint)(One - DR) / One

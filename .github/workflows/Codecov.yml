@@ -2,10 +2,8 @@
 name: Codecov
 
 on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
+  schedule:
+    - cron: '0 3 * * 0'
 
 jobs:
   build-and-test:
@@ -29,14 +27,14 @@ jobs:
       - name: Run tests with coverage
         run: >
           dotnet test --no-build
-          --collect:"XPlat Code Coverage"
+          --coverlet --coverlet-output-format cobertura
           --results-directory ./TestResults
 
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v7
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./TestResults/**/coverage.cobertura.xml
+          files: ./TestResults/*.xml
           flags: unittests
           name: dotnet-coverage
           fail_ci_if_error: false
