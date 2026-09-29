@@ -399,7 +399,7 @@ public static class Ascii {
         sp[0] = HyphenMinus;
 
         uint ne = unchecked((uint)-num);
-        // if we use [1..], it will call Slice (int,int)
+        // if we use [1..], it will call Slice (int,int) with more check
         byte res = ne.ToAscii (sp.Slice (1));
         return res is 0 ? (byte)0 : (byte)(res + 1);
       }

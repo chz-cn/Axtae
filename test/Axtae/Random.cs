@@ -21,7 +21,7 @@ file struct Point (int x, int y) {
   public int Y = y;
 }
 
-public abstract class RandomTests<T> where T : struct, IRandom, allows ref struct {
+public abstract class RandomTests<T> where T : struct, IRandom<T>, allows ref struct {
   protected abstract T Create (ulong seed);
 
   [Fact]
@@ -159,239 +159,6 @@ public abstract class RandomTests<T> where T : struct, IRandom, allows ref struc
     bool all_zero = true;
     foreach (ulong v in buffer) {
       if (v != 0) { all_zero = false; break; }
-    }
-
-    Assert.False (all_zero, "All filled values were zero.");
-  }
-
-  [Fact]
-  public void Fill_Ulong_Deterministic () {
-    var a = this.Create (Seed0);
-    var b = this.Create (Seed0);
-
-    Span<ulong> bufA = stackalloc ulong[10];
-    Span<ulong> bufB = stackalloc ulong[10];
-
-    a.Fill (bufA);
-    b.Fill (bufB);
-
-    for (int i = 0; i < 10; i++) {
-      Assert.Equal (bufA[i], bufB[i]);
-    }
-  }
-
-  [Fact]
-  public void Fill_Generic_Int_FillsCorrectly () {
-    var rand = this.Create (Seed0);
-    Span<int> buffer = stackalloc int[10];
-    rand.Fill (buffer);
-
-    bool all_zero = true;
-    foreach (int v in buffer) {
-      if (v != 0) { all_zero = false; break; }
-    }
-
-    Assert.False (all_zero, "All filled values were zero.");
-  }
-
-  [Fact]
-  public void Fill_Generic_Float_FillsCorrectly () {
-    var rand = this.Create (Seed0);
-    Span<float> buffer = stackalloc float[10];
-    rand.Fill (buffer);
-
-    bool all_zero = true;
-    foreach (float v in buffer) {
-      if (v != 0f) { all_zero = false; break; }
-    }
-
-    Assert.False (all_zero, "All filled values were zero.");
-  }
-
-  [Fact]
-  public void Fill_Generic_Struct_FillsCorrectly () {
-    var rand = this.Create (Seed0);
-    Span<Point> buffer = stackalloc Point[5];
-    rand.Fill (buffer);
-
-    bool all_zero = true;
-    foreach (var p in buffer) {
-      if (p.X != 0 || p.Y != 0) {
-        all_zero = false;
-        break;
-      }
-    }
-
-    Assert.False (all_zero, "All filled values were zero.");
-  }
-
-  [Fact]
-  public void Fill_Generic_EmptyReturnsImmediately () {
-    var rand = this.Create (Seed0);
-    Span<int> empty = [];
-    rand.Fill (empty);
-
-    Assert.True (empty.IsEmpty);
-  }
-
-  [Fact]
-  public void Fill_Unmanaged_Remaining_1_to_7 () {
-    var rand = this.Create (Seed0);
-    Span<byte> buffer = stackalloc byte[7];
-
-    rand.Fill (buffer);
-    rand.Fill (buffer[..6]);
-    rand.Fill (buffer[..5]);
-    rand.Fill (buffer[..4]);
-    rand.Fill (buffer[..3]);
-    rand.Fill (buffer[..2]);
-    rand.Fill (buffer[..1]);
-
-    Assert.True (true);
-  }
-}
-
-public abstract class RandomClassTests<T> where T : class, IRandom {
-  protected abstract T Create (ulong seed);
-
-  [Fact]
-  public void NextUInt64_ReturnsInRange () {
-    var rand = this.Create (Seed0);
-    for (int i = 0; i < 100; i++) {
-      Assert.InRange (rand.NextUInt64 (), ulong.MinValue, ulong.MaxValue);
-    }
-  }
-
-  [Fact]
-  public void NextUInt64_NotAllZero () {
-    var rand = this.Create (Seed0);
-    bool all_zero = true;
-    for (int i = 0; i < 20; i++) {
-      if (rand.NextUInt64 () != 0) {
-        all_zero = false;
-        break;
-      }
-    }
-
-    Assert.False (all_zero, "All values were zero, algorithm likely broken.");
-  }
-
-  [Fact]
-  public void NextUInt64_Deterministic () {
-    var a = this.Create (Seed0);
-    var b = this.Create (Seed0);
-    for (int i = 0; i < 10; i++) {
-      Assert.Equal (a.NextUInt64 (), b.NextUInt64 ());
-    }
-  }
-
-  [Fact]
-  public void NextUInt64_DifferentSeeds_DifferentSequence () {
-    var a = this.Create (Seed0);
-    var b = this.Create (Seed1);
-    bool any_diff = false;
-    for (int i = 0; i < 10; i++) {
-      if (a.NextUInt64 () != b.NextUInt64 ()) {
-        any_diff = true;
-        break;
-      }
-    }
-
-    Assert.True (any_diff, "Different seeds produced identical sequence.");
-  }
-
-  // ===== exts =====
-
-  [Fact]
-  public void NextUInt64_Max_ZeroReturnsZero () {
-    var rand = this.Create (Seed0);
-    Assert.Equal (0UL, rand.NextUInt64 (0));
-  }
-
-  [Fact]
-  public void NextUInt64_Max_ReturnsInRange () {
-    var rand = this.Create (Seed0);
-    for (ulong max = 1; max <= 10; max++) {
-      for (int i = 0; i < 20; i++) {
-        ulong v = rand.NextUInt64 (max);
-        Assert.InRange (v, 0u, max - 1);
-      }
-    }
-  }
-
-  [Fact]
-  public void NextUInt64_Max_Rejection_Sampling () {
-    var rand = this.Create (Seed0);
-    const ulong Max = (ulong.MaxValue / 2) + 2;
-
-    for (int i = 0; i < 50; i++) {
-      ulong v = rand.NextUInt64 (Max);
-      Assert.InRange (v, 0u, Max - 1);
-    }
-  }
-
-  [Fact]
-  public void NextUInt64_MinMax_InvalidRangeReturnsZero () {
-    var rand = this.Create (Seed0);
-    Assert.Equal (0u, rand.NextUInt64 (5, 3));
-    Assert.Equal (0u, rand.NextUInt64 (5, 5));
-  }
-
-  [Fact]
-  public void NextUInt64_MinMax_ReturnsInRange () {
-    var rand = this.Create (Seed0);
-
-    for (ulong min = 0; min < 5; min++) {
-      for (ulong max = min + 1; max <= min + 10; max++) {
-        for (int i = 0; i < 20; i++) {
-          Assert.InRange (rand.NextUInt64 (min, max), min, max - 1);
-        }
-      }
-    }
-  }
-
-  [Fact]
-  public void NextDouble_ReturnsInRange () {
-    var rand = this.Create (Seed0);
-    for (int i = 0; i < 50; i++) {
-      double d = rand.NextDouble ();
-      Assert.InRange (d, 0, 1);
-      Assert.NotEqual (1, d);
-    }
-  }
-
-  [Fact]
-  public void NextDoubleInclusive_ReturnsInRange () {
-    var rand = this.Create (Seed0);
-
-    for (int i = 0; i < 50; i++) {
-      Assert.InRange (rand.NextDoubleInclusive (), 0, 1);
-    }
-  }
-
-  // ===== Fill =====
-
-  [Fact]
-  public void Fill_Ulong_EmptyReturnsImmediately () {
-    var rand = this.Create (Seed0);
-    Span<ulong> empty = [];
-    rand.Fill (empty);
-
-    Assert.True (empty.IsEmpty);
-  }
-
-  [Fact]
-  public void Fill_Ulong_FillsWithRandomValues () {
-    var rand = this.Create (Seed0);
-    Span<ulong> buffer = stackalloc ulong[10];
-    rand.Fill (buffer);
-
-    bool all_zero = true;
-    foreach (ulong v in buffer) {
-      if (v != 0) {
-        all_zero = false;
-        break;
-      }
     }
 
     Assert.False (all_zero, "All filled values were zero.");
@@ -488,6 +255,24 @@ public abstract class RandomClassTests<T> where T : class, IRandom {
 
     Assert.True (true);
   }
+
+  // ===== Create =====
+
+  [Fact]
+  public void Create_SuccessiveCalls_ReturnDifferentSequences () {
+    var a = T.Create ();
+    var b = T.Create ();
+
+    bool any_diff = false;
+    for (int i = 0; i < 10; i++) {
+      if (a.NextUInt64 () != b.NextUInt64 ()) {
+        any_diff = true;
+        break;
+      }
+    }
+
+    Assert.True (any_diff, "Successive Create calls returned identical sequences.");
+  }
 }
 
 public sealed class SplitMix64Tests : RandomTests<SplitMix64> {
@@ -498,6 +283,18 @@ public sealed class SplitMix64Tests : RandomTests<SplitMix64> {
     ulong rand = SplitMix64.Mix (Seed0);
     ulong res = SplitMix64.Mix (ref rand);
     Assert.NotEqual (rand, res);
+  }
+
+  [Fact]
+  public async System.Threading.Tasks.Task NewSeed_DifferentThreads_AreIndependent () {
+    ulong main0 = SplitMix64.NewSeed ();
+
+    var (worker0, worker1) = await System.Threading.Tasks.Task.Run
+      (static () => (SplitMix64.NewSeed (), SplitMix64.NewSeed ()));
+
+    Assert.NotEqual (worker0, worker1);
+    Assert.NotEqual (main0, worker0);
+    Assert.NotEqual (main0, worker1);
   }
 }
 
@@ -647,7 +444,7 @@ public sealed class Xoshiro512StarStarTests : RandomTests<Xoshiro512StarStar> {
   }
 }
 
-public sealed class Philox4x32Tests : RandomClassTests<Philox4x32> {
+public sealed class Philox4x32Tests : RandomTests<Philox4x32> {
   protected override Philox4x32 Create (ulong seed) => new (seed);
 
   [Fact]
@@ -683,7 +480,7 @@ public sealed class Philox4x32Tests : RandomClassTests<Philox4x32> {
   }
 }
 
-public sealed class Philox4x64Tests : RandomClassTests<Philox4x64> {
+public sealed class Philox4x64Tests : RandomTests<Philox4x64> {
   protected override Philox4x64 Create (ulong seed) => new (seed);
 
   [Fact]

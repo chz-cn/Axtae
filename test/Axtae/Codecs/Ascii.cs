@@ -114,4 +114,11 @@ public static class AsciiTests {
     byte len = Ascii.ToAscii (42, buffer);
     Assert.Equal (0, len);
   }
+
+  [Fact]
+  public static void ToAscii_Int_Negative_BufferLengthOne_ReturnsZero () {
+    Span<byte> buffer = stackalloc byte[1];
+    byte len = Ascii.ToAscii (-5, buffer);
+    Assert.Equal (0, len);
+  }
 }

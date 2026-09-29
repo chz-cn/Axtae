@@ -1,6 +1,7 @@
 // Copyright (c) 2026 chz-cn
 // SPDX-License-Identifier: Apache-2.0
 
+using System;
 using System.Runtime.CompilerServices;
 
 using static Axtae.Random.IRandom;
@@ -18,11 +19,47 @@ namespace Axtae.Random;
 /// the SplitMix64 algorithm by Sebastiano Vigna.
 /// </para>
 /// <para>
-/// This struct implements <see cref="IRandom"/> and can be used as a standalone
-/// generator or for seeding other generators.
+/// This struct implements <see cref="IRandom"/> and can be used as a
+/// standalone generator or for seeding other generators.
 /// </para>
 /// </remarks>
-public struct SplitMix64 (ulong x) : IRandom {
+public struct SplitMix64 (ulong x) : IRandom<SplitMix64> {
+  [ThreadStatic]
+  private static ulong _s;
+
+  /// <summary>
+  /// Returns a new seed value from a thread-local, lazily initialized
+  /// <see cref="SplitMix64"/> stream.
+  /// </summary>
+  /// <returns>
+  /// A pseudo-random <see cref="ulong"/> suitable for seeding another
+  /// generator.
+  /// </returns>
+  /// <remarks>
+  /// <para>
+  /// The thread-local state is initialized on first use from a
+  /// <see cref="Guid"/>-derived value, then advanced on every call via
+  /// <see cref="Mix(ref ulong)"/>. Successive calls on the same thread therefore
+  /// return independent values, while different threads keep separate
+  /// streams.
+  /// </para>
+  /// <para>
+  /// Not cryptographically secure. Intended only for non-adversarial
+  /// seeding of non-cryptographic generators.
+  /// </para>
+  /// </remarks>
+  public static ulong NewSeed () {
+    if (_s is 0) {
+      var guid = Guid.NewGuid ();
+      _s = Unsafe.As<Guid, ulong> (ref guid);
+    }
+
+    return Mix (ref _s);
+  }
+
+  /// <inheritdoc/>
+  public static SplitMix64 Create () => new (NewSeed ());
+
   private ulong _state = x;
 
   /// <inheritdoc/>

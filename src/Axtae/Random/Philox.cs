@@ -25,7 +25,7 @@ namespace Axtae.Random;
 /// combining them to form 64-bit outputs.
 /// </para>
 /// </remarks>
-public sealed class Philox4x32 : IRandom {
+public struct Philox4x32 : IRandom<Philox4x32> {
   /// <summary>Round constant 0 for the Philox4x32 permutation.</summary>
   public const uint Round0 = 0xD2511F53;
   /// <summary>Round constant 1 for the Philox4x32 permutation.</summary>
@@ -34,6 +34,9 @@ public sealed class Philox4x32 : IRandom {
   public const uint Round2 = 0x9E3779B9;
   /// <summary>Round constant 3 for the Philox4x32 permutation.</summary>
   public const uint Round3 = 0x9D9C4F0F;
+
+  /// <inheritdoc/>
+  public static Philox4x32 Create () => new (SplitMix64.NewSeed ());
 
   private uint _ctr0, _ctr1, _ctr2, _ctr3;
   private readonly uint _key0, _key1;
@@ -45,7 +48,8 @@ public sealed class Philox4x32 : IRandom {
   private int _index = 4;
 
   /// <summary>
-  /// Initializes a new <see cref="Philox4x32"/> instance with the specified seed.
+  /// Initializes a new <see cref="Philox4x32"/> instance with the specified
+  /// seed.
   /// </summary>
   /// <param name="seed">
   /// The seed value used to derive the key via SplitMix64.
@@ -55,8 +59,6 @@ public sealed class Philox4x32 : IRandom {
 
     this._key0 = (uint)key64;
     this._key1 = (uint)(key64 >>> 32);
-
-    this._ctr0 = this._ctr1 = this._ctr2 = this._ctr3 = 0;
   }
 
   /// <summary>
@@ -154,59 +156,52 @@ public sealed class Philox4x32 : IRandom {
   }
 
   /// <inheritdoc/>
-  public static void Fill<TRandom> (TRandom rand, scoped Span<ulong> buffer)
-    where TRandom : class, IRandom {
-    if (buffer.IsEmpty || rand is not Philox4x32) {
+  public static void Fill (ref Philox4x32 rand, scoped Span<ulong> buffer) {
+    if (buffer.IsEmpty) {
       return;
     }
 
-    Fill (rand, MemoryMarshal.Cast<ulong, uint> (buffer));
+    Fill (ref rand, MemoryMarshal.Cast<ulong, uint> (buffer));
   }
 
   /// <summary>
   /// Fills the elements of a <see cref="Span{T}"/> with random
   /// <see cref="uint"/> values.
   /// </summary>
-  /// <typeparam name="TRandom">The random number generators type.</typeparam>
   /// <param name="rand">
   /// The random number generator.
-  /// <para>
-  /// Performance-sensitive, no validation.
-  /// null causes <see cref="NullReferenceException"/>.
-  /// </para>
   /// </param>
   /// <param name="buffer">
   /// The span to fill. If empty, the method returns immediately.
   /// </param>
-  public static void Fill<TRandom> (TRandom rand, scoped Span<uint> buffer)
-    where TRandom : class, IRandom {
-    if (buffer.IsEmpty || rand is not Philox4x32 r) {
+  public static void Fill (ref Philox4x32 rand, scoped Span<uint> buffer) {
+    if (buffer.IsEmpty) {
       return;
     }
 
     foreach (ref uint value in buffer) {
-      value = r.NextUInt32 ();
+      value = rand.NextUInt32 ();
     }
   }
 
   /// <inheritdoc/>
-  public static void Fill<TRandom, TElement> (TRandom rand, scoped Span<TElement> buffer)
-    where TRandom : class, IRandom
+  public static void Fill<TElement> (ref Philox4x32 rand,
+    scoped Span<TElement> buffer)
     where TElement : unmanaged {
-    if (buffer.IsEmpty || rand is not Philox4x32 r) {
+    if (buffer.IsEmpty) {
       return;
     }
 
     var bytes = MemoryMarshal.AsBytes (buffer);
     var sp = MemoryMarshal.Cast<byte, uint> (bytes);
-    Fill (rand, sp);
+    Fill (ref rand, sp);
 
     int remaining = bytes.Length % 4;
     if (remaining is 0) {
       return;
     }
 
-    uint last = r.NextUInt32 ();
+    uint last = rand.NextUInt32 ();
     ref byte src = ref Unsafe.As<uint, byte> (ref last);
     ref byte dst = ref bytes[^remaining];
 
@@ -233,7 +228,7 @@ public sealed class Philox4x32 : IRandom {
 /// This implementation uses 10 rounds and produces 64-bit values directly.
 /// </para>
 /// </remarks>
-public sealed class Philox4x64 : IRandom {
+public struct Philox4x64 : IRandom<Philox4x64> {
   /// <summary>Round constant 0 for the Philox4x64 permutation.</summary>
   public const ulong Round0 = 0xD2E7470EE14C6C93;
   /// <summary>Round constant 1 for the Philox4x64 permutation.</summary>
@@ -242,6 +237,9 @@ public sealed class Philox4x64 : IRandom {
   public const ulong Round2 = 0x9E3779B97F4A7C15;
   /// <summary>Round constant 3 for the Philox4x64 permutation.</summary>
   public const ulong Round3 = 0x8F98C623BACD3F9F;
+
+  /// <inheritdoc/>
+  public static Philox4x64 Create () => new (SplitMix64.NewSeed ());
 
   private ulong _ctr0, _ctr1, _ctr2, _ctr3;
   private readonly ulong _key0, _key1;
@@ -253,19 +251,21 @@ public sealed class Philox4x64 : IRandom {
   private int _index = 4;
 
   /// <summary>
-  /// Initializes a new <see cref="Philox4x64"/> instance with the specified seed.
+  /// Initializes a new <see cref="Philox4x64"/> instance with the specified
+  /// seed.
   /// </summary>
-  /// <param name="seed">The seed value used to derive the keys via SplitMix64.</param>
+  /// <param name="seed">
+  /// The seed value used to derive the keys via SplitMix64.
+  /// </param>
   public Philox4x64 (ulong seed) {
     SplitMix64 mix = new (seed);
     this._key0 = mix.NextUInt64 ();
     this._key1 = mix.NextUInt64 ();
-
-    this._ctr0 = this._ctr1 = this._ctr2 = this._ctr3 = 0;
   }
 
   /// <summary>
-  /// Initializes a new <see cref="Philox4x64"/> instance with explicit counter and key values.
+  /// Initializes a new <see cref="Philox4x64"/> instance with explicit
+  /// counter and key values.
   /// </summary>
   /// <param name="c0">Counter value 0.</param>
   /// <param name="c1">Counter value 1.</param>
