@@ -11,7 +11,6 @@ using Xunit;
 
 namespace Test;
 
-#pragma warning disable CA1515 // 考虑将公共类型设为内部类型
 public sealed class LoggerFixture : IDisposable {
   public static readonly string LoggerPath
     = Path.Combine (Path.GetTempPath (), "Axtae", "x.log");
@@ -19,7 +18,6 @@ public sealed class LoggerFixture : IDisposable {
 
   public void Dispose () => this.Log.Complete ();
 }
-#pragma warning restore CA1515 // 考虑将公共类型设为内部类型
 
 public sealed class LoggerTests (LoggerFixture fixture) : IClassFixture<LoggerFixture> {
   private readonly Logger _log = fixture.Log;

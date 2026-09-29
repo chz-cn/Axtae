@@ -21,7 +21,10 @@ namespace Axtae.Random;
 /// high-performance scenarios where a larger state space is desired.
 /// </para>
 /// </remarks>
-public struct Xoshiro512Plus : IRandom {
+public struct Xoshiro512Plus : IRandom<Xoshiro512Plus> {
+  /// <inheritdoc/>
+  public static Xoshiro512Plus Create () => new (SplitMix64.NewSeed ());
+
   private ulong _s0, _s1, _s2, _s3, _s4, _s5, _s6, _s7;
 
   /// <summary>
@@ -114,7 +117,10 @@ public struct Xoshiro512Plus : IRandom {
 /// This struct implements <see cref="IRandom"/>.
 /// </para>
 /// </remarks>
-public struct Xoshiro512PlusPlus : IRandom {
+public struct Xoshiro512PlusPlus : IRandom<Xoshiro512PlusPlus> {
+  /// <inheritdoc/>
+  public static Xoshiro512PlusPlus Create () => new (SplitMix64.NewSeed ());
+
   private ulong _s0, _s1, _s2, _s3, _s4, _s5, _s6, _s7;
 
   /// <summary>
@@ -208,7 +214,10 @@ public struct Xoshiro512PlusPlus : IRandom {
 /// This struct implements <see cref="IRandom"/>.
 /// </para>
 /// </remarks>
-public struct Xoshiro512StarStar : IRandom {
+public struct Xoshiro512StarStar : IRandom<Xoshiro512StarStar> {
+  /// <inheritdoc/>
+  public static Xoshiro512StarStar Create () => new (SplitMix64.NewSeed ());
+
   private ulong _s0, _s1, _s2, _s3, _s4, _s5, _s6, _s7;
 
   /// <summary>

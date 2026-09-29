@@ -613,9 +613,8 @@ public sealed unsafe class PagePool : IDisposable, IPool {
   // stack
 
   private void TryPush (ushort item) {
-    if (this._top == this.BlockCount) {
-      return;
-    }
+    System.Diagnostics.Debug.Assert (this._top < this.BlockCount,
+      "Free list overflow: double free detected.");
 
     this._items[this._top] = item;
     this._top++;

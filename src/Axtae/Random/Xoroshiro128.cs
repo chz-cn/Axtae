@@ -21,7 +21,10 @@ namespace Axtae.Random;
 /// high-performance scenarios where 64-bit output quality is sufficient.
 /// </para>
 /// </remarks>
-public struct Xoroshiro128Plus : IRandom {
+public struct Xoroshiro128Plus : IRandom<Xoroshiro128Plus> {
+  /// <inheritdoc/>
+  public static Xoroshiro128Plus Create () => new (SplitMix64.NewSeed ());
+
   private ulong _s0, _s1;
 
   /// <summary>
@@ -80,7 +83,10 @@ public struct Xoroshiro128Plus : IRandom {
 /// This struct implements <see cref="IRandom"/>.
 /// </para>
 /// </remarks>
-public struct Xoroshiro128PlusPlus : IRandom {
+public struct Xoroshiro128PlusPlus : IRandom<Xoroshiro128PlusPlus> {
+  /// <inheritdoc/>
+  public static Xoroshiro128PlusPlus Create () => new (SplitMix64.NewSeed ());
+
   private ulong _s0, _s1;
 
   /// <summary>
@@ -139,7 +145,10 @@ public struct Xoroshiro128PlusPlus : IRandom {
 /// This struct implements <see cref="IRandom"/>.
 /// </para>
 /// </remarks>
-public struct Xoroshiro128StarStar : IRandom {
+public struct Xoroshiro128StarStar : IRandom<Xoroshiro128StarStar> {
+  /// <inheritdoc/>
+  public static Xoroshiro128StarStar Create () => new (SplitMix64.NewSeed ());
+
   private ulong _s0, _s1;
 
   /// <summary>
