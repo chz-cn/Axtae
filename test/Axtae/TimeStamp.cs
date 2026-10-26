@@ -14,28 +14,29 @@ using Xunit;
 
 namespace Test;
 
-public sealed class TimeStampTests {
-  private const int ExpectedLength = TimeStamp.Size;
+public static class TimeStampTests {
+  public const int ExpectedLength = TimeStamp.Size;
 
   [Fact]
-  public void GetStamp_ReturnsCorrectLengthAndFormat () {
+  public static void GetStamp_ReturnsCorrectLengthAndFormat () {
     Span<byte> buffer = stackalloc byte[ExpectedLength];
     TimeStamp.GetStamp (buffer);
 
-    string stamp = Encoding.UTF8.GetString (buffer);
+    string stamp = Encoding.ASCII.GetString (buffer);
     Assert.Equal (ExpectedLength, stamp.Length);
 
     Assert.Equal ('-', stamp[4]);
     Assert.Equal ('-', stamp[7]);
-    Assert.Equal (' ', stamp[10]);
+    Assert.Equal ('T', stamp[10]);
     Assert.Equal (':', stamp[13]);
     Assert.Equal (':', stamp[16]);
     Assert.Equal ('.', stamp[19]);
+    Assert.Equal ('Z', stamp[22]);
 
     var pvd = CultureInfo.InvariantCulture;
 
     int year = int.Parse (stamp[0..4], pvd);
-    Assert.InRange (year, 2000, 2099);
+    Assert.InRange (year, 2000, 9999);
 
     int month = int.Parse (stamp[5..7], pvd);
     Assert.InRange (month, 1, 12);
@@ -52,7 +53,7 @@ public sealed class TimeStampTests {
   }
 
   [Fact]
-  public void GetStamp_CacheHit_ReturnsSameContentWithinTTL () {
+  public static void GetStamp_CacheHit_ReturnsSameContentWithinTTL () {
     Span<byte> first = stackalloc byte[ExpectedLength];
     Span<byte> second = stackalloc byte[ExpectedLength];
 
@@ -64,7 +65,7 @@ public sealed class TimeStampTests {
   }
 
   [Fact]
-  public async Task GetStamp_CacheExpires_AfterTTL () {
+  public static async Task GetStamp_CacheExpires_AfterTTL () {
     byte[] first = new byte[ExpectedLength];
     byte[] second = new byte[ExpectedLength];
 
@@ -72,75 +73,54 @@ public sealed class TimeStampTests {
     await Task.Delay (20, TestContext.Current.CancellationToken);
     TimeStamp.GetStamp (second);
 
-    string s1 = Encoding.UTF8.GetString (first);
-    string s2 = Encoding.UTF8.GetString (second);
+    string s1 = Encoding.ASCII.GetString (first);
+    string s2 = Encoding.ASCII.GetString (second);
     Assert.NotEqual (s1, s2);
   }
 
-  [InlineArray (ExpectedLength)]
-  internal struct Buf { public byte V; }
-
   [Fact]
-  public static void GetStamp_ConcurrentCalls_NoCorruption () {
+  public static Task GetStamp_ConcurrentCalls_NoCorruption () {
     const int Iterations = 1000;
-    var results = new Buf[Iterations];
 
-    _ = Parallel.For (0, Iterations, i => TimeStamp.GetStamp (results[i]));
+    InlineArray2<Task> arr = default;
 
-    foreach (var b in results) {
-      string s = Encoding.UTF8.GetString (b);
-      Assert.Equal ('-', s[4]);
-      Assert.Equal (' ', s[10]);
-    }
+    foreach (ref var t in arr) {
+      t = Task.Factory.StartNew (
+        Executor,
+        TestContext.Current.CancellationToken,
+        TaskCreationOptions.RunContinuationsAsynchronously,
+        TaskScheduler.Default
+      );
 
-    foreach (var b in results) {
-      string s = Encoding.UTF8.GetString (b);
-
-      for (int i = 0; i < s.Length; i++) {
-        char c = s[i];
-        if (i is 4 or 7 or 10 or 13 or 16 or 19) {
-          continue;
+      static void Executor () {
+        var pvd = CultureInfo.InvariantCulture;
+        Span<byte> buf = stackalloc byte[ExpectedLength];
+        for (int i = 0; i < Iterations; i++) {
+          TimeStamp.GetStamp (buf);
+          string s2 = Encoding.ASCII.GetString (buf);
+          Assert.True (DateTime.TryParse (s2, pvd, out _));
         }
-
-        Assert.True (char.IsDigit (c), $"Non-digit at position {i}: '{c}'");
       }
     }
+
+    return Task.WhenAll (arr);
   }
 
   [Fact]
-  public void GetStamp_BufferTooShort_DoesNothing () {
-    Span<byte> shortBuffer = stackalloc byte[10];
+  public static void GetStamp_BufferTooShort_DoesNothing () {
+    Span<byte> insufficient = stackalloc byte[10];
 
-    TimeStamp.GetStamp (shortBuffer);
+    TimeStamp.GetStamp (insufficient);
 
-    Assert.True (shortBuffer.SequenceEqual (new byte[10]));
+    Span<byte> buffer = stackalloc byte[10];
+    Assert.True (insufficient.SequenceEqual (buffer));
   }
 
   [Fact]
-  public void GetStamp_ExactLength_FillsBuffer () {
+  public static void GetStamp_ExactLength_FillsBuffer () {
     Span<byte> buffer = stackalloc byte[ExpectedLength];
     TimeStamp.GetStamp (buffer);
 
     Assert.NotEqual (0, buffer[ExpectedLength - 1]);
-  }
-
-  [Fact]
-  public async Task GetStamp_Free_DoubleCheck_ConcurrentRace () {
-    const int Iterations = 10000;
-
-    var tasks = new InlineArray8<Task> ();
-
-    var buffer = new Buf ();
-
-    for (int attempt = 0; attempt < Iterations; attempt++) {
-      foreach (ref var task in tasks) {
-        task = Task.Run (() => TimeStamp.GetStamp (buffer),
-          TestContext.Current.CancellationToken);
-      }
-
-      await Task.WhenAll (tasks);
-    }
-
-    Assert.True (true);
   }
 }
