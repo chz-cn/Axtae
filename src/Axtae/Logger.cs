@@ -5,9 +5,14 @@ using System;
 using System.Buffers;
 using System.IO;
 using System.Reflection;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 
 using Axtae.Codecs;
+
+using Microsoft.Win32.SafeHandles;
 
 using static System.Text.Encoding;
 
@@ -19,219 +24,329 @@ namespace Axtae;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Each instance manages its own log file and internal channel. Log entries
-/// are written asynchronously by a background task, decoupling producers from
-/// I/O.
+/// Each instance appends formatted log entries to a caller-supplied
+/// <see cref="SafeFileHandle"/> via a background task, decoupling producers
+/// from I/O.
 /// </para>
 /// <para>
-/// The logger supports four severity levels (<see cref="Level"/>), automatic
-/// caller information (file, member, line), and timestamping. Entries are
-/// formatted in a fixed human-readable schema.
+/// Entries are formatted as
+/// <c>[TIMESTAMP] [LEVEL] File(Line) Member\nMessage\n</c>
+/// and appended to the file in write order.
 /// </para>
 /// <para>
 /// All public instance methods are thread-safe. Call <see cref="Complete"/>
-/// to close the logger and drain remaining entries.
+/// to stop accepting new entries and drain the queue.
 /// </para>
 /// </remarks>
-#pragma warning disable CA1001 // 具有可释放字段的类型应该是可释放的
-public sealed class Logger {
-#pragma warning restore CA1001 // 具有可释放字段的类型应该是可释放的
-  /// <summary>
-  /// Defines the severity levels for log entries.
-  /// </summary>
-#pragma warning disable CA1008 // 枚举应具有零值
-  public enum Level {
-    /// <summary>Debugging information, used only in DEBUG builds.</summary>
-    Debug = 1,
-    /// <summary>Informational messages.</summary>
-    Info = 2,
-    /// <summary>Warning conditions that are not errors.</summary>
-    Warning = 3,
-    /// <summary>Error conditions that require attention.</summary>
-    Error = 4
-  }
-#pragma warning restore CA1008 // 枚举应具有零值
+[StructLayout (LayoutKind.Explicit)]
+public sealed partial class Logger {
+  // Explicit layout keeps the consumer hot path (_head and _offset)
+  // on one cache line and the producer hot path (_tail) on another.
+
+  /// <summary>Next file offset to write at; advanced atomically.</summary>
+  [FieldOffset (0)] private long _offset;
+
+  /// <summary>Queue head index, written by consumer.</summary>
+  [FieldOffset (8)] private uint _head;
 
   /// <summary>
-  /// The maximum length (in bytes) of a formatted log entry.
+  /// Gets the capacity of the internal bounded queue
+  /// (number of buffered entries).
+  /// </summary>
+  [field: FieldOffset (12)] public uint Capacity { get; }
+
+  /// <summary>
+  /// The target file handle. Not owned; must outlive the logger.
+  /// </summary>
+  [FieldOffset (16)] private readonly SafeFileHandle _handle;
+
+  /// <summary>Ring buffer holding queued entries.</summary>
+  [FieldOffset (24)] private readonly Entry[] _data;
+
+  /// <summary>Per-slot sequence stamps for the lock-free queue.</summary>
+  [FieldOffset (32)] private readonly uint[] _stamp;
+
+  /// <summary>
+  /// Scratch buffer for formatting. Used only by the background writer.
+  /// </summary>
+  [FieldOffset (40)] private readonly byte[] _buffer;
+
+  /// <summary>
+  /// UTF-8 encoder for string-to-bytes conversion. Used only by the
+  /// background writer; not thread-safe.
+  /// </summary>
+  [FieldOffset (48)] private readonly System.Text.Encoder _encoder;
+
+  /// <summary>
+  /// Gets a <see cref="Task"/> that completes when the background writer has
+  /// drained the queue and exited.
+  /// </summary>
+  /// <remarks>
+  /// This task completes after <see cref="Complete"/> has been called and
+  /// the queue is empty. It faults only if an unexpected error escapes the
+  /// writer loop.
+  /// </remarks>
+  [field: FieldOffset (56)] public Task Completion { get; }
+
+  /// <summary>
+  /// Gets the maximum length (in bytes) of a formatted log entry.
   /// </summary>
   /// <value>
-  /// A value between 1 and 100, clamped during construction.
+  /// A value of at least 100, clamped during construction.
   /// </value>
-  public ushort MaxEntryLength { get; }
+  [field: FieldOffset (64)] public ushort MaxEntryLength { get; }
 
   /// <summary>
-  /// The full path to the log file used by this instance.
+  /// Set once by <see cref="Complete"/>; checked by producers and the
+  /// background writer to stop accepting and to exit after draining.
   /// </summary>
-  public string LogFilePath { get; }
+  [FieldOffset (66)] private bool _completing;
 
-  /// <summary>
-  /// The current capacity of the internal channel (number of buffered entries).
-  /// </summary>
-  public uint Size => this._channel.Capacity;
-
-  /// <summary>Internal channel for buffering log entries.</summary>
-  private readonly IChannel<LogEntry> _channel;
-
-  /// <summary> File writer instance responsible for I/O.</summary>
-  private readonly FileWriter _writer;
+  /// <summary>Queue tail index, written by the producers.</summary>
+  [FieldOffset (72)] private uint _tail;
 
   /// <summary>
   /// Initializes a new <see cref="Logger"/>.
   /// </summary>
-  /// <param name="log_file_path">
-  /// The full path to the log file.
-  /// The directory is created if it does not exist.
+  /// <param name="handle">
+  /// A writable file handle. The logger appends a header on construction and
+  /// appends all subsequent entries to the file. The handle is not owned by
+  /// the logger and must remain valid and writable until
+  /// <see cref="Completion"/> completes.
   /// </param>
   /// <param name="max_entry_length">
   /// The maximum length in bytes for a single formatted entry.
   /// If less than 100, it is raised to 100. Default is 4096 (4 KiB).
   /// </param>
-  /// <param name="size">
-  /// The capacity of the internal bounded channel.
-  /// If less than 4, it is raised to 4. Default is 128 entries.
+  /// <param name="capacity">
+  /// The capacity of the internal bounded queue. Default is 128 entries.
   /// </param>
-  /// <exception cref="ArgumentException">
-  /// Thrown if <paramref name="log_file_path"/> is <see langword="null"/>,
-  /// empty, or whitespace.
-  /// </exception>
   /// <remarks>
   /// <para>
-  /// The constructor creates the log file (appending a header with version
-  /// and environment information) and starts a background task that reads
-  /// entries from the channel and writes them to the file.
+  /// The constructor writes a header with version and environment
+  /// information to the file, initializes the queue, and starts a background
+  /// task that drains the queue into the file.
   /// </para>
   /// <para>
-  /// The background task continues until the channel is completed
-  /// (via <see cref="Complete"/>), then disposes the file writer.
+  /// The background task runs until <see cref="Complete"/> is called and the
+  /// queue is empty.
   /// </para>
   /// </remarks>
-  public Logger (string log_file_path,
-    ushort max_entry_length = 4096, ushort size = 128) {
-    ArgumentException.ThrowIfNullOrWhiteSpace (log_file_path);
-
+  /// <exception cref="ArgumentException">
+  /// <paramref name="capacity"/> is not a power of two, is less than 16,
+  /// or exceeds 2^30.
+  /// </exception>
+  /// <exception cref="ArgumentNullException">
+  /// <paramref name="handle"/> is <see langword="null"/>.
+  /// </exception>
+  /// <exception cref="ArgumentException">
+  /// <paramref name="handle"/> is invalid.
+  /// </exception>
+  /// <exception cref="ObjectDisposedException">
+  /// <paramref name="handle"/> has been closed.
+  /// </exception>
+  /// <exception cref="NotSupportedException">
+  /// In .NET 10 and earlier versions, the file does not support seeking
+  /// (pipe or socket).
+  /// </exception>
+  /// <exception cref="UnauthorizedAccessException">
+  /// <paramref name="handle"/> was not opened for writing.
+  /// </exception>
+  /// <exception cref="IOException">
+  /// An I/O error occurred.
+  /// </exception>
+  public Logger (
+    SafeFileHandle handle,
+    ushort max_entry_length = 4096,
+    ushort capacity = 128
+  ) {
     this.MaxEntryLength = Math.Max (max_entry_length, (ushort)100u);
-    this.LogFilePath = log_file_path;
-    this._channel = Channel.CreateBounded<LogEntry> (size);
-    this._writer = new FileWriter (log_file_path);
 
-    _ = Task.Run (async () => {
-      using var writer = this._writer;
-      byte[] buffer = new byte[this.MaxEntryLength];
-      var encoder = UTF8.GetEncoder ();
-      var reader = this._channel.Reader;
+    // Throw if invalid capacity
+    _ = new BoundedMpscQueue<Entry> (
+      capacity,
+      ref Unsafe.NullRef<Entry> (),
+      ref Unsafe.NullRef<uint> (),
+      ref this._head,
+      ref this._tail
+    );
+
+    this._handle = handle;
+    this._data = new Entry[capacity];
+    this._stamp = GC.AllocateUninitializedArray<uint> (capacity);
+    this._buffer = GC.AllocateUninitializedArray<byte> (this.MaxEntryLength);
+    this._encoder = UTF8.GetEncoder ();
+    this.Capacity = capacity;
+
+    var queue = new BoundedMpscQueue<Entry> (
+      capacity,
+      ref this._data[0],
+      ref this._stamp[0],
+      ref this._head,
+      ref this._tail
+    );
+
+    queue.Initialize ();
+
+    Span<byte> sp = stackalloc byte[1024];
+
+    sp[0] = Ascii.LF;
+    int len = 1;
+
+    var str = "Version:\n"u8;
+
+    str.CopyTo (sp[len..]);
+    len += str.Length;
+
+    str = "  Logger: "u8;
+    str.CopyTo (sp[len..]);
+    len += str.Length;
+
+    // write Logger version
+    // Cover: null branch - never happens in practice
+    // (the attribute is always generated by the SDK).
+    string? version = typeof (Logger).Assembly
+      .GetCustomAttribute<AssemblyInformationalVersionAttribute> ()?
+      .InformationalVersion;
+
+    len += UTF8.GetBytes (version, sp[len..]);
+
+    sp[len++] = Ascii.LF;
+
+    // OS version
+    str = "  OS    : "u8;
+    str.CopyTo (sp[len..]);
+    len += str.Length;
+
+    len += UTF8.GetBytes (Environment.OSVersion.VersionString, sp[len..]);
+
+    sp[len++] = Ascii.LF;
+
+    // .NET version
+    str = "  .NET  : "u8;
+    str.CopyTo (sp[len..]);
+    len += str.Length;
+
+    len += UTF8.GetBytes (Environment.Version.ToString (), sp[len..]);
+
+    sp[len++] = Ascii.LF;
+
+    long offset = RandomAccess.GetLength (handle);
+    RandomAccess.Write (this._handle, sp[..len], offset);
+    this._offset = offset + len;
+
+    this.Completion = Task.Factory.StartNew (
+      ProcessLogEntries,
+      this,
+      default,
+      TaskCreationOptions.RunContinuationsAsynchronously,
+      TaskScheduler.Default
+    );
+
+    static async Task ProcessLogEntries (object? obj) {
+      var self = (Logger)obj!;
 
       while (true) {
-        var entry = await reader.ReadAsync ()
-          .ConfigureAwait (false);
+        BoundedMpscQueue<Entry> q = new (
+          self.Capacity,
+          ref self._data[0],
+          ref self._stamp[0],
+          ref self._head,
+          ref self._tail
+        );
+        if (q.IsEmpty) {
+          if (Volatile.Read (ref self._completing)) {
+            return;
+          }
 
-        var span = buffer.AsSpan ();
-        Write (span, ref entry, encoder);
-
-        // Drain any additional entries that may have arrived while
-        // we were formatting the first one.
-        while (reader.TryRead (out var item)) {
-          Write (span, ref item, encoder);
+          await Task.Delay (1).ConfigureAwait (false);
+          continue;
         }
+
+        _ = q.TryDequeue (out var entry);
+
+        var span = self._buffer.AsSpan ();
+        int len = Parse (ref entry, span, self._encoder);
+        long offset = Interlocked.Add (ref self._offset, len) - len;
+        RandomAccess.Write (self._handle, span[..len], offset);
       }
-
-      void Write (Span<byte> span, ref LogEntry entry,
-        System.Text.Encoder encoder) {
-        uint len = Parse (ref entry, span, encoder);
-
-        writer.Write (span[..(int)len]);
-
-        if (entry.Level is Level.Error) {
-          writer.Flush ();
-        }
-      }
-    });
+    }
   }
 
   /// <summary>
-  /// Represents a single log entry with all contextual information.
+  /// Enqueues a log entry for asynchronous writing.
   /// </summary>
+  /// <param name="entry">The entry to log.</param>
   /// <remarks>
-  /// This struct is immutable after construction, except for the
-  /// <see cref="Timestamp"/> field which is mutated by the logger before
-  /// enqueuing. It is passed by reference internally to avoid copying.
+  /// <para>
+  /// If the logger is completing, the entry is dropped.
+  /// </para>
+  /// <para>
+  /// The entry is first offered to the bounded queue. If the queue is full,
+  /// the entry is formatted and written synchronously on the calling thread,
+  /// bypassing the queue. This avoids blocking producers when the buffer is
+  /// saturated, at the cost of doing I/O on the caller's thread.
+  /// </para>
   /// </remarks>
-  internal struct LogEntry {
-    /// <summary>The log message.</summary>
-    public readonly string Msg { get; init; }
-
-    /// <summary>The source file path from which the log was called.</summary>
-    public readonly string File { get; init; }
-
-    /// <summary>
-    /// The member name (method/property) from which the log was called.
-    /// </summary>
-    public readonly string Member { get; init; }
-
-    /// <summary>The timestamp when the log entry was created.</summary>
-    /// <remarks>
-    /// The buffer is filled by <see cref="TimeStamp.GetStamp"/>.
-    /// It is the only mutable field; set by the logger before enqueuing.
-    /// </remarks>
-    public TimeStamp.Buffer Timestamp;
-
-    /// <summary>The source line number.</summary>
-    public readonly int Line { get; init; }
-
-    /// <summary>The severity level of the log entry.</summary>
-    public readonly Level Level { get; init; }
-  }
-
-  /// <summary>
-  /// Internal method that enqueues a log entry into the channel.
-  /// </summary>
-  /// <param name="level">Severity level.</param>
-  /// <param name="msg">The message.</param>
-  /// <param name="file">Source file path.</param>
-  /// <param name="member">Member name.</param>
-  /// <param name="line">Line number.</param>
-  /// <remarks>
-  /// If the message is <see langword="null"/> or whitespace,
-  /// the call is ignored.
-  /// If the channel is not <see cref="Channel.Active"/>,
-  /// the entry is dropped.
-  /// The method attempts a synchronous write; if the channel is full,
-  /// it falls back to an asynchronous write (fire-and-forget).
-  /// </remarks>
-  public void Log (Level level, string msg,
-    string file, string member, int line) {
-    if (string.IsNullOrWhiteSpace (msg)
-      || this._channel.State is not Channel.Active) {
+  /// <exception cref="ArgumentException">
+  /// <see cref="SafeFileHandle"/> is invalid.
+  /// </exception>
+  /// <exception cref="ObjectDisposedException">
+  /// <see cref="SafeFileHandle"/> has been closed.
+  /// </exception>
+  /// <exception cref="UnauthorizedAccessException">
+  /// <see cref="SafeFileHandle"/> was not opened for writing.
+  /// </exception>
+  /// <exception cref="IOException">
+  /// An I/O error occurred.
+  /// </exception>
+  public void Log (Entry entry) {
+    if (Volatile.Read (ref this._completing)) {
       return;
     }
 
-    var entry = new LogEntry {
-      Msg = msg,
-      Level = level,
-      File = file,
-      Member = member,
-      Line = line
-    };
-
-    TimeStamp.GetStamp (entry.Timestamp);
-
-    var writer = this._channel.Writer;
-    if (writer.TryWrite (entry)) {
+    BoundedMpscQueue<Entry> q = new (
+      this.Capacity,
+      ref this._data[0],
+      ref this._stamp[0],
+      ref this._head,
+      ref this._tail
+    );
+    if (q.TryEnqueue (entry)) {
       return;
     }
 
-    _ = writer.WriteAsync (entry).AsTask ();
+    var span = this.MaxEntryLength <= 4096
+      ? stackalloc byte[this.MaxEntryLength]
+      : default;
+
+    byte[]? rented = null;
+    if (span.IsEmpty) {
+      rented = ArrayPool<byte>.Shared.Rent (this.MaxEntryLength);
+      span = rented.AsSpan (0, this.MaxEntryLength);
+    }
+
+    try {
+      int len = Parse (ref entry, span, UTF8.GetEncoder ());
+      long offset = Interlocked.Add (ref this._offset, len) - len;
+      RandomAccess.Write (this._handle, span[..len], offset);
+    }
+    finally {
+      if (rented is not null) {
+        ArrayPool<byte>.Shared.Return (rented);
+      }
+    }
   }
 
   /// <summary>
-  /// Closes the logger, preventing further log entries from being enqueued.
+  /// Signals that no more entries will be logged.
   /// </summary>
   /// <remarks>
-  /// After calling this method, all pending entries will still be written,
-  /// but new log calls will be ignored. The background task will complete
-  /// once the channel is drained.
+  /// After this call, <see cref="Log"/> drops new entries. Entries already
+  /// in the queue are still written before <see cref="Completion"/>
+  /// completes.
   /// </remarks>
-  public void Complete () => this._channel.Writer.Complete ();
+  public void Complete () => Volatile.Write (ref this._completing, true);
 
   /// <summary>
   /// Formats a log entry into a byte span according to a fixed schema.
@@ -246,15 +361,18 @@ public sealed class Logger {
   /// </returns>
   /// <remarks>
   /// The format is:
-  /// <c>[TIMESTAMP] [LEVEL] File(Line) --> Member\nMessage\n</c>
+  /// <c>[TIMESTAMP] [LEVEL] File(Line) Member\nMessage\n</c>
   /// If the output buffer is too small, the line is truncated with an
   /// ellipsis.
   /// </remarks>
-  private static uint Parse (ref LogEntry entry, Span<byte> span,
-    System.Text.Encoder encoder) {
+  private static int Parse (
+    ref Entry entry,
+    Span<byte> span,
+    System.Text.Encoder encoder
+  ) {
     ArgumentNullException.ThrowIfNull (encoder);
 
-    ((ReadOnlySpan<byte>)entry.Timestamp).CopyTo (span);
+    TimeStamp.Format (entry.Timestamp, ref span.GetPinnableReference ());
     int len = TimeStamp.Size;
     span[len++] = Ascii.Space;
 
@@ -274,7 +392,7 @@ public sealed class Logger {
 
     if (!AddString (span, entry.File, ref len, encoder)
       || !AddByte (span, Ascii.OpenParenthesis, ref len)) {
-      return (uint)len;
+      return len;
     }
 
     byte l = entry.Line.ToAscii (span[len..]);
@@ -283,22 +401,22 @@ public sealed class Logger {
     }
     else {
       AddDots (span, ref len);
-      return (uint)len;
+      return len;
     }
 
-    _ = AddBytes (span, ") --> "u8, ref len)
+    _ = AddBytes (span, ") "u8, ref len)
       && AddString (span, entry.Member, ref len, encoder)
       && AddByte (span, Ascii.LF, ref len)
       && AddString (span, entry.Msg, ref len, encoder)
       && AddByte (span, Ascii.LF, ref len);
 
-    return (uint)len;
+    return len;
 
     static void AddDots (Span<byte> span, ref int used) {
       var End = "...\n"u8;
       while (span.Length - used < End.Length) {
-        var status = System.Text.Rune.DecodeLastFromUtf8 (
-          span[..used], out _, out int count);
+        var status = System.Text.Rune.DecodeLastFromUtf8
+          (span[..used], out _, out int count);
 
         System.Diagnostics.Debug.Assert (status == OperationStatus.Done);
         used -= count;
@@ -338,8 +456,12 @@ public sealed class Logger {
       return false;
     }
 
-    static bool AddString (Span<byte> span, string str, ref int used,
-      System.Text.Encoder encoder) {
+    static bool AddString (
+      Span<byte> span,
+      string str,
+      ref int used,
+      System.Text.Encoder encoder
+    ) {
       if (str is { Length: > 0 } msg) {
         encoder.Convert (
           msg,
@@ -361,75 +483,5 @@ public sealed class Logger {
 
       return AddByte (span, Ascii.QuestionMark, ref used);
     }
-  }
-
-  /// <summary>
-  /// Wraps a <see cref="FileStream"/> to write log entries to the log file
-  /// and also writes a header with version and environment information on
-  /// creation.
-  /// </summary>
-  /// <remarks>
-  /// This class is instantiated once per logger instance and is disposed
-  /// by the background task when the logger is completed.
-  /// </remarks>
-  private sealed class FileWriter : IDisposable {
-    private readonly FileStream _stream;
-
-    /// <summary>
-    /// Initializes the file writer, creates the directory, opens the file in
-    /// append mode, and writes a header containing version and environment
-    /// information.
-    /// </summary>
-    /// <param name="file_path">The full path to the log file.</param>
-    public FileWriter (string file_path) {
-      string? dir = Path.GetDirectoryName (file_path);
-
-      System.Diagnostics.Debug.Assert (!string.IsNullOrEmpty (file_path));
-      _ = Directory.CreateDirectory (dir!);
-
-      var stream = new FileStream (file_path,
-        FileMode.Append,
-        FileAccess.Write,
-        FileShare.Read,
-        8 * 1024,
-        FileOptions.None);
-
-      stream.WriteByte (Ascii.LF);
-
-      // write Logger version
-      // Cover: null branch - never happens in practice
-      // (the attribute is always generated by the SDK).
-      string? version = typeof (Logger).Assembly
-        .GetCustomAttribute<AssemblyInformationalVersionAttribute> ()?
-        .InformationalVersion;
-
-      stream.Write ("Version:\n"u8);
-      stream.Write ("  Logger: "u8);
-      // Cover: See local init
-      stream.Write (version is null ? "Unknown"u8 : UTF8.GetBytes (version));
-      stream.WriteByte (Ascii.LF);
-
-      // OS version
-      stream.Write ("  OS    : "u8);
-      stream.Write (UTF8.GetBytes (Environment.OSVersion.VersionString));
-      stream.WriteByte (Ascii.LF);
-
-      // .NET version
-      stream.Write ("  .NET  : "u8);
-      stream.Write (UTF8.GetBytes (Environment.Version.ToString ()));
-      stream.WriteByte (Ascii.LF);
-
-      this._stream = stream;
-    }
-
-    /// <summary>Writes a byte span to the underlying file stream.</summary>
-    /// <param name="what">The bytes to write</param>
-    public void Write (ReadOnlySpan<byte> what) => this._stream.Write (what);
-
-    /// <summary>Flushes the underlying file stream.</summary>
-    public void Flush () => this._stream.Flush ();
-
-    /// <summary>Disposes the underlying file stream.</summary>
-    public void Dispose () => this._stream.Dispose ();
   }
 }
