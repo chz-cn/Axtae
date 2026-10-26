@@ -23,15 +23,15 @@ public partial class Logger {
   /// <summary>
   /// Represents a single log entry with all contextual information.
   /// </summary>
+  /// <param name="timestamp">
+  /// The timestamp when the log entry was created.
+  /// </param>
   /// <param name="msg">The log message.</param>
   /// <param name="file">
   /// The source file path from which the log was called.
   /// </param>
   /// <param name="member">
   /// The member name (method/property) from which the log was called.
-  /// </param>
-  /// <param name="timestamp">
-  /// The timestamp when the log entry was created.
   /// </param>
   /// <param name="line">The source line number.</param>
   /// <param name="level">The severity level of the log entry.</param>
@@ -40,13 +40,16 @@ public partial class Logger {
   /// internally to avoid copying.
   /// </remarks>
   public readonly struct Entry (
+    DateTime timestamp,
     string msg,
     string file,
     string member,
-    DateTime timestamp,
     int line,
     Level level
   ) : IEquatable<Entry> {
+    /// <summary>The timestamp when the log entry was created.</summary>
+    public readonly DateTime Timestamp = timestamp;
+
     /// <summary>The log message.</summary>
     public readonly string Msg = msg;
 
@@ -58,9 +61,6 @@ public partial class Logger {
     /// </summary>
     public readonly string Member = member;
 
-    /// <summary>The timestamp when the log entry was created.</summary>
-    public readonly DateTime Timestamp = timestamp;
-
     /// <summary>The source line number.</summary>
     public readonly int Line = line;
 
@@ -69,10 +69,10 @@ public partial class Logger {
 
     /// <inheritdoc />
     public bool Equals (Entry other)
-      => this.Msg == other.Msg
+      => this.Timestamp == other.Timestamp
+      && this.Msg == other.Msg
       && this.File == other.File
       && this.Member == other.Member
-      && this.Timestamp == other.Timestamp
       && this.Line == other.Line
       && this.Level == other.Level;
 
@@ -82,10 +82,10 @@ public partial class Logger {
 
     /// <inheritdoc />
     public override int GetHashCode () => HashCode.Combine (
+      this.Timestamp,
       this.Msg,
       this.File,
       this.Member,
-      this.Timestamp,
       this.Line,
       this.Level
     );
