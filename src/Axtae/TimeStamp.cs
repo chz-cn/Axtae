@@ -10,129 +10,138 @@ using Axtae.Codecs;
 namespace Axtae;
 
 /// <summary>
-/// Provides high-performance timestamp generation with caching for log
-/// entries.
+/// Provides high-performance UTC timestamp generation for log entries.
 /// </summary>
 /// <remarks>
-/// Timestamps are formatted as "YY-MM-DD HH:mm:ss.ff" (22 bytes) and cached
-/// for <see cref="TTL"/> milliseconds to avoid repeated formatting overhead.
+/// The most recent <see cref="DateTime"/> value is cached for up to
+/// <see cref="TTL"/> milliseconds to avoid repeated system time reads.
+/// Formatting is performed on every call and writes directly into the
+/// caller-supplied buffer.
 /// </remarks>
 public static class TimeStamp {
   /// <summary>
-  /// The time-to-live in milliseconds for cached timestamp values.
+  /// The time-to-live in milliseconds for the cached <see cref="DateTime"/>.
   /// </summary>
   /// <remarks>
-  /// A cached timestamp is reused for up to 10 milliseconds before being
-  /// refreshed.
+  /// The cached value is reused for up to 10 milliseconds before being
+  /// refreshed. Effective resolution is bounded by
+  /// <see cref="Environment.TickCount64"/>.
   /// </remarks>
   public const uint TTL = 10;
 
   /// <summary>
-  /// The size in bytes of the formatted timestamp buffer (22 bytes).
-  /// Format: "YY-MM-DD HH:mm:ss.ff" plus null terminator handling.
-  /// </summary>
-  public const byte Size = 22;
-
-  private static readonly Lock _lock = new ();
-
-  /// <summary>
-  /// Represents a fixed-size buffer for storing a formatted timestamp.
+  /// The size in bytes of a formatted timestamp.
   /// </summary>
   /// <remarks>
-  /// This struct uses <see cref="InlineArrayAttribute"/> with
-  /// <see cref="Size"/> elements.
-  /// It can be treated as a <see cref="Span{T}"/> of bytes for direct
-  /// manipulation.
+  /// Format: "YYYY-MM-DDTHH:mm:ss.ffZ" (23 bytes, no null terminator).
   /// </remarks>
-  [InlineArray (Size)]
-#pragma warning disable S1144 // Unused private types or members should be removed
-  internal struct Buffer { public byte V; }
-#pragma warning restore S1144 // Unused private types or members should be removed
+  public const byte Size = 23;
 
-#pragma warning disable S3459 // Unassigned members should be removed
-  private static Buffer _cache;
-#pragma warning restore S3459 // Unassigned members should be removed
+  private static long _ticks;
   private static long _stamp;
 
-  static TimeStamp () {
-    _cache[0] = Ascii.Two;
-    _cache[1] = Ascii.Zero;
-    _cache[4] = Ascii.HyphenMinus;
-    _cache[7] = Ascii.HyphenMinus;
-    _cache[10] = Ascii.Space;
-    _cache[13] = Ascii.Colon;
-    _cache[16] = Ascii.Colon;
-    _cache[19] = Ascii.Period;
+  /// <summary>
+  /// Gets the current UTC time, refreshing the cache at most once every
+  /// <see cref="TTL"/> milliseconds.
+  /// </summary>
+  /// <remarks>
+  /// This is a low-overhead alternative to <see cref="DateTime.UtcNow"/>
+  /// for call sites that can tolerate up to <see cref="TTL"/> milliseconds
+  /// of staleness. Use <see cref="DateTime.UtcNow"/> directly if an exact
+  /// reading is required.
+  /// </remarks>
+  public static DateTime UtcNow {
+    get {
+      long tick = Environment.TickCount64;
+      long stamp = Volatile.Read (ref _stamp);
+      DateTime now;
+      if (tick - stamp < TTL) {
+        // Acquire on _stamp makes the _ticks write visible.
+        now = new (_ticks, DateTimeKind.Utc);
+      }
+      else {
+        now = DateTime.UtcNow;
+        Volatile.Write (ref _ticks, now.Ticks);
+        Volatile.Write (ref _stamp, tick);
+      }
+
+      return now;
+    }
   }
 
   /// <summary>
-  /// Writes the current timestamp (formatted as "YY-MM-DD HH:mm:ss.ff") into
-  /// the provided span.
+  /// Formats the current UTC timestamp into <paramref name="span"/>.
   /// </summary>
   /// <param name="span">
-  /// The destination span that must be at least <see cref="Size"/> bytes in
-  /// length.
+  /// The destination buffer. Must be at least <see cref="Size"/> bytes;
+  /// otherwise the method returns without writing anything.
   /// </param>
   /// <remarks>
-  /// If the timestamp has been recently generated (within <see cref="TTL"/>
-  /// milliseconds),/ the cached value is returned. Otherwise, the cache is
-  /// refreshed with the current UTC time.
-  /// This method is thread-safe.
+  /// Format: "YYYY-MM-DDTHH:mm:ss.ffZ".
+  /// The underlying <see cref="DateTime"/> is obtained from
+  /// <see cref="UtcNow"/> and is refreshed at most once every
+  /// <see cref="TTL"/> milliseconds.
   /// </remarks>
   public static void GetStamp (Span<byte> span) {
-    if (span.Length < 22) {
+    if (span.Length < Size) {
       return;
     }
 
-    long now = Environment.TickCount64;
-    if (now - Volatile.Read (ref _stamp) < TTL) {
-      ((Span<byte>)_cache).CopyTo (span);
-      return;
-    }
-
-    lock (_lock) {
-      if (now - Volatile.Read (ref _stamp) < TTL) {
-        ((Span<byte>)_cache).CopyTo (span);
-        return;
-      }
-
-      UpdateCache ();
-
-      _stamp = Environment.TickCount64;
-      ((Span<byte>)_cache).CopyTo (span);
-    }
+    Format (UtcNow, ref span.GetPinnableReference ());
   }
 
-  private static void UpdateCache () {
-    var now = DateTime.UtcNow;
-    var LUT = Ascii.TwoDigit;
+  /// <summary>
+  /// Writes the formatted representation of <paramref name="time"/> into
+  /// <paramref name="start"/>.
+  /// </summary>
+  /// <param name="time">The value to format. Expected to be UTC.</param>
+  /// <param name="start">
+  /// A reference to the first byte of the destination buffer. Must point
+  /// to at least <see cref="Size"/> writable bytes.
+  /// </param>
+  public static void Format (DateTime time, scoped ref byte start) {
+    ref byte LUT = ref Unsafe.AsRef
+      (in Ascii.TwoDigit.GetPinnableReference ());
 
-    int year = (now.Year - 2000) * 2;
-    _cache[2] = LUT[year];
-    _cache[3] = LUT[year + 1];
+    var (century, year) = Math.DivRem (time.Year, 100);
 
-    int month = now.Month * 2;
-    _cache[5] = LUT[month];
-    _cache[6] = LUT[month + 1];
+    century *= 2;
+    start = Unsafe.Add (ref LUT, century);
+    Unsafe.Add (ref start, 1) = Unsafe.Add (ref LUT, century + 1);
 
-    int day = now.Day * 2;
-    _cache[8] = LUT[day];
-    _cache[9] = LUT[day + 1];
+    year *= 2;
+    Unsafe.Add (ref start, 2) = Unsafe.Add (ref LUT, year);
+    Unsafe.Add (ref start, 3) = Unsafe.Add (ref LUT, year + 1);
+    Unsafe.Add (ref start, 4) = Ascii.HyphenMinus;
 
-    int hour = now.Hour * 2;
-    _cache[11] = LUT[hour];
-    _cache[12] = LUT[hour + 1];
+    int month = time.Month * 2;
+    Unsafe.Add (ref start, 5) = Unsafe.Add (ref LUT, month);
+    Unsafe.Add (ref start, 6) = Unsafe.Add (ref LUT, month + 1);
+    Unsafe.Add (ref start, 7) = Ascii.HyphenMinus;
 
-    int minute = now.Minute * 2;
-    _cache[14] = LUT[minute];
-    _cache[15] = LUT[minute + 1];
+    int day = time.Day * 2;
+    Unsafe.Add (ref start, 8) = Unsafe.Add (ref LUT, day);
+    Unsafe.Add (ref start, 9) = Unsafe.Add (ref LUT, day + 1);
+    Unsafe.Add (ref start, 10) = Ascii.T;
 
-    int second = now.Second * 2;
-    _cache[17] = LUT[second];
-    _cache[18] = LUT[second + 1];
+    int hour = time.Hour * 2;
+    Unsafe.Add (ref start, 11) = Unsafe.Add (ref LUT, hour);
+    Unsafe.Add (ref start, 12) = Unsafe.Add (ref LUT, hour + 1);
+    Unsafe.Add (ref start, 13) = Ascii.Colon;
 
-    int millisecond = now.Millisecond / 10 * 2;
-    _cache[20] = LUT[millisecond];
-    _cache[21] = LUT[millisecond + 1];
+    int minute = time.Minute * 2;
+    Unsafe.Add (ref start, 14) = Unsafe.Add (ref LUT, minute);
+    Unsafe.Add (ref start, 15) = Unsafe.Add (ref LUT, minute + 1);
+    Unsafe.Add (ref start, 16) = Ascii.Colon;
+
+    int second = time.Second * 2;
+    Unsafe.Add (ref start, 17) = Unsafe.Add (ref LUT, second);
+    Unsafe.Add (ref start, 18) = Unsafe.Add (ref LUT, second + 1);
+    Unsafe.Add (ref start, 19) = Ascii.Period;
+
+    int millisecond = time.Millisecond / 10 * 2;
+    Unsafe.Add (ref start, 20) = Unsafe.Add (ref LUT, millisecond);
+    Unsafe.Add (ref start, 21) = Unsafe.Add (ref LUT, millisecond + 1);
+    Unsafe.Add (ref start, 22) = Ascii.Z;
   }
 }

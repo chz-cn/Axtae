@@ -15,7 +15,7 @@ public sealed class Logger : IIncrementalGenerator {
   /// The generated source for the logger extension methods that are exposed to
   /// consumers of the Axtae library.
   /// </summary>
-  public const string LoggerExtensionsSource = /*lang=C#*/"""
+  public const string LoggerExtensionsSource = /* lang=C# */"""
 
 using System.Runtime.CompilerServices;
 
@@ -40,12 +40,33 @@ internal static class LoggerExtensions {
     /// This method is a no-op in RELEASE builds due to the
     /// <see cref="System.Diagnostics.ConditionalAttribute"/>.
     /// </remarks>
+    /// <exception cref="System.ArgumentException">
+    /// <see cref="Microsoft.Win32.SafeHandles.SafeFileHandle"/> is invalid.
+    /// </exception>
+    /// <exception cref="System.ObjectDisposedException">
+    /// <see cref="Microsoft.Win32.SafeHandles.SafeFileHandle"/>
+    /// has been closed.
+    /// </exception>
+    /// <exception cref="System.UnauthorizedAccessException">
+    /// <see cref="Microsoft.Win32.SafeHandles.SafeFileHandle"/>
+    /// was not opened for writing.
+    /// </exception>
+    /// <exception cref="System.IO.IOException">
+    /// An I/O error occurred.
+    /// </exception>
     [System.Diagnostics.Conditional ("DEBUG")]
     public void Debug (string msg,
       [CallerFilePath] string file = "",
       [CallerMemberName] string member = "",
       [CallerLineNumber] int line = 0
-    ) => log.Log (Logger.Level.Debug, msg, file, member, line);
+    ) => log.Log (new (
+      TimeStamp.UtcNow,
+      msg,
+      file,
+      member,
+      line,
+      global::Axtae.Logger.Level.Debug
+    ));
 
     /// <summary>
     /// Logs an informational message.
@@ -53,16 +74,30 @@ internal static class LoggerExtensions {
     /// <param name="msg">The message to log.</param>
     /// <param name="file">
     /// The source file path, automatically filled by the compiler.
-    /// In DEBUG builds it is the actual path; otherwise a placeholder.
+    /// In DEBUG builds it is the actual path; otherwise empty.
     /// </param>
     /// <param name="member">
     /// The calling member name, automatically filled by the compiler.
-    /// In DEBUG builds it is the actual path; otherwise a placeholder.
+    /// In DEBUG builds it is the actual member; otherwise empty.
     /// </param>
     /// <param name="line">
     /// The line number, automatically filled by the compiler.
     /// In DEBUG builds it is the actual line; otherwise -1.
     /// </param>
+    /// <exception cref="System.ArgumentException">
+    /// <see cref="Microsoft.Win32.SafeHandles.SafeFileHandle"/> is invalid.
+    /// </exception>
+    /// <exception cref="System.ObjectDisposedException">
+    /// <see cref="Microsoft.Win32.SafeHandles.SafeFileHandle"/>
+    /// has been closed.
+    /// </exception>
+    /// <exception cref="System.UnauthorizedAccessException">
+    /// <see cref="Microsoft.Win32.SafeHandles.SafeFileHandle"/>
+    /// was not opened for writing.
+    /// </exception>
+    /// <exception cref="System.IO.IOException">
+    /// An I/O error occurred.
+    /// </exception>
     public void Info (string msg,
 #if DEBUG
       [CallerFilePath] string file = "",
@@ -73,7 +108,14 @@ internal static class LoggerExtensions {
       string member = "",
       int line = -1
 #endif
-    ) => log.Log (Logger.Level.Info, msg, file, member, line);
+    ) => log.Log (new (
+      TimeStamp.UtcNow,
+      msg,
+      file,
+      member,
+      line,
+      global::Axtae.Logger.Level.Info
+    ));
 
     /// <summary>
     /// Logs a warning message.
@@ -81,16 +123,30 @@ internal static class LoggerExtensions {
     /// <param name="msg">The message to log.</param>
     /// <param name="file">
     /// The source file path, automatically filled by the compiler.
-    /// In DEBUG builds it is the actual path; otherwise a placeholder.
+    /// In DEBUG builds it is the actual path; otherwise empty.
     /// </param>
     /// <param name="member">
     /// The calling member name, automatically filled by the compiler.
-    /// In DEBUG builds it is the actual path; otherwise a placeholder.
+    /// In DEBUG builds it is the actual member; otherwise empty.
     /// </param>
     /// <param name="line">
     /// The line number, automatically filled by the compiler.
     /// In DEBUG builds it is the actual line; otherwise -1.
     /// </param>
+    /// <exception cref="System.ArgumentException">
+    /// <see cref="Microsoft.Win32.SafeHandles.SafeFileHandle"/> is invalid.
+    /// </exception>
+    /// <exception cref="System.ObjectDisposedException">
+    /// <see cref="Microsoft.Win32.SafeHandles.SafeFileHandle"/>
+    /// has been closed.
+    /// </exception>
+    /// <exception cref="System.UnauthorizedAccessException">
+    /// <see cref="Microsoft.Win32.SafeHandles.SafeFileHandle"/>
+    /// was not opened for writing.
+    /// </exception>
+    /// <exception cref="System.IO.IOException">
+    /// An I/O error occurred.
+    /// </exception>
     public void Warning (string msg,
 #if DEBUG
       [CallerFilePath] string file = "",
@@ -101,24 +157,44 @@ internal static class LoggerExtensions {
       string member = "",
       int line = -1
 #endif
-    ) => log.Log (Logger.Level.Warning, msg, file, member, line);
+    ) => log.Log (new (
+      TimeStamp.UtcNow,
+      msg,
+      file,
+      member,
+      line,
+      global::Axtae.Logger.Level.Warning
+    ));
 
     /// <summary>
     /// Logs an error message.
     /// </summary>
     /// <param name="msg">The message to log.</param>
-    /// <param name="member">
-    /// The calling member name, automatically filled by the compiler.
-    /// It will not trim without DEBUG.
-    /// </param>
     /// <param name="file">
     /// The source file path, automatically filled by the compiler.
-    /// In DEBUG builds it is the actual path; otherwise a placeholder.
+    /// In DEBUG builds it is the actual path; otherwise "?".
     /// </param>
     /// <param name="line">
     /// The line number, automatically filled by the compiler.
     /// In DEBUG builds it is the actual line; otherwise -1.
     /// </param>
+    /// <param name="member">
+    /// The calling member name, automatically filled by the compiler.
+    /// </param>
+    /// <exception cref="System.ArgumentException">
+    /// <see cref="Microsoft.Win32.SafeHandles.SafeFileHandle"/> is invalid.
+    /// </exception>
+    /// <exception cref="System.ObjectDisposedException">
+    /// <see cref="Microsoft.Win32.SafeHandles.SafeFileHandle"/>
+    /// has been closed.
+    /// </exception>
+    /// <exception cref="System.UnauthorizedAccessException">
+    /// <see cref="Microsoft.Win32.SafeHandles.SafeFileHandle"/>
+    /// was not opened for writing.
+    /// </exception>
+    /// <exception cref="System.IO.IOException">
+    /// An I/O error occurred.
+    /// </exception>
     public void Error (string msg,
 #if DEBUG
       [CallerFilePath] string file = "",
@@ -128,7 +204,14 @@ internal static class LoggerExtensions {
       int line = -1,
 #endif
       [CallerMemberName] string member = ""
-    ) => log.Log (Logger.Level.Error, msg, file, member, line);
+    ) => log.Log (new (
+      TimeStamp.UtcNow,
+      msg,
+      file,
+      member,
+      line,
+      global::Axtae.Logger.Level.Error
+    ));
   }
 }
 
@@ -141,5 +224,6 @@ internal static class LoggerExtensions {
   /// <param name="context">The generator initialization context.</param>
   public void Initialize (IncrementalGeneratorInitializationContext context)
     => context.RegisterPostInitializationOutput (
-      ctx => ctx.AddSource ("LoggerExtensions.g.cs", LoggerExtensionsSource));
+      ctx => ctx.AddSource ("LoggerExtensions.g.cs", LoggerExtensionsSource)
+    );
 }

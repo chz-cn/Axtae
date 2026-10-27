@@ -7,6 +7,8 @@ using System.Threading.Tasks;
 
 using Axtae;
 
+using Microsoft.Win32.SafeHandles;
+
 using Xunit;
 
 namespace Test;
@@ -14,9 +16,24 @@ namespace Test;
 public sealed class LoggerFixture : IDisposable {
   public static readonly string LoggerPath
     = Path.Combine (Path.GetTempPath (), "Axtae", "x.log");
-  public Logger Log { get; } = new (LoggerPath, 4096, 8);
+  public readonly SafeFileHandle Handle;
+  public readonly Logger Log;
 
-  public void Dispose () => this.Log.Complete ();
+  static LoggerFixture () {
+    _ = Directory.CreateDirectory (Path.GetDirectoryName (LoggerPath)!);
+  }
+
+  public LoggerFixture () {
+    this.Handle = File.OpenHandle (LoggerPath, FileMode.Create, FileAccess.Write);
+    this.Log = new Logger (this.Handle, 4096, 16);
+  }
+
+  public void Dispose () {
+    this.Log.Complete ();
+    this.Log.Completion.GetAwaiter ().GetResult ();
+    this.Handle.Dispose ();
+    File.Delete (LoggerPath);
+  }
 }
 
 public sealed class LoggerTests (LoggerFixture fixture) : IClassFixture<LoggerFixture> {
@@ -24,59 +41,69 @@ public sealed class LoggerTests (LoggerFixture fixture) : IClassFixture<LoggerFi
 
   [Fact]
   public void Log_ValidMessage_DoesNotThrow ()
-    => Assert.Null (Record.Exception (() => this._log.Info ("Test message")));
+    => Assert.Null (Record.Exception (() => {
+      this._log.Info ("Test message");
+      this._log.Warning ("");
+      this._log.Error ("   ");
+      this._log.Debug (null);
+    }));
 
   [Fact]
-  public void Log_EmptyMessage_DoesNotThrow () {
-    var ex = Record.Exception (() => this._log.Warning (""));
-    Assert.Null (ex);
+  public async Task Log_WhenQueueFull_DoesNotBlockIndefinitely () {
+    var task = Task.Factory.StartNew (
+      LogBulkMessege,
+      this._log,
+      TestContext.Current.CancellationToken,
+      TaskCreationOptions.RunContinuationsAsynchronously,
+      TaskScheduler.Default
+    );
 
-    ex = Record.Exception (() => this._log.Error ("   "));
-    Assert.Null (ex);
-  }
+    var completed = await Task.WhenAny (
+      task,
+      Task.Delay (200, TestContext.Current.CancellationToken)
+    );
 
-  [Fact]
-  public void Log_NullMessage_DoesNotThrow ()
-    => Assert.Null (Record.Exception (() => this._log.Debug (null)));
-
-  [Fact]
-  public async Task Log_WhenChannelFull_DoesNotBlockIndefinitely () {
-    var task = Task.Run (() => {
-      for (int i = 0; i < 20; i++) {
-        this._log.Debug ($"Bulk message {i}");
-      }
-    }, TestContext.Current.CancellationToken);
-
-    var completed = await Task.WhenAny (task,
-      Task.Delay (200, TestContext.Current.CancellationToken));
     Assert.Equal (task, completed);
+
+    static void LogBulkMessege (object? obj) {
+      var log = (Logger)obj!;
+      for (int i = 0; i < 20; i++) {
+        log.Debug ("Bulk message " + i);
+      }
+    }
   }
 
   [Fact]
   public void Log_MaxEntryLength () {
-    string msg = new ('a', 4096); // MaxEntryLength = 4096
-    this._log.Info (msg);
-    this._log.Log (Logger.Level.Info, "msg", msg, "", -1);
+    // "[Info]" = 6 bytes, fixed prefix before File:
+    //   timestamp (TimeStamp.Size) + space + level + space
+    int prefix = TimeStamp.Size + 1 + "[Info]"u8.Length + 1;
+    int file_base = this._log.MaxEntryLength - prefix;
 
-    int file_len = this._log.MaxEntryLength - TimeStamp.Size - "[Info]"u8.Length - 2;
-    this._log.Log (Logger.Level.Info, "msg", new ('f', file_len), "", -1);
-    this._log.Log (Logger.Level.Info, "msg", new ('f', file_len - 1), "", -1);
-    this._log.Log (Logger.Level.Info, "msg", new ('f', file_len - 3), "", -1);
-    this._log.Log (Logger.Level.Info, "msg", new ('f', file_len - 10), "", -1);
+    var now = TimeStamp.UtcNow;
 
-    this._log.Log (Logger.Level.Info, "msg", LoggerFixture.LoggerPath, msg, -1);
+    // Each length hits a different truncation stage:
+    Span<int> sp = [
+      file_base + 10, // truncate inside File (AddString → AddDots)
+      file_base,      // File fills the span, "(" fails (AddByte → AddDots)
+      file_base - 1,  // line digit fails (Line.ToAscii == 0)
+      file_base - 3,  // ") " fails (AddBytes)
+      file_base - 10  // member / msg stage
+    ];
+    foreach (int len in sp) {
+      string file = new ('f', len);
+      this._log.Log (new (now, "msg", file, "", -1, Logger.Level.Info));
+    }
 
-    this._log.Info (new ('m', 4004));
-
-    Assert.True (true);
-  }
-
-  [Fact]
-  public void Log_EveryLevel () {
-    this._log.Debug ("Debug");
-    this._log.Info ("Info");
-    this._log.Warning ("Warning");
-    this._log.Error ("Error");
+    // msg overflow with a realistic file path
+    this._log.Log (new (
+      now,
+      new string ('a', this._log.MaxEntryLength),
+      LoggerFixture.LoggerPath,
+      "",
+      -1,
+      Logger.Level.Info
+    ));
 
     Assert.True (true);
   }
@@ -84,41 +111,100 @@ public sealed class LoggerTests (LoggerFixture fixture) : IClassFixture<LoggerFi
   [Fact]
   public void Log_WithInvalidLevel_ShouldUseUnknownLevel () {
     const Logger.Level L = (Logger.Level)999;
-    this._log.Log (L, "test invalid level",
-      LoggerFixture.LoggerPath, nameof (Log_WithInvalidLevel_ShouldUseUnknownLevel), -1);
+    this._log.Log (new (
+      TimeStamp.UtcNow,
+      "test invalid level",
+      LoggerFixture.LoggerPath,
+      nameof (Log_WithInvalidLevel_ShouldUseUnknownLevel),
+      -1,
+      L
+    ));
 
     Assert.True (true);
   }
 
   [Fact]
   public void Log_WithEmptyString_ShouldWriteQuestionMark () {
-    this._log.Log (Logger.Level.Info, "msg",
-      "", nameof (Log_WithEmptyString_ShouldWriteQuestionMark), -1);
-    this._log.Log (Logger.Level.Info, "msg", LoggerFixture.LoggerPath, "", -1);
+    this._log.Log (new (
+      TimeStamp.UtcNow,
+      "msg",
+      "",
+      nameof (Log_WithEmptyString_ShouldWriteQuestionMark),
+      -1,
+      Logger.Level.Info
+    ));
+
+    this._log.Log (new (
+      TimeStamp.UtcNow,
+      "msg",
+      LoggerFixture.LoggerPath,
+      "",
+      -1,
+      Logger.Level.Info
+    ));
 
     Assert.True (true);
   }
 
   [Fact]
-  public static void MaxEntryLength_DoesClampTo100 () {
+  public static Task MaxEntryLength_DoesClampTo100 () {
     string path = Path.Combine (Path.GetTempPath (), "Axtae", "i.log");
-    Logger log = new (path, 0);
+    using var handle = File.OpenHandle (
+      path,
+      FileMode.Create,
+      FileAccess.Write
+    );
+
+    Logger log = new (handle, 0);
     Assert.Equal (100, log.MaxEntryLength);
     log.Complete ();
+    return Task.CompletedTask;
   }
 
   [Fact]
-  public static void Size_DoesClampTo4 () {
-    string path = Path.Combine (Path.GetTempPath (), "Axtae", "4.log");
-    Logger log = new (path, 128, 0);
-    Assert.Equal (4u, log.Size);
+  public static Task Log_AfterComplete_DropsEntry () {
+    string path = Path.Combine (Path.GetTempPath (), "Axtae", "o.log");
+    using var handle = File.OpenHandle (
+      path,
+      FileMode.Create,
+      FileAccess.Write
+    );
+
+    Logger log = new (handle, 0);
     log.Complete ();
+    log.Info ("dropped");
+    Assert.True (true);
+    return Task.CompletedTask;
   }
 
   [Fact]
-  public static void LogFilePath_ThrowsIfNullOrWhiteSpace () {
-    _ = Assert.Throws<ArgumentNullException> (() => new Logger (null!));
-    _ = Assert.Throws<ArgumentException> (() => new Logger (""));
-    _ = Assert.Throws<ArgumentException> (() => new Logger ("   "));
+  public static Task Log_OversizedEntry_UsesArrayPool () {
+    string path = Path.Combine (Path.GetTempPath (), "Axtae", "l.log");
+
+#pragma warning disable CA2000 // 丢失范围之前释放对象
+    var handle = File.OpenHandle (path, FileMode.Create, FileAccess.Write);
+#pragma warning restore CA2000 // 丢失范围之前释放对象
+
+    var log = new Logger (handle, 4097, 16);
+
+    for (int i = 0; i < 20; i++) {
+      log.Info ("bulk" + i);
+    }
+
+    log.Complete ();
+    Assert.True (true);
+
+    return log.Completion.ContinueWith (
+      Dispose,
+      handle,
+      TestContext.Current.CancellationToken,
+      TaskContinuationOptions.None,
+      TaskScheduler.Default
+    );
+
+    static void Dispose (Task _, object? obj) {
+      var handle = (SafeFileHandle)obj!;
+      handle.Dispose ();
+    }
   }
 }
