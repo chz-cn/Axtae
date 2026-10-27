@@ -2,7 +2,6 @@
 // SPDX-License-Identifier: Apache-2.0
 
 using System;
-using System.Numerics;
 
 using Axtae;
 
@@ -11,72 +10,55 @@ using Xunit;
 namespace Test;
 
 public sealed class NumericTests {
-  [Fact]
-  public void ZeroIfLessThan_EmptySpan_DoesNothing () {
-    Span<float> data = [];
-    Numeric.ZeroIfLessThan (data, 0.5f);
-    Assert.True (data is []);
-  }
-
-  [Fact]
-  public void ZeroIfLessThan_VectorizedPath_Works () {
-    int vec_size = Vector<float>.Count;
-    int length = (vec_size * 2) + 3;
-    Span<float> data = stackalloc float[length];
-
-    for (int i = 0; i < length; i++) {
-      data[i] = i % 3 is 0 ? 0.5f : 2.0f;
-    }
-
-    const float Threshold = 1.0f;
-    Numeric.ZeroIfLessThan (data, Threshold);
-
-    for (int i = 0; i < length; i++) {
-      if (i % 3 is 0) {
-        Assert.Equal (0f, data[i]);
-      }
-      else {
-        Assert.Equal (2.0f, data[i]);
-      }
-    }
-  }
-
-  [Fact]
-  public void ZeroIfLessThanAligned_LengthMultipleOfVectorSize_Works () {
-    int vec_size = Vector<float>.Count;
-    int len = vec_size * 3;
-    Span<float> data = stackalloc float[len];
-    for (int i = 0; i < len; i++) {
-      data[i] = (i % 2 is 0) ? 2.0f : -0.5f;
-    }
-
-    Numeric.ZeroIfLessThanAligned (data, 0.0f);
-
-    for (int i = 0; i < len; i++) {
-      if (i % 2 is 0) {
-        Assert.Equal (2.0f, data[i]);
-      }
-      else {
-        Assert.Equal (0f, data[i]);
-      }
-    }
+  [Theory]
+  [InlineData (0u, 0u, 0u, 0u)]
+  [InlineData (1u, 1u, 0u, 1u)]
+  [InlineData (0x10000u, 0x10000u, 1u, 0u)]
+  [InlineData (0x80000000u, 2u, 1u, 0u)]
+  [InlineData (0xFFFFFFFFu, 0xFFFFFFFFu, 0xFFFFFFFEu, 1u)]
+  public void Mul_UInt_ReturnsHighAndLow (
+    uint a, uint b, uint expected_high, uint expected_low) {
+    (uint high, uint low) = Numeric.Mul (a, b);
+    Assert.Equal (expected_high, high);
+    Assert.Equal (expected_low, low);
   }
 
   [Theory]
-  [InlineData (0u, 0u, 0u)]
-  [InlineData (1u, 1u, 0u)]
-  [InlineData (0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFE)]
-  public void MulHi_UInt_ReturnsHigh32Bits (uint a, uint b, uint expected) {
-    uint result = Numeric.MulHi (a, b);
-    Assert.Equal (expected, result);
+  [InlineData (123456789u, 987654321u)]
+  [InlineData (0xDEADBEEFu, 0xCAFEBABEu)]
+  [InlineData (0xFFFFFFFFu, 0xFFFFFFFFu)]
+  public void Mul_UInt_MatchesBigMul (uint a, uint b) {
+    ulong product = Math.BigMul (a, b);
+    (uint high, uint low) = Numeric.Mul (a, b);
+    Assert.Equal ((uint)(product >>> 32), high);
+    Assert.Equal ((uint)product, low);
   }
 
   [Theory]
-  [InlineData (0ul, 0ul, 0ul)]
-  [InlineData (1ul, 1ul, 0ul)]
-  [InlineData (0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFF, 0xFFFFFFFFFFFFFFFE)]
-  public void MulHi_ULong_ReturnsHigh64Bits (ulong a, ulong b, ulong expected) {
-    ulong result = Numeric.MulHi (a, b);
-    Assert.Equal (expected, result);
+  [InlineData (0ul, 0ul, 0ul, 0ul)]
+  [InlineData (1ul, 1ul, 0ul, 1ul)]
+  [InlineData (0x100000000ul, 0x100000000ul, 1ul, 0ul)]
+  [InlineData (0x123456789ABCDEF0ul, 0x10ul, 1ul, 0x23456789ABCDEF00ul)]
+  [InlineData (ulong.MaxValue, ulong.MaxValue, ulong.MaxValue - 1, 1ul)]
+  public void Mul_ULong_ReturnsHighAndLow (
+    ulong a,
+    ulong b,
+    ulong expected_high,
+    ulong expected_low
+  ) {
+    (ulong high, ulong low) = Numeric.Mul (a, b);
+    Assert.Equal (expected_high, high);
+    Assert.Equal (expected_low, low);
+  }
+
+  [Theory]
+  [InlineData (123456789ul, 987654321ul)]
+  [InlineData (0xDEADBEEFDEADBEEFul, 0xCAFEBABECAFEBABEul)]
+  [InlineData (ulong.MaxValue, ulong.MaxValue)]
+  public void Mul_ULong_MatchesBigMul (ulong a, ulong b) {
+    ulong expected_high = Math.BigMul (a, b, out ulong expected_low);
+    (ulong high, ulong low) = Numeric.Mul (a, b);
+    Assert.Equal (expected_high, high);
+    Assert.Equal (expected_low, low);
   }
 }
