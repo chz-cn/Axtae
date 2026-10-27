@@ -237,7 +237,7 @@ dotnet_analyzer_diagnostic.severity = warning
 # we need underline
 dotnet_diagnostic.CA1707.severity = none
 
-# CA1051: 不要声明可见实例字段
+# CA1051: Do not declare visible instance fields
 dotnet_diagnostic.CA1051.severity = none
 
 
@@ -259,23 +259,5 @@ dotnet_diagnostic.RCS1003.severity = none
 # Error for `= 0`/`= false`
 dotnet_diagnostic.RCS1129.severity = none
 
-[src/Axtae.Analyzers/Analyzers/*.cs]
-# Only CodeFix use it
-dotnet_diagnostic.RS1038.severity = none
-
-[src/Axtae.Generator/Logger.cs]
-dotnet_diagnostic.RS1041.severity = none
-
-[src/Axtae/Random/*.cs]
-# Random did't need Equals
-dotnet_diagnostic.CA1815.severity = none
-
-[test/**/*.cs]
-# Bump with xUint
-dotnet_diagnostic.CA2007.severity = none
-
-# No xml for test
-dotnet_diagnostic.CS1591.severity = none
-
-# All public for test
-dotnet_diagnostic.CA1515.severity = none
+# RCS1089: Use --/++ operator instead of assignment
+dotnet_diagnostic.RCS1089.severity = none

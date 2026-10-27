@@ -48,34 +48,6 @@ public interface IRandom {
   const ulong MixConst2 = 0x94D049BB133111EB;
 
   /// <summary>
-  /// Rotate amount used in the first stage of the mixing function.
-  /// </summary>
-  const int RotateS0 = 24;
-
-  /// <summary>
-  /// Rotate amount for state element 0 in Xoshiro / Xoroshiro generators
-  /// (first stage of mixing).
-  /// </summary>
-  const int RotateS1 = 37;
-
-  /// <summary>
-  /// Rotate amount for state element 3 in Xoshiro256 generators
-  /// (third stage of mixing).
-  /// </summary>
-  const int RotateS3 = 45;
-
-  /// <summary>
-  /// Rotate amount for state element 7 in Xoshiro512 generators
-  /// (final stage of mixing).
-  /// </summary>
-  const int RotateS7 = 29;
-
-  /// <summary>
-  /// Left shift amount for state element 1 in Xoshiro/Xoroshiro generators.
-  /// </summary>
-  const int ShiftS1 = 17;
-
-  /// <summary>
   /// Number of bits to shift right when converting a 64-bit value to a
   /// <see cref="double"/> in the range [0, 1).
   /// </summary>
@@ -171,7 +143,7 @@ public interface IRandom<TRandom> : IRandom
   /// generating any random numbers.
   /// </para>
   /// </remarks>
-  static virtual ulong NextUInt64 (ref TRandom rand, ulong max) {
+  static virtual ulong NextUInt64 (scoped ref TRandom rand, ulong max) {
     if (max is 0) {
       return 0;
     }
@@ -199,7 +171,11 @@ public interface IRandom<TRandom> : IRandom
   /// If <paramref name="max"/> is less than <paramref name="min"/>,
   /// the method returns 0 without generating random  numbers.
   /// </remarks>
-  static virtual ulong NextUInt64 (ref TRandom rand, ulong min, ulong max) {
+  static virtual ulong NextUInt64 (
+    scoped ref TRandom rand,
+    ulong min,
+    ulong max
+  ) {
     if (min >= max) {
       return 0;
     }
@@ -219,7 +195,7 @@ public interface IRandom<TRandom> : IRandom
   /// then multiplying by <see cref="IRandom.DoubleScale"/>.
   /// This yields a uniform distribution with 53 bits of precision.
   /// </remarks>
-  static virtual double NextDouble (ref TRandom rand)
+  static virtual double NextDouble (scoped ref TRandom rand)
     => (rand.NextUInt64 () >>> DoubleShift) * DoubleScale;
 
   /// <summary>
@@ -233,7 +209,7 @@ public interface IRandom<TRandom> : IRandom
   /// all possible <see cref="double"/> values in that range, though the
   /// granularity is limited by the representation of <see cref="double"/>.
   /// </remarks>
-  static virtual double NextDoubleInclusive (ref TRandom rand)
+  static virtual double NextDoubleInclusive (scoped ref TRandom rand)
     => rand.NextUInt64 () / (double)ulong.MaxValue;
 
   /// <summary>
@@ -244,7 +220,10 @@ public interface IRandom<TRandom> : IRandom
   /// <param name="buffer">
   /// The span to fill. If empty, the method returns immediately.
   /// </param>
-  static virtual void Fill (ref TRandom rand, scoped Span<ulong> buffer) {
+  static virtual void Fill (
+    scoped ref TRandom rand,
+    scoped Span<ulong> buffer
+  ) {
     if (buffer.IsEmpty) {
       return;
     }
@@ -269,9 +248,10 @@ public interface IRandom<TRandom> : IRandom
   /// then copies any remaining bytes from an extra random value
   /// using a <c>switch</c> with fallthrough <c>goto case</c> statements.
   /// </remarks>
-  static virtual void Fill<TElement> (ref TRandom rand,
-    scoped Span<TElement> buffer)
-    where TElement : unmanaged {
+  static virtual void Fill<TElement> (
+    scoped ref TRandom rand,
+    scoped Span<TElement> buffer
+  ) where TElement : unmanaged {
     if (buffer.IsEmpty) {
       return;
     }

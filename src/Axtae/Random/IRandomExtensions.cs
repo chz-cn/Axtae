@@ -13,17 +13,16 @@ namespace Axtae.Random;
 /// <remarks>
 /// These methods are available for both <see langword="struct"/> and
 /// <see langword="class"/> implementations of <see cref="IRandom"/> via the
-/// two <see langword="extension"/> blocks.
+/// <see langword="extension"/> blocks.
 /// The overloads are provided to avoid boxing of struct instances.
 /// </remarks>
-#pragma warning disable CA1034 // 嵌套类型应不可见
 public static class IRandomExtensions {
   /// <summary>
   /// Provides extension methods for <see langword="struct"/> implementations
   /// </summary>
   /// <typeparam name="TRandom">The random number generators type.</typeparam>
   /// <param name="rand">The random number generator.</param>
-  extension<TRandom> (ref TRandom rand)
+  extension<TRandom> (scoped ref TRandom rand)
     where TRandom : struct, IRandom<TRandom>, allows ref struct {
     /// <summary>
     /// Returns a random 64-bit unsigned integer in the range
@@ -54,7 +53,8 @@ public static class IRandomExtensions {
     /// </summary>
     /// <param name="min">The inclusive lower bound.</param>
     /// <param name="max">
-    /// The exclusive upper bound. Must be greater than <paramref name="min"/>.
+    /// The exclusive upper bound.
+    /// Must be greater than <paramref name="min"/>.
     /// </param>
     /// <returns> A random <see cref="ulong"/> by Generated.</returns>
     /// <remarks>
@@ -117,4 +117,3 @@ public static class IRandomExtensions {
       where TElement : unmanaged => TRandom.Fill (ref rand, buffer);
   }
 }
-#pragma warning restore CA1034 // 嵌套类型应不可见

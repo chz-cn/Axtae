@@ -17,8 +17,10 @@ namespace Axtae.Random;
 /// <para>
 /// Philox is a counter-based PRNG that uses a cryptographic permutation
 /// function.
-/// It is particularly well-suited for parallel applications because it has no
-/// mutable state other than the counter and key.
+/// Its core state consists only of the counter and key, which makes the
+/// underlying permutation well-suited for parallel and reproducible use.
+/// This implementation additionally caches one block of output in a small
+/// internal buffer, so the struct itself is mutable between calls.
 /// </para>
 /// <para>
 /// This implementation uses 10 rounds and produces 32-bit values internally,
@@ -26,14 +28,14 @@ namespace Axtae.Random;
 /// </para>
 /// </remarks>
 public struct Philox4x32 : IRandom<Philox4x32> {
-  /// <summary>Round constant 0 for the Philox4x32 permutation.</summary>
-  public const uint Round0 = 0xD2511F53;
-  /// <summary>Round constant 1 for the Philox4x32 permutation.</summary>
-  public const uint Round1 = 0xCD9E8D57;
-  /// <summary>Round constant 2 for the Philox4x32 permutation.</summary>
-  public const uint Round2 = 0x9E3779B9;
-  /// <summary>Round constant 3 for the Philox4x32 permutation.</summary>
-  public const uint Round3 = 0x9D9C4F0F;
+  /// <summary>Philox4x32 multiplier constant M0.</summary>
+  public const uint M0 = 0xD2511F53;
+  /// <summary>Philox4x32 multiplier constant M1.</summary>
+  public const uint M1 = 0xCD9E8D57;
+  /// <summary>Philox4x32 Weyl key increment W0.</summary>
+  public const uint W0 = 0x9E3779B9;
+  /// <summary>Philox4x32 Weyl key increment W1.</summary>
+  public const uint W1 = 0xBB67AE85;
 
   /// <inheritdoc/>
   public static Philox4x32 Create () => new (SplitMix64.NewSeed ());
@@ -86,7 +88,9 @@ public struct Philox4x32 : IRandom<Philox4x32> {
       this._index = 0;
     }
 
-    return this._buffer[this._index++];
+    int index = this._index;
+    this._index = index + 1;
+    return this._buffer[index];
   }
 
   /// <inheritdoc/>
@@ -104,8 +108,8 @@ public struct Philox4x32 : IRandom<Philox4x32> {
   /// <param name="c2">New counter value 2.</param>
   /// <param name="c3">New counter value 3.</param>
   /// <remarks>
-  /// This allows deterministic positioning within the Philox stream.
-  /// The internal buffer is invalidated and will be refilled on the next read.
+  /// Deterministically positions the Philox stream.
+  /// The internal buffer is invalidated and refilled on the next read.
   /// </remarks>
   public void JumpTo (uint c0, uint c1, uint c2, uint c3) {
     (this._ctr0, this._ctr1, this._ctr2, this._ctr3) = (c0, c1, c2, c3);
@@ -116,26 +120,19 @@ public struct Philox4x32 : IRandom<Philox4x32> {
     var (c0, c1, c2, c3) = (this._ctr0, this._ctr1, this._ctr2, this._ctr3);
     var (k0, k1) = (this._key0, this._key1);
 
-    for (nuint round = 0; round < 10; round++) {
-      uint r0 = Round0 + k0;
-      uint r1 = Round1 + k1;
-      uint r2 = Round2 + k0;
-      uint r3 = Round3 + k1;
+    for (int round = 0; round < 10; round += 1) {
+      var (hi0, lo0) = Mul (c0, M0);
+      var (hi1, lo1) = Mul (c2, M1);
 
-      uint x0 = MulHi (c0, Round0) + c1;
-      uint x1 = MulHi (c1, Round1) + c2;
-      uint x2 = MulHi (c2, Round2) + c3;
-      uint x3 = MulHi (c3, Round3) + c0;
+      uint n0 = hi1 ^ c1 ^ k0;
+      uint n2 = hi0 ^ c3 ^ k1;
 
-      x0 ^= r0;
-      x1 ^= r1;
-      x2 ^= r2;
-      x3 ^= r3;
+      (c0, c1, c2, c3) = (n0, lo1, n2, lo0);
 
-      (c0, c1, c2, c3) = (x0, x1, x2, x3);
-
-      k0 += Round2;
-      k1 += Round2;
+      unchecked {
+        k0 += W0;
+        k1 += W1;
+      }
     }
 
     this._buffer[0] = c0;
@@ -143,20 +140,25 @@ public struct Philox4x32 : IRandom<Philox4x32> {
     this._buffer[2] = c2;
     this._buffer[3] = c3;
 
-    this._ctr0++;
-    if (this._ctr0 is 0) {
-      this._ctr1++;
-      if (this._ctr1 is 0) {
-        this._ctr2++;
-        if (this._ctr2 is 0) {
-          this._ctr3++;
+    unchecked {
+      this._ctr0 += 1;
+      if (this._ctr0 is 0) {
+        this._ctr1 += 1;
+        if (this._ctr1 is 0) {
+          this._ctr2 += 1;
+          if (this._ctr2 is 0) {
+            this._ctr3 += 1;
+          }
         }
       }
     }
   }
 
   /// <inheritdoc/>
-  public static void Fill (ref Philox4x32 rand, scoped Span<ulong> buffer) {
+  public static void Fill (
+    scoped ref Philox4x32 rand,
+    scoped Span<ulong> buffer
+  ) {
     if (buffer.IsEmpty) {
       return;
     }
@@ -174,7 +176,10 @@ public struct Philox4x32 : IRandom<Philox4x32> {
   /// <param name="buffer">
   /// The span to fill. If empty, the method returns immediately.
   /// </param>
-  public static void Fill (ref Philox4x32 rand, scoped Span<uint> buffer) {
+  public static void Fill (
+    scoped ref Philox4x32 rand,
+    scoped Span<uint> buffer
+  ) {
     if (buffer.IsEmpty) {
       return;
     }
@@ -185,9 +190,10 @@ public struct Philox4x32 : IRandom<Philox4x32> {
   }
 
   /// <inheritdoc/>
-  public static void Fill<TElement> (ref Philox4x32 rand,
-    scoped Span<TElement> buffer)
-    where TElement : unmanaged {
+  public static void Fill<TElement> (
+    scoped ref Philox4x32 rand,
+    scoped Span<TElement> buffer
+  ) where TElement : unmanaged {
     if (buffer.IsEmpty) {
       return;
     }
@@ -229,14 +235,14 @@ public struct Philox4x32 : IRandom<Philox4x32> {
 /// </para>
 /// </remarks>
 public struct Philox4x64 : IRandom<Philox4x64> {
-  /// <summary>Round constant 0 for the Philox4x64 permutation.</summary>
-  public const ulong Round0 = 0xD2E7470EE14C6C93;
-  /// <summary>Round constant 1 for the Philox4x64 permutation.</summary>
-  public const ulong Round1 = 0xCA5A8263951AF3E3;
-  /// <summary>Round constant 2 for the Philox4x64 permutation.</summary>
-  public const ulong Round2 = 0x9E3779B97F4A7C15;
-  /// <summary>Round constant 3 for the Philox4x64 permutation.</summary>
-  public const ulong Round3 = 0x8F98C623BACD3F9F;
+  /// <summary>Philox4x64 multiplier constant M0.</summary>
+  public const ulong M0 = 0xD2E7470EE14C6C93;
+  /// <summary>Philox4x64 multiplier constant M1.</summary>
+  public const ulong M1 = 0xCA5A826395121157;
+  /// <summary>Philox4x64 Weyl key increment W0.</summary>
+  public const ulong W0 = 0x9E3779B97F4A7C15;
+  /// <summary>Philox4x64 Weyl key increment W1.</summary>
+  public const ulong W1 = 0xBB67AE8584CAA73B;
 
   /// <inheritdoc/>
   public static Philox4x64 Create () => new (SplitMix64.NewSeed ());
@@ -273,8 +279,14 @@ public struct Philox4x64 : IRandom<Philox4x64> {
   /// <param name="c3">Counter value 3.</param>
   /// <param name="k0">Key value 0.</param>
   /// <param name="k1">Key value 1.</param>
-  public Philox4x64 (ulong c0, ulong c1, ulong c2, ulong c3,
-    ulong k0, ulong k1) {
+  public Philox4x64 (
+    ulong c0,
+    ulong c1,
+    ulong c2,
+    ulong c3,
+    ulong k0,
+    ulong k1
+  ) {
     (this._ctr0, this._ctr1, this._ctr2, this._ctr3) = (c0, c1, c2, c3);
     (this._key0, this._key1) = (k0, k1);
   }
@@ -286,7 +298,9 @@ public struct Philox4x64 : IRandom<Philox4x64> {
       this._index = 0;
     }
 
-    return this._buffer[this._index++];
+    int index = this._index;
+    this._index = index + 1;
+    return this._buffer[index];
   }
 
   /// <summary>
@@ -309,26 +323,19 @@ public struct Philox4x64 : IRandom<Philox4x64> {
     var (c0, c1, c2, c3) = (this._ctr0, this._ctr1, this._ctr2, this._ctr3);
     var (k0, k1) = (this._key0, this._key1);
 
-    for (nuint round = 0; round < 10; round++) {
-      ulong r0 = Round0 + k0;
-      ulong r1 = Round1 + k1;
-      ulong r2 = Round2 + k0;
-      ulong r3 = Round3 + k1;
+    for (int round = 0; round < 10; round += 1) {
+      var (hi0, lo0) = Mul (c0, M0);
+      var (hi1, lo1) = Mul (c2, M1);
 
-      ulong x0 = MulHi (c0, Round0) + c1;
-      ulong x1 = MulHi (c1, Round1) + c2;
-      ulong x2 = MulHi (c2, Round2) + c3;
-      ulong x3 = MulHi (c3, Round3) + c0;
+      ulong n0 = hi1 ^ c1 ^ k0;
+      ulong n2 = hi0 ^ c3 ^ k1;
 
-      x0 ^= r0;
-      x1 ^= r1;
-      x2 ^= r2;
-      x3 ^= r3;
+      (c0, c1, c2, c3) = (n0, lo1, n2, lo0);
 
-      (c0, c1, c2, c3) = (x0, x1, x2, x3);
-
-      k0 += Round2;
-      k1 += Round2;
+      unchecked {
+        k0 += W0;
+        k1 += W1;
+      }
     }
 
     this._buffer[0] = c0;
@@ -336,13 +343,15 @@ public struct Philox4x64 : IRandom<Philox4x64> {
     this._buffer[2] = c2;
     this._buffer[3] = c3;
 
-    this._ctr0++;
-    if (this._ctr0 is 0) {
-      this._ctr1++;
-      if (this._ctr1 is 0) {
-        this._ctr2++;
-        if (this._ctr2 is 0) {
-          this._ctr3++;
+    unchecked {
+      this._ctr0 += 1;
+      if (this._ctr0 is 0) {
+        this._ctr1 += 1;
+        if (this._ctr1 is 0) {
+          this._ctr2 += 1;
+          if (this._ctr2 is 0) {
+            this._ctr3 += 1;
+          }
         }
       }
     }

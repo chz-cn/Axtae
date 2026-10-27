@@ -22,6 +22,15 @@ namespace Axtae.Random;
 /// </para>
 /// </remarks>
 public struct Xoroshiro128Plus : IRandom<Xoroshiro128Plus> {
+  /// <summary>Left shift applied to s1 during the state update.</summary>
+  public const int ShiftS1 = 16;
+
+  /// <summary>Left rotation applied to s0 during the state update.</summary>
+  public const int RotateS0 = 24;
+
+  /// <summary>Left rotation applied to s1 during the state update.</summary>
+  public const int RotateS1 = 37;
+
   /// <inheritdoc/>
   public static Xoroshiro128Plus Create () => new (SplitMix64.NewSeed ());
 
@@ -61,7 +70,7 @@ public struct Xoroshiro128Plus : IRandom<Xoroshiro128Plus> {
   public ulong NextUInt64 () {
     var (s0, s1) = (this._s0, this._s1);
 
-    ulong result = s0 + s1;
+    ulong result = unchecked(s0 + s1);
     s1 ^= s0;
 
     this._s0 = BitOperations.RotateLeft (s0, RotateS0) ^ s1 ^ (s1 << ShiftS1);
@@ -84,6 +93,18 @@ public struct Xoroshiro128Plus : IRandom<Xoroshiro128Plus> {
 /// </para>
 /// </remarks>
 public struct Xoroshiro128PlusPlus : IRandom<Xoroshiro128PlusPlus> {
+  /// <summary>Left shift applied to s1 during the state update.</summary>
+  public const int ShiftS1 = 21;
+
+  /// <summary>Left rotation applied to s0 during the state update.</summary>
+  public const int RotateS0 = 49;
+
+  /// <summary>Left rotation applied to s1 during the state update.</summary>
+  public const int RotateS1 = 28;
+
+  /// <summary>Left rotation applied to the s0 + s1 output sum.</summary>
+  public const int OutputRotate = 17;
+
   /// <inheritdoc/>
   public static Xoroshiro128PlusPlus Create () => new (SplitMix64.NewSeed ());
 
@@ -123,7 +144,9 @@ public struct Xoroshiro128PlusPlus : IRandom<Xoroshiro128PlusPlus> {
   public ulong NextUInt64 () {
     var (s0, s1) = (this._s0, this._s1);
 
-    ulong result = BitOperations.RotateLeft (s0 + s1, 17) + s0;
+    ulong result = unchecked(
+      BitOperations.RotateLeft (s0 + s1, OutputRotate) + s0
+    );
     s1 ^= s0;
 
     this._s0 = BitOperations.RotateLeft (s0, RotateS0) ^ s1 ^ (s1 << ShiftS1);
@@ -146,6 +169,26 @@ public struct Xoroshiro128PlusPlus : IRandom<Xoroshiro128PlusPlus> {
 /// </para>
 /// </remarks>
 public struct Xoroshiro128StarStar : IRandom<Xoroshiro128StarStar> {
+  /// <summary>Left shift applied to s1 during the state update.</summary>
+  public const int ShiftS1 = 16;
+
+  /// <summary>Left rotation applied to s0 during the state update.</summary>
+  public const int RotateS0 = 24;
+
+  /// <summary>Left rotation applied to s1 during the state update.</summary>
+  public const int RotateS1 = 37;
+
+  /// <summary>Left rotation applied to the multiplied output.</summary>
+  public const int OutputRotate = 7;
+
+  /// <summary>First multiplier applied to s0 in the output function.</summary>
+  public const ulong OutputMul1 = 5;
+
+  /// <summary>
+  /// Second multiplier applied after the rotation in the output function.
+  /// </summary>
+  public const ulong OutputMul2 = 9;
+
   /// <inheritdoc/>
   public static Xoroshiro128StarStar Create () => new (SplitMix64.NewSeed ());
 
@@ -185,7 +228,9 @@ public struct Xoroshiro128StarStar : IRandom<Xoroshiro128StarStar> {
   public ulong NextUInt64 () {
     var (s0, s1) = (this._s0, this._s1);
 
-    ulong result = BitOperations.RotateLeft (s0 * 5, 7) * 9;
+    ulong result = unchecked(
+      BitOperations.RotateLeft (s0 * OutputMul1, OutputRotate) * OutputMul2
+    );
     s1 ^= s0;
 
     this._s0 = BitOperations.RotateLeft (s0, RotateS0) ^ s1 ^ (s1 << ShiftS1);

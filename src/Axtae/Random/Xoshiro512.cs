@@ -14,7 +14,7 @@ namespace Axtae.Random;
 /// <remarks>
 /// <para>
 /// Xoshiro512+ is a fast, lightweight PRNG with a 512-bit state.
-/// The output is the sum of state elements s0 and s7.
+/// The output is the sum of state elements s0 and s2.
 /// </para>
 /// <para>
 /// This struct implements <see cref="IRandom"/> and is suitable for
@@ -22,6 +22,12 @@ namespace Axtae.Random;
 /// </para>
 /// </remarks>
 public struct Xoshiro512Plus : IRandom<Xoshiro512Plus> {
+  /// <summary>Left shift applied to s1 during the state update.</summary>
+  public const int ShiftS1 = 11;
+
+  /// <summary>Left rotation applied to s7 during the state update.</summary>
+  public const int RotateS7 = 21;
+
   /// <inheritdoc/>
   public static Xoshiro512Plus Create () => new (SplitMix64.NewSeed ());
 
@@ -62,8 +68,16 @@ public struct Xoshiro512Plus : IRandom<Xoshiro512Plus> {
   /// If all state values are zero, they are replaced with non-zero default
   /// values.
   /// </remarks>
-  public Xoshiro512Plus (ulong s0, ulong s1, ulong s2, ulong s3,
-    ulong s4, ulong s5, ulong s6, ulong s7) {
+  public Xoshiro512Plus (
+    ulong s0,
+    ulong s1,
+    ulong s2,
+    ulong s3,
+    ulong s4,
+    ulong s5,
+    ulong s6,
+    ulong s7
+  ) {
     if ((s0 | s1 | s2 | s3 | s4 | s5 | s6 | s7) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
@@ -86,17 +100,19 @@ public struct Xoshiro512Plus : IRandom<Xoshiro512Plus> {
     var (s0, s1, s2, s3) = (this._s0, this._s1, this._s2, this._s3);
     var (s4, s5, s6, s7) = (this._s4, this._s5, this._s6, this._s7);
 
-    ulong result = s0 + s7;
+    ulong result = unchecked(s0 + s2);
     ulong t = s1 << ShiftS1;
 
-    s7 ^= s0;
-    s3 ^= s1;
+    s2 ^= s0;
+    s5 ^= s1;
     s1 ^= s2;
-    s0 ^= s3;
-    s2 ^= s4;
-    s5 ^= s6;
-    s4 ^= s7;
+    s7 ^= s3;
+    s3 ^= s4;
+    s4 ^= s5;
+    s0 ^= s6;
+    s6 ^= s7;
     s6 ^= t;
+
     s7 = BitOperations.RotateLeft (s7, RotateS7);
 
     (this._s0, this._s1, this._s2, this._s3) = (s0, s1, s2, s3);
@@ -118,6 +134,15 @@ public struct Xoshiro512Plus : IRandom<Xoshiro512Plus> {
 /// </para>
 /// </remarks>
 public struct Xoshiro512PlusPlus : IRandom<Xoshiro512PlusPlus> {
+  /// <summary>Left shift applied to s1 during the state update.</summary>
+  public const int ShiftS1 = 11;
+
+  /// <summary>Left rotation applied to s7 during the state update.</summary>
+  public const int RotateS7 = 21;
+
+  /// <summary>Left rotation applied to the s0 + s2 output sum.</summary>
+  public const int OutputRotate = 17;
+
   /// <inheritdoc/>
   public static Xoshiro512PlusPlus Create () => new (SplitMix64.NewSeed ());
 
@@ -158,8 +183,16 @@ public struct Xoshiro512PlusPlus : IRandom<Xoshiro512PlusPlus> {
   /// If all state values are zero, they are replaced with non-zero default
   /// values.
   /// </remarks>
-  public Xoshiro512PlusPlus (ulong s0, ulong s1, ulong s2, ulong s3,
-    ulong s4, ulong s5, ulong s6, ulong s7) {
+  public Xoshiro512PlusPlus (
+    ulong s0,
+    ulong s1,
+    ulong s2,
+    ulong s3,
+    ulong s4,
+    ulong s5,
+    ulong s6,
+    ulong s7
+  ) {
     if ((s0 | s1 | s2 | s3 | s4 | s5 | s6 | s7) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
@@ -182,17 +215,21 @@ public struct Xoshiro512PlusPlus : IRandom<Xoshiro512PlusPlus> {
     var (s0, s1, s2, s3) = (this._s0, this._s1, this._s2, this._s3);
     var (s4, s5, s6, s7) = (this._s4, this._s5, this._s6, this._s7);
 
-    ulong result = BitOperations.RotateLeft (s0 + s7, 17) + s0;
+    ulong result = unchecked(
+      BitOperations.RotateLeft (s0 + s2, OutputRotate) + s2
+    );
     ulong t = s1 << ShiftS1;
 
-    s7 ^= s0;
-    s3 ^= s1;
+    s2 ^= s0;
+    s5 ^= s1;
     s1 ^= s2;
-    s0 ^= s3;
-    s2 ^= s4;
-    s5 ^= s6;
-    s4 ^= s7;
+    s7 ^= s3;
+    s3 ^= s4;
+    s4 ^= s5;
+    s0 ^= s6;
+    s6 ^= s7;
     s6 ^= t;
+
     s7 = BitOperations.RotateLeft (s7, RotateS7);
 
     (this._s0, this._s1, this._s2, this._s3) = (s0, s1, s2, s3);
@@ -215,6 +252,23 @@ public struct Xoshiro512PlusPlus : IRandom<Xoshiro512PlusPlus> {
 /// </para>
 /// </remarks>
 public struct Xoshiro512StarStar : IRandom<Xoshiro512StarStar> {
+  /// <summary>Left shift applied to s1 during the state update.</summary>
+  public const int ShiftS1 = 11;
+
+  /// <summary>Left rotation applied to s7 during the state update.</summary>
+  public const int RotateS7 = 21;
+
+  /// <summary>Left rotation applied to the multiplied output.</summary>
+  public const int OutputRotate = 7;
+
+  /// <summary>First multiplier applied to s1 in the output function.</summary>
+  public const ulong OutputMul1 = 5;
+
+  /// <summary>
+  /// Second multiplier applied after the rotation in the output function.
+  /// </summary>
+  public const ulong OutputMul2 = 9;
+
   /// <inheritdoc/>
   public static Xoshiro512StarStar Create () => new (SplitMix64.NewSeed ());
 
@@ -255,8 +309,16 @@ public struct Xoshiro512StarStar : IRandom<Xoshiro512StarStar> {
   /// If all state values are zero, they are replaced with non-zero default
   /// values.
   /// </remarks>
-  public Xoshiro512StarStar (ulong s0, ulong s1, ulong s2, ulong s3,
-    ulong s4, ulong s5, ulong s6, ulong s7) {
+  public Xoshiro512StarStar (
+    ulong s0,
+    ulong s1,
+    ulong s2,
+    ulong s3,
+    ulong s4,
+    ulong s5,
+    ulong s6,
+    ulong s7
+  ) {
     if ((s0 | s1 | s2 | s3 | s4 | s5 | s6 | s7) is 0) {
       this._s0 = GoldenRatio;
       this._s1 = MixConst1;
@@ -279,17 +341,21 @@ public struct Xoshiro512StarStar : IRandom<Xoshiro512StarStar> {
     var (s0, s1, s2, s3) = (this._s0, this._s1, this._s2, this._s3);
     var (s4, s5, s6, s7) = (this._s4, this._s5, this._s6, this._s7);
 
-    ulong result = BitOperations.RotateLeft (s0 * 5, 7) * 9;
+    ulong result = unchecked(
+      BitOperations.RotateLeft (s1 * OutputMul1, OutputRotate) * OutputMul2
+    );
     ulong t = s1 << ShiftS1;
 
-    s7 ^= s0;
-    s3 ^= s1;
+    s2 ^= s0;
+    s5 ^= s1;
     s1 ^= s2;
-    s0 ^= s3;
-    s2 ^= s4;
-    s5 ^= s6;
-    s4 ^= s7;
+    s7 ^= s3;
+    s3 ^= s4;
+    s4 ^= s5;
+    s0 ^= s6;
+    s6 ^= s7;
     s6 ^= t;
+
     s7 = BitOperations.RotateLeft (s7, RotateS7);
 
     (this._s0, this._s1, this._s2, this._s3) = (s0, s1, s2, s3);

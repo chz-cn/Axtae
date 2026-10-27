@@ -1,0 +1,11 @@
+
+[Ascii.cs]
+
+# CA1708: Identifiers should differ by more than case
+dotnet_diagnostic.CA1708.severity = none
+
+# CA1034: Nested types should not be visible
+dotnet_diagnostic.CA1034.severity = none
+
+# IDE0057: Use range operator
+dotnet_diagnostic.IDE0057.severity = none

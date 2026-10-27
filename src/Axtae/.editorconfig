@@ -1,0 +1,8 @@
+
+[Logger.Entry.cs]
+# CA1008: Enums should have zero value
+# Handle it in `default`
+dotnet_diagnostic.CA1008.severity = none
+
+# CA1034: Nested types should not be visible
+dotnet_diagnostic.CA1034.severity = none

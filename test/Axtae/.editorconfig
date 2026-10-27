@@ -1,0 +1,11 @@
+
+[*.cs]
+
+# Bump with xUint
+dotnet_diagnostic.CA2007.severity = none
+
+# No xml for test
+dotnet_diagnostic.CS1591.severity = none
+
+# All public for test
+dotnet_diagnostic.CA1515.severity = none

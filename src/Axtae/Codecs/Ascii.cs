@@ -17,8 +17,8 @@ namespace Axtae.Codecs;
 /// All constants are of type <see cref="byte"/> and correspond to the ASCII
 /// table.
 /// Control characters (0-31) are named with their standard abbreviations
-/// (e.g., <see cref="NUL"/>),
-/// while printable characters (32-126) are named for the glyph they represent.
+/// (e.g., <see cref="NUL"/>), while printable characters (32-126) are
+/// named for the glyph they represent.
 /// </para>
 /// <para>
 /// The class also provides allocation-free conversion of <see cref="int"/>
@@ -29,7 +29,6 @@ namespace Axtae.Codecs;
 /// All methods are thread-safe and inline-optimized for high performance.
 /// </para>
 /// </remarks>
-#pragma warning disable CA1708 // 标识符应以大小写之外的差别进行区分
 public static class Ascii {
   // Control characters (0-31)
   /// <summary>Null (NUL), ASCII 0.</summary>
@@ -361,7 +360,6 @@ public static class Ascii {
     return (int)((value + tableValue) >>> 32);
   }
 
-#pragma warning disable CA1034 // 嵌套类型应不可见
   extension(int num) {
     /// <summary>
     /// Writes the decimal representation of the <see cref="int"/> value
@@ -384,9 +382,8 @@ public static class Ascii {
     /// This method is allocation-free and inlined for performance.
     /// </para>
     /// </remarks>
-#pragma warning disable IDE0057 // 使用范围运算符
     [MethodImpl (MethodImplOptions.AggressiveInlining)]
-    public byte ToAscii (Span<byte> sp) {
+    public byte ToAscii (scoped Span<byte> sp) {
       if (sp.IsEmpty) {
         return 0;
       }
@@ -406,7 +403,6 @@ public static class Ascii {
 
       return ((uint)num).ToAscii (sp);
     }
-#pragma warning restore IDE0057 // 使用范围运算符
   }
 
   extension(uint num) {
@@ -435,7 +431,7 @@ public static class Ascii {
     /// </para>
     /// </remarks>
     [MethodImpl (MethodImplOptions.AggressiveInlining)]
-    public byte ToAscii (Span<byte> sp) {
+    public byte ToAscii (scoped Span<byte> sp) {
       if (sp.IsEmpty) {
         return 0;
       }
@@ -473,6 +469,4 @@ public static class Ascii {
       return (byte)len;
     }
   }
-#pragma warning restore CA1034 // 嵌套类型应不可见
 }
-#pragma warning restore CA1708 // 标识符应以大小写之外的差别进行区分

@@ -15,8 +15,8 @@ namespace Axtae.Random;
 /// <remarks>
 /// <para>
 /// SplitMix64 is a simple, fast PRNG suitable for generating initial state
-/// values for other generators (such as Xoshiro or Xoroshiro). It is based on
-/// the SplitMix64 algorithm by Sebastiano Vigna.
+/// values for other generators (such as Xoshiro or Xoroshiro). It is based
+/// on the SplitMix64 algorithm by Sebastiano Vigna.
 /// </para>
 /// <para>
 /// This struct implements <see cref="IRandom"/> and can be used as a
@@ -39,9 +39,9 @@ public struct SplitMix64 (ulong x) : IRandom<SplitMix64> {
   /// <para>
   /// The thread-local state is initialized on first use from a
   /// <see cref="Guid"/>-derived value, then advanced on every call via
-  /// <see cref="Mix(ref ulong)"/>. Successive calls on the same thread therefore
-  /// return independent values, while different threads keep separate
-  /// streams.
+  /// <see cref="Mix(ref ulong)"/>. Successive calls on the same thread
+  /// therefore return independent values, while different threads keep
+  /// separate streams.
   /// </para>
   /// <para>
   /// Not cryptographically secure. Intended only for non-adversarial
@@ -64,25 +64,23 @@ public struct SplitMix64 (ulong x) : IRandom<SplitMix64> {
 
   /// <inheritdoc/>
   [MethodImpl (MethodImplOptions.AggressiveInlining)]
-  public ulong NextUInt64 () {
-    ulong z = this._state += GoldenRatio;
-    z = (z ^ (z >>> 30)) * MixConst1;
-    z = (z ^ (z >>> 27)) * MixConst2;
-    return z ^ (z >>> 31);
-  }
+  public ulong NextUInt64 () => Mix (ref this._state);
 
   /// <summary>
-  /// Mixes the state value and returns a random 64-bit result, updating the
-  /// state in-place.
+  /// Mixes the state value and returns a random 64-bit result,
+  /// updating the state in-place.
   /// </summary>
   /// <param name="state">
-  /// The state value to mix; will be incremented by <see cref="GoldenRatio"/>.
+  /// The state value to mix; will be incremented by
+  /// <see cref="GoldenRatio"/>.
   /// </param>
   /// <returns>A 64-bit mixed result.</returns>
   public static ulong Mix (ref ulong state) {
-    ulong z = state += GoldenRatio;
-    z = (z ^ (z >>> 30)) * MixConst1;
-    z = (z ^ (z >>> 27)) * MixConst2;
+    ulong z = state = unchecked(state + GoldenRatio);
+    z ^= z >>> 30;
+    z = unchecked(z * MixConst1);
+    z ^= z >>> 27;
+    z = unchecked(z * MixConst2);
     return z ^ (z >>> 31);
   }
 
@@ -93,9 +91,11 @@ public struct SplitMix64 (ulong x) : IRandom<SplitMix64> {
   /// <param name="state">The state value to mix.</param>
   /// <returns>A 64-bit mixed result.</returns>
   public static ulong Mix (ulong state) {
-    ulong z = state + GoldenRatio;
-    z = (z ^ (z >>> 30)) * MixConst1;
-    z = (z ^ (z >>> 27)) * MixConst2;
+    ulong z = unchecked(state + GoldenRatio);
+    z ^= z >>> 30;
+    z = unchecked(z * MixConst1);
+    z ^= z >>> 27;
+    z = unchecked(z * MixConst2);
     return z ^ (z >>> 31);
   }
 }
