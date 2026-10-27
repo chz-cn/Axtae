@@ -1,2 +1,5 @@
+---
+title: Axtae
+---
 
-# Home Page
+[!include [Getting Started](../README.md)]
